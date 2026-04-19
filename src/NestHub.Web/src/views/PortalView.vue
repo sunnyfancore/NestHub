@@ -146,6 +146,7 @@ const categoryContextMenuStyle = computed(() => {
 })
 
 const rootSectionContainerRef = ref<HTMLElement | null>(null)
+const mainScrollRef = ref<HTMLElement | null>(null)
 const childSectionContainerRefs = ref<Record<string, HTMLElement | null>>({})
 const linkContainerRefs = ref<Record<string, HTMLElement | null>>({})
 const sidebarNavRef = ref<HTMLElement | null>(null)
@@ -231,7 +232,7 @@ async function loadPortal(forceRefresh = false) {
               initializeSortables()
               setupSectionObserver()
               loading.value = false
-              return
+              return true
             }
           }
         } catch {
@@ -246,8 +247,10 @@ async function loadPortal(forceRefresh = false) {
     await nextTick()
     initializeSortables()
     setupSectionObserver()
+    return true
   } catch (error: any) {
     ElMessage.error(error?.response?.data?.message || '加载导航门户失败。')
+    return false
   } finally {
     loading.value = false
   }
@@ -302,8 +305,12 @@ function getTargetTenantId(): string | undefined {
   return isPublicView.value ? PUBLIC_TENANT_ID : undefined
 }
 
-async function togglePublicView() {
-  isPublicView.value = !isPublicView.value
+async function setPublicView(publicView: boolean) {
+  if (isPublicView.value === publicView) {
+    return
+  }
+
+  isPublicView.value = publicView
   localStorage.setItem(VIEW_KEY, String(isPublicView.value))
   expandedMenu.value = {}
   activeSectionId.value = ''
@@ -546,7 +553,7 @@ async function submitSiteSettings(payload: SaveSiteSettingsRequest) {
   saving.value = true
 
   try {
-    await updateSiteSettings(payload)
+    await updateSiteSettings(payload, getTargetTenantId())
     siteDialogVisible.value = false
     ElMessage.success('站点设置已更新。')
     await loadPortal(true)
@@ -659,15 +666,42 @@ function extractDomain(url: string): string {
   }
 }
 
+function getScrollContainer() {
+  return mainScrollRef.value
+}
+
 function scrollToTop() {
+  const container = getScrollContainer()
+  if (container) {
+    container.scrollTo({ top: 0, behavior: 'smooth' })
+    return
+  }
+
   window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 function scrollToSection(categoryId: string) {
   const el = document.getElementById(anchorId(categoryId)) || document.getElementById(childAnchorId(categoryId))
   if (!el) return
+
+  const container = getScrollContainer()
+  if (container) {
+    const y = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 80
+    container.scrollTo({ top: y, behavior: 'smooth' })
+    return
+  }
+
   const y = el.getBoundingClientRect().top + window.scrollY - 80
   window.scrollTo({ top: y, behavior: 'smooth' })
+}
+
+async function refreshPortal() {
+  localStorage.removeItem(CACHE_KEY)
+  const refreshed = await loadPortal(true)
+
+  if (refreshed) {
+    ElMessage.success('已刷新最新数据')
+  }
 }
 
 function toggleSearchEngineMenu() {
@@ -881,26 +915,84 @@ watch(
 )
 
 let sectionObserver: IntersectionObserver | null = null
+let activeSectionFrame = 0
+
+function normalizeSectionId(sectionId: string) {
+  return sectionId.replace('section-', '').replace('child-', '')
+}
+
+function getSectionElements() {
+  return Array.from(document.querySelectorAll<HTMLElement>('.portal-section[id], .portal-subsection[id]'))
+}
+
+function updateActiveSection() {
+  const sections = getSectionElements()
+  if (!sections.length) {
+    activeSectionId.value = ''
+    return
+  }
+
+  const container = mainScrollRef.value
+  if (!container) {
+    activeSectionId.value = normalizeSectionId(sections[0].id)
+    return
+  }
+
+  const topThreshold = 4
+  const bottomThreshold = 4
+  const activationOffset = 96
+  const { scrollTop, clientHeight, scrollHeight } = container
+
+  if (scrollTop <= topThreshold) {
+    activeSectionId.value = normalizeSectionId(sections[0].id)
+    return
+  }
+
+  if (scrollTop + clientHeight >= scrollHeight - bottomThreshold) {
+    activeSectionId.value = normalizeSectionId(sections[sections.length - 1].id)
+    return
+  }
+
+  const containerTop = container.getBoundingClientRect().top
+  const activationLine = scrollTop + activationOffset
+  let currentSection = sections[0]
+
+  for (const section of sections) {
+    const sectionTop = section.getBoundingClientRect().top - containerTop + scrollTop
+    if (sectionTop <= activationLine) {
+      currentSection = section
+    } else {
+      break
+    }
+  }
+
+  activeSectionId.value = normalizeSectionId(currentSection.id)
+}
+
+function scheduleActiveSectionUpdate() {
+  if (activeSectionFrame) {
+    return
+  }
+
+  activeSectionFrame = window.requestAnimationFrame(() => {
+    activeSectionFrame = 0
+    updateActiveSection()
+  })
+}
+
+function handleMainScroll() {
+  closeContextMenu()
+  closeCategoryContextMenu()
+  scheduleActiveSectionUpdate()
+}
 
 function setupSectionObserver() {
   if (sectionObserver) {
     sectionObserver.disconnect()
+    sectionObserver = null
   }
 
-  sectionObserver = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          activeSectionId.value = entry.target.id.replace('section-', '').replace('child-', '')
-        }
-      }
-    },
-    { rootMargin: '-80px 0px -60% 0px' },
-  )
-
-  document.querySelectorAll('.portal-section[id], .portal-subsection[id]').forEach((el) => {
-    sectionObserver!.observe(el)
-  })
+  updateActiveSection()
 }
 
 onMounted(async () => {
@@ -912,6 +1004,7 @@ onMounted(async () => {
   window.addEventListener('click', handleGlobalClick)
   window.addEventListener('scroll', closeContextMenu)
   window.addEventListener('scroll', closeCategoryContextMenu)
+  mainScrollRef.value?.addEventListener('scroll', handleMainScroll)
 })
 
 function handleGlobalClick(e: MouseEvent) {
@@ -927,11 +1020,15 @@ onBeforeUnmount(() => {
   if (sectionObserver) {
     sectionObserver.disconnect()
   }
+  if (activeSectionFrame) {
+    window.cancelAnimationFrame(activeSectionFrame)
+  }
   window.removeEventListener('click', closeContextMenu)
   window.removeEventListener('click', closeCategoryContextMenu)
   window.removeEventListener('click', handleGlobalClick)
   window.removeEventListener('scroll', closeContextMenu)
   window.removeEventListener('scroll', closeCategoryContextMenu)
+  mainScrollRef.value?.removeEventListener('scroll', handleMainScroll)
 })
 </script>
 
@@ -954,7 +1051,13 @@ onBeforeUnmount(() => {
           <span v-else class="portal-sidebar__logo-letter">{{ portal?.site.logoText || 'N' }}</span>
           <span class="portal-sidebar__logo-title">{{ portal?.site.title || 'NestHub' }}</span>
         </template>
-        <button class="portal-sidebar__close" @click="mobileSidebarOpen = false">
+        <button
+          class="portal-sidebar__close"
+          type="button"
+          title="关闭导航"
+          aria-label="关闭导航"
+          @click="mobileSidebarOpen = false"
+        >
           <i class="fa fa-times"></i>
         </button>
       </div>
@@ -1009,9 +1112,15 @@ onBeforeUnmount(() => {
       </nav>
     </aside>
 
-    <main class="portal-main">
+    <main ref="mainScrollRef" class="portal-main">
       <header class="portal-searchbar">
-        <button class="portal-hamburger" type="button" @click="mobileSidebarOpen = true">
+        <button
+          class="portal-hamburger"
+          type="button"
+          title="打开导航"
+          aria-label="打开导航"
+          @click="mobileSidebarOpen = true"
+        >
           <i class="fa fa-bars"></i>
         </button>
         <div class="portal-searchbar__inner">
@@ -1028,7 +1137,13 @@ onBeforeUnmount(() => {
               @keydown="handleSearchKeydown"
               @focus="searchSuggestionsVisible = searchSuggestions.length > 0"
             />
-            <button class="portal-search-submit" type="button" @click="runSearch">
+            <button
+              class="portal-search-submit"
+              type="button"
+              title="搜索"
+              aria-label="搜索"
+              @click="runSearch"
+            >
               <i class="fa fa-search"></i>
             </button>
 
@@ -1078,28 +1193,36 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="portal-searchbar__ops">
-          <template v-if="authStore.isAuthenticated">
-            <el-button
-              text
-              size="small"
-              :type="isPublicView ? 'primary' : 'default'"
-              @click="togglePublicView"
+        <div v-if="authStore.isAuthenticated" class="portal-searchbar__ops">
+          <div
+            class="portal-view-switch"
+            role="tablist"
+            aria-label="视图切换"
+            :class="{ 'is-public': isPublicView, 'is-private': !isPublicView }"
+          >
+            <button
+              class="portal-view-switch__option portal-view-switch__option--mine"
+              :class="{ 'is-active': !isPublicView }"
+              type="button"
+              title="我的视图"
+              :aria-pressed="!isPublicView"
+              @click="setPublicView(false)"
             >
-              {{ isPublicView ? '公共视图' : '我的视图' }}
-            </el-button>
-            <el-button v-if="portal?.canEdit" text size="small" @click="openAdmin">
-              <el-icon><Setting /></el-icon>
-            </el-button>
-            <el-button text size="small" @click="logout">
-              <el-icon><SwitchButton /></el-icon>
-            </el-button>
-          </template>
-          <template v-else>
-            <el-button text size="small" @click="openLoginDialog">
-              <el-icon><Connection /></el-icon>
-            </el-button>
-          </template>
+              <i class="fa fa-user-o"></i>
+              <span>我的</span>
+            </button>
+            <button
+              class="portal-view-switch__option portal-view-switch__option--public"
+              :class="{ 'is-active': isPublicView }"
+              type="button"
+              title="公共视图"
+              :aria-pressed="isPublicView"
+              @click="setPublicView(true)"
+            >
+              <i class="fa fa-globe"></i>
+              <span>公共</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -1117,14 +1240,14 @@ onBeforeUnmount(() => {
             </div>
 
             <div v-if="portal?.canEdit" class="portal-section__actions">
-              <el-button text size="small" @click="openCreateCategory(category.id)">
+              <el-button text size="small" title="添加子分类" aria-label="添加子分类" @click="openCreateCategory(category.id)">
                 <el-icon><Plus /></el-icon>
               </el-button>
-              <el-button text size="small" @click="openCreateLink(category.id)">
+              <el-button text size="small" title="添加链接" aria-label="添加链接" @click="openCreateLink(category.id)">
                 <el-icon><Link /></el-icon>
               </el-button>
               <el-dropdown @command="handleCategoryCommand(category, $event)">
-                <el-button text size="small">
+                <el-button text size="small" title="分类操作" aria-label="分类操作">
                   <el-icon><Edit /></el-icon>
                 </el-button>
                 <template #dropdown>
@@ -1182,11 +1305,11 @@ onBeforeUnmount(() => {
                 </div>
 
                 <div v-if="portal?.canEdit" class="portal-section__actions">
-                  <el-button text size="small" @click="openCreateLink(child.id)">
+                  <el-button text size="small" title="添加链接" aria-label="添加链接" @click="openCreateLink(child.id)">
                     <el-icon><Plus /></el-icon>
                   </el-button>
                   <el-dropdown @command="handleCategoryCommand(child, $event)">
-                    <el-button text size="small">
+                    <el-button text size="small" title="子分类操作" aria-label="子分类操作">
                       <el-icon><Edit /></el-icon>
                     </el-button>
                     <template #dropdown>
@@ -1229,58 +1352,67 @@ onBeforeUnmount(() => {
         </section>
       </div>
 
-      <footer v-if="portal?.site.footerText" class="portal-footer">
-        {{ portal.site.footerText }}
+      <footer v-if="portal?.site.footerText && portal?.categories?.length" class="portal-footer" v-html="portal.site.footerText">
       </footer>
-    </main>
 
-    <div class="portal-right-rail">
-      <el-button circle @click="toggleDarkMode" :title="isDark ? '切换亮色模式' : '切换暗色模式'">
-        <i :class="['fa', isDark ? 'fa-sun-o' : 'fa-moon-o']"></i>
-      </el-button>
-      <template v-if="portal?.canEdit">
-        <el-button circle @click="openCreateLink()">
-          <el-icon><Plus /></el-icon>
+      <div class="portal-right-rail">
+        <el-button
+          circle
+          :title="isDark ? '切换亮色模式' : '切换暗色模式'"
+          :aria-label="isDark ? '切换亮色模式' : '切换暗色模式'"
+          @click="toggleDarkMode"
+        >
+          <i :class="['fa', isDark ? 'fa-sun-o' : 'fa-moon-o']"></i>
         </el-button>
-        <el-button circle @click="openAdmin">
-          <el-icon><Setting /></el-icon>
-        </el-button>
-        <el-button circle @click="logout">
-          <el-icon><SwitchButton /></el-icon>
-        </el-button>
-      </template>
-      <template v-else-if="!authStore.isAuthenticated">
-        <el-button circle @click="openLoginDialog">
+        <template v-if="portal?.canEdit">
+          <el-button circle title="添加链接" aria-label="添加链接" @click="openCreateLink()">
+            <el-icon><Plus /></el-icon>
+          </el-button>
+          <el-button circle title="后台管理" aria-label="后台管理" @click="openAdmin">
+            <el-icon><Setting /></el-icon>
+          </el-button>
+          <el-button circle title="退出登录" aria-label="退出登录" @click="logout">
+            <el-icon><SwitchButton /></el-icon>
+          </el-button>
+        </template>
+        <template v-else-if="!authStore.isAuthenticated">
+        <el-button circle title="登录" aria-label="登录" @click="openLoginDialog">
           <el-icon><Connection /></el-icon>
         </el-button>
       </template>
-      <el-button circle @click="loadPortal(true)">
+      <el-button circle title="刷新数据" aria-label="刷新数据" @click="refreshPortal">
         <el-icon><Refresh /></el-icon>
       </el-button>
-      <el-button circle @click="scrollToTop">
+      <el-button circle title="返回顶部" aria-label="返回顶部" @click="scrollToTop">
         <el-icon><Top /></el-icon>
       </el-button>
     </div>
 
-    <div class="portal-bottom-dock">
-      <template v-if="portal?.canEdit">
-        <el-button circle @click="openCreateLink()">
-          <el-icon><Plus /></el-icon>
+      <div v-if="portal?.categories?.length" class="portal-bottom-dock">
+        <template v-if="portal?.canEdit">
+          <el-button circle title="添加链接" aria-label="添加链接" @click="openCreateLink()">
+            <el-icon><Plus /></el-icon>
+          </el-button>
+          <el-button circle title="后台管理" aria-label="后台管理" @click="openAdmin">
+            <el-icon><Setting /></el-icon>
+          </el-button>
+        </template>
+        <template v-else-if="!authStore.isAuthenticated">
+          <el-button circle title="登录" aria-label="登录" @click="openLoginDialog">
+            <el-icon><Connection /></el-icon>
+          </el-button>
+        </template>
+        <el-button
+          circle
+          :title="isDark ? '切换亮色模式' : '切换暗色模式'"
+          :aria-label="isDark ? '切换亮色模式' : '切换暗色模式'"
+          @click="toggleDarkMode"
+        >
+          <i :class="['fa', isDark ? 'fa-sun-o' : 'fa-moon-o']"></i>
         </el-button>
-        <el-button circle @click="openAdmin">
-          <el-icon><Setting /></el-icon>
-        </el-button>
-        <el-button circle @click="logout">
-          <el-icon><SwitchButton /></el-icon>
-        </el-button>
-      </template>
-      <template v-else>
-        <el-button round type="primary" @click="openLoginDialog">
-          <el-icon><Connection /></el-icon>
-          登录后管理
-        </el-button>
-      </template>
-    </div>
+      </div>
+
+    </main>
 
     <el-dialog v-model="searchDialogVisible" title="搜索结果" width="720px">
       <div v-loading="searchLoading">
@@ -1402,7 +1534,7 @@ onBeforeUnmount(() => {
   min-height: 100vh;
   background: #f4f5f7;
   display: grid;
-  grid-template-columns: 230px minmax(0, 1fr);
+  grid-template-columns: 200px minmax(0, 1fr);
 }
 
 /* ── sidebar ── */
@@ -1428,7 +1560,7 @@ onBeforeUnmount(() => {
 }
 
 .portal-sidebar__logo {
-  padding: 14px 20px;
+  padding: 8px 20px;
   min-height: 72px;
   border-bottom: 1px solid #e8eaed;
   display: flex;
@@ -1437,8 +1569,8 @@ onBeforeUnmount(() => {
 }
 
 .portal-sidebar__logo-letter {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 8px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
@@ -1462,8 +1594,8 @@ onBeforeUnmount(() => {
 }
 
 .portal-sidebar__logo-img {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   object-fit: contain;
   border-radius: 8px;
   flex-shrink: 0;
@@ -1471,13 +1603,15 @@ onBeforeUnmount(() => {
 
 .portal-sidebar__logo.is-full {
   flex-direction: column;
-  align-items: stretch;
-  padding: 16px;
+  align-items: center;
+  padding: 8px 20px;
+  min-height: 72px;
 }
 
 .portal-sidebar__logo-img-full {
-  width: 100%;
-  height: 64px;
+  height: 48px;
+  width: auto;
+  max-width: 100%;
   object-fit: contain;
   border-radius: 8px;
 }
@@ -1490,8 +1624,8 @@ onBeforeUnmount(() => {
 }
 
 .portal-sidebar__logo-letter-full {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: 10px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #fff;
@@ -1646,6 +1780,11 @@ onBeforeUnmount(() => {
 .portal-main {
   min-width: 0;
   background: #f4f5f7;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  scrollbar-width: thin;
 }
 
 /* ── search bar ── */
@@ -1674,12 +1813,87 @@ onBeforeUnmount(() => {
   transform: translateY(-50%);
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 }
 
-.portal-searchbar__ops :deep(.el-button) {
-  font-size: 17px !important;
-  padding: 6px !important;
+.portal-view-switch {
+  --view-switch-accent: #667eea;
+  --view-switch-accent-strong: #764ba2;
+  --view-switch-border: rgba(102, 126, 234, 0.16);
+  --view-switch-text: #5f6b7a;
+  --view-switch-shadow: rgba(102, 126, 234, 0.22);
+  display: inline-flex;
+  align-items: center;
+}
+
+.portal-view-switch__option {
+  position: relative;
+  border: 0;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--view-switch-text);
+  height: 32px;
+  min-width: 72px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--view-switch-border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(31, 41, 55, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  transition: color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, background 0.2s;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.portal-view-switch__option + .portal-view-switch__option {
+  margin-left: -14px;
+}
+
+.portal-view-switch__option--mine {
+  z-index: 1;
+}
+
+.portal-view-switch__option--public {
+  z-index: 1;
+}
+
+.portal-view-switch.is-private .portal-view-switch__option--mine,
+.portal-view-switch.is-public .portal-view-switch__option--public {
+  z-index: 3;
+}
+
+.portal-view-switch__option i {
+  font-size: 12px;
+  opacity: 0.78;
+  transition: opacity 0.2s;
+}
+
+.portal-view-switch__option span {
+  line-height: 1;
+}
+
+.portal-view-switch__option:not(.is-active):hover {
+  color: #2d3645;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(31, 41, 55, 0.12);
+}
+
+.portal-view-switch__option.is-active {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--view-switch-accent) 0%, var(--view-switch-accent-strong) 100%);
+  box-shadow: 0 10px 22px var(--view-switch-shadow);
+  transform: translateY(-1px);
+}
+
+.portal-view-switch__option.is-active i {
+  opacity: 1;
 }
 
 .portal-search-shell {
@@ -1888,10 +2102,29 @@ onBeforeUnmount(() => {
 /* ── content sections ── */
 .portal-content {
   max-width: 1320px;
+  width: 100%;
   margin: 0 auto;
-  padding: 28px 28px 80px;
+  padding: 28px 28px 100px;
   display: grid;
   gap: 24px;
+}
+
+.portal-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.portal-content::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12);
+  border-radius: 3px;
+}
+
+.portal-main::-webkit-scrollbar {
+  width: 6px;
+}
+
+.portal-main::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12);
+  border-radius: 3px;
 }
 
 .portal-section {
@@ -2095,9 +2328,19 @@ onBeforeUnmount(() => {
 /* ── footer ── */
 .portal-footer {
   text-align: center;
-  padding: 24px;
+  padding: 10px 24px;
   color: #888;
-  font-size: 13px;
+  font-size: 12px;
+  position: sticky;
+  bottom: 0;
+  background: #f4f5f7;
+  border-top: 1px solid;
+  border-color: #e8eaed;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 10;
 }
 
 /* ── right rail ── */
@@ -2143,16 +2386,16 @@ onBeforeUnmount(() => {
 /* ── bottom dock ── */
 .portal-bottom-dock {
   position: fixed;
-  left: 50%;
-  bottom: 16px;
+  left: calc(200px + (100vw - 200px) / 2);
+  bottom: 44px;
   transform: translateX(-50%);
   background: #fff;
   border: 1px solid #e0e0e0;
   border-radius: 14px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  padding: 8px 16px;
+  padding: 4px 8px;
   display: flex;
-  gap: 10px;
+  gap: 4px;
   z-index: 20;
 }
 
@@ -2639,6 +2882,20 @@ html.dark .portal-searchbar__input::placeholder {
   color: #7a8294;
 }
 
+html.dark .portal-view-switch {
+  --view-switch-border: rgba(124, 138, 165, 0.22);
+  --view-switch-text: #b2bdd0;
+}
+
+html.dark .portal-view-switch__option {
+  background: rgba(37, 44, 56, 0.9);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+html.dark .portal-view-switch__option:hover {
+  color: #eef2ff;
+}
+
 html.dark .portal-section__head h2 {
   color: #e0e4ec;
 }
@@ -2830,6 +3087,7 @@ html.dark .portal-context-menu__divider {
 .theme-ocean .portal-main { background: #f0f4f8; }
 .theme-ocean .portal-searchbar { background: #fff; border-color: #dbe4ee; min-height: 78px; padding: 16px 32px; }
 .theme-ocean .portal-searchbar__inner { width: min(720px, 100%); }
+.theme-ocean .portal-view-switch { --view-switch-accent: #3b82f6; --view-switch-accent-strong: #2563eb; --view-switch-shadow: rgba(59, 130, 246, 0.26); }
 .theme-ocean .portal-search-shell {
   background: #fff; border: 2px solid #3b82f6; border-radius: 28px; height: 48px;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08); transition: box-shadow 0.25s, border-color 0.25s;
@@ -2841,7 +3099,7 @@ html.dark .portal-context-menu__divider {
 .theme-ocean .portal-search-engine-btn:hover { background: rgba(59, 130, 246, 0.06); }
 .theme-ocean .portal-search-submit { color: #3b82f6; }
 
-.theme-ocean .portal-content { gap: 28px; padding: 32px 32px 80px; }
+.theme-ocean .portal-content { gap: 28px; padding: 32px 32px 100px; }
 .theme-ocean .portal-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
 
 .theme-ocean .portal-section {
@@ -2969,6 +3227,7 @@ html.dark .theme-ocean .portal-context-menu__divider { background: #1e3a5f; }
 .theme-nord .portal-main { background: #eceff4; }
 .theme-nord .portal-searchbar { background: #e5e9f0; border-color: #d8dee9; min-height: 56px; padding: 10px 20px; }
 .theme-nord .portal-searchbar__inner { width: min(600px, 100%); }
+.theme-nord .portal-view-switch { --view-switch-accent: #5e81ac; --view-switch-accent-strong: #88c0d0; --view-switch-shadow: rgba(94, 129, 172, 0.24); }
 .theme-nord .portal-search-shell {
   background: #fff; border: 1px solid #5e81ac; border-radius: 4px; height: 38px;
   box-shadow: none; transition: border-color 0.15s;
@@ -3107,6 +3366,7 @@ html.dark .theme-nord .portal-context-menu__divider { background: #434c5e; }
   border-color: rgba(255,255,255,0.3); min-height: 72px; padding: 14px 28px;
 }
 .theme-glass .portal-searchbar__inner { width: min(680px, 100%); }
+.theme-glass .portal-view-switch { --view-switch-accent: #7c4dff; --view-switch-accent-strong: #5e35b1; --view-switch-shadow: rgba(124, 77, 255, 0.28); }
 .theme-glass .portal-search-shell {
   background: rgba(255,255,255,0.65); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border: 2px solid #7c4dff; border-radius: 20px; height: 46px;
@@ -3119,7 +3379,7 @@ html.dark .theme-nord .portal-context-menu__divider { background: #434c5e; }
 .theme-glass .portal-search-engine-btn:hover { background: rgba(124, 77, 255, 0.06); }
 .theme-glass .portal-search-submit { color: #7c4dff; }
 
-.theme-glass .portal-content { gap: 24px; padding: 28px 28px 80px; }
+.theme-glass .portal-content { gap: 24px; padding: 28px 28px 100px; }
 .theme-glass .portal-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
 
 .theme-glass .portal-section {
@@ -3260,6 +3520,7 @@ html.dark .theme-glass .portal-context-menu__divider { background: rgba(124, 77,
 
 .theme-neon .portal-searchbar { background: #110d24; border-color: #1e1550; min-height: 64px; padding: 12px 24px; }
 .theme-neon .portal-searchbar__inner { width: min(640px, 100%); }
+.theme-neon .portal-view-switch { --view-switch-accent: #06d6a0; --view-switch-accent-strong: #7c3aed; --view-switch-shadow: rgba(6, 214, 160, 0.24); }
 .theme-neon .portal-search-shell {
   background: #0d0a1f; border: 1px solid #8b5cf6; border-radius: 2px; height: 42px;
   box-shadow: 0 0 8px rgba(139, 92, 246, 0.15), inset 0 0 4px rgba(139, 92, 246, 0.05);
@@ -3275,7 +3536,7 @@ html.dark .theme-glass .portal-context-menu__divider { background: rgba(124, 77,
 .theme-neon .portal-search-engine-btn:hover { background: rgba(139, 92, 246, 0.06); }
 .theme-neon .portal-search-submit { color: #8b5cf6; }
 
-.theme-neon .portal-content { gap: 20px; padding: 24px 24px 80px; }
+.theme-neon .portal-content { gap: 20px; padding: 24px 24px 100px; }
 .theme-neon .portal-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
 
 .theme-neon .portal-section {
@@ -3403,6 +3664,7 @@ html.dark .theme-neon .portal-context-menu__divider { background: #1e1550; }
 .theme-paper .portal-main { background: #f5f0e8; }
 .theme-paper .portal-searchbar { background: #faf7f2; border-color: #e0d5c5; min-height: 72px; padding: 14px 28px; }
 .theme-paper .portal-searchbar__inner { width: min(680px, 100%); }
+.theme-paper .portal-view-switch { --view-switch-accent: #c4903c; --view-switch-accent-strong: #8b6914; --view-switch-shadow: rgba(196, 144, 60, 0.24); }
 .theme-paper .portal-search-shell {
   background: #fffdf9; border: 2px solid #c4903c; border-radius: 20px; height: 46px;
   box-shadow: 0 2px 8px rgba(74, 64, 48, 0.06); transition: box-shadow 0.25s, border-color 0.25s;
@@ -3414,7 +3676,7 @@ html.dark .theme-neon .portal-context-menu__divider { background: #1e1550; }
 .theme-paper .portal-search-engine-btn:hover { background: rgba(196, 144, 60, 0.06); }
 .theme-paper .portal-search-submit { color: #c4903c; }
 
-.theme-paper .portal-content { gap: 28px; padding: 32px 28px 80px; }
+.theme-paper .portal-content { gap: 28px; padding: 32px 28px 100px; }
 .theme-paper .portal-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
 
 .theme-paper .portal-section {

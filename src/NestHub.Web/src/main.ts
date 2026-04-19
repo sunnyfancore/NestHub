@@ -15,6 +15,8 @@ app.use(router)
 app.use(ElementPlus, { locale: zhCn })
 
 const authStore = useAuthStore()
-authStore.restore()
 
-app.mount('#app')
+;(async () => {
+  await authStore.restore()
+  app.mount('#app')
+})()

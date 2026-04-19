@@ -22,7 +22,12 @@ public sealed class SiteSettingService
             throw new KeyNotFoundException("租户不存在。");
         }
 
-        var siteSetting = await _orm.Select<SiteSetting>().Where(item => item.TenantId == tenantContext.TenantId).ToOneAsync();
+        var siteSetting = await _orm.Select<SiteSetting>()
+            .DisableGlobalFilter("TenantFilter")
+            .Where(item => item.TenantId == tenantContext.TenantId)
+            .OrderByDescending(item => item.UpdatedAt)
+            .OrderByDescending(item => item.CreatedAt)
+            .ToOneAsync();
         return MapSite(siteSetting, tenant);
     }
 
@@ -34,7 +39,12 @@ public sealed class SiteSettingService
             throw new KeyNotFoundException("租户不存在。");
         }
 
-        var siteSetting = await _orm.Select<SiteSetting>().Where(item => item.TenantId == tenantContext.TenantId).ToOneAsync();
+        var siteSetting = await _orm.Select<SiteSetting>()
+            .DisableGlobalFilter("TenantFilter")
+            .Where(item => item.TenantId == tenantContext.TenantId)
+            .OrderByDescending(item => item.UpdatedAt)
+            .OrderByDescending(item => item.CreatedAt)
+            .ToOneAsync();
         if (siteSetting is null)
         {
             siteSetting = new SiteSetting
@@ -59,7 +69,10 @@ public sealed class SiteSettingService
         siteSetting.LogoMode = string.IsNullOrWhiteSpace(request.LogoMode) ? null : request.LogoMode.Trim();
         siteSetting.UpdatedAt = DateTime.UtcNow;
 
-        await _orm.Update<SiteSetting>().SetSource(siteSetting).ExecuteAffrowsAsync();
+        await _orm.Update<SiteSetting>()
+            .DisableGlobalFilter("TenantFilter")
+            .SetSource(siteSetting)
+            .ExecuteAffrowsAsync();
         return MapSite(siteSetting, tenant);
     }
 
@@ -83,7 +96,12 @@ public sealed class SiteSettingService
 
     public async Task UpdateSearchEngineAsync(string searchEngine, TenantContext tenantContext)
     {
-        var siteSetting = await _orm.Select<SiteSetting>().Where(item => item.TenantId == tenantContext.TenantId).ToOneAsync();
+        var siteSetting = await _orm.Select<SiteSetting>()
+            .DisableGlobalFilter("TenantFilter")
+            .Where(item => item.TenantId == tenantContext.TenantId)
+            .OrderByDescending(item => item.UpdatedAt)
+            .OrderByDescending(item => item.CreatedAt)
+            .ToOneAsync();
         if (siteSetting is null)
         {
             siteSetting = new SiteSetting
@@ -101,12 +119,20 @@ public sealed class SiteSettingService
 
         siteSetting.DefaultSearchEngine = searchEngine;
         siteSetting.UpdatedAt = DateTime.UtcNow;
-        await _orm.Update<SiteSetting>().SetSource(siteSetting).ExecuteAffrowsAsync();
+        await _orm.Update<SiteSetting>()
+            .DisableGlobalFilter("TenantFilter")
+            .SetSource(siteSetting)
+            .ExecuteAffrowsAsync();
     }
 
     public async Task UpdateLogoUrlAsync(TenantContext tenantContext, string logoUrl)
     {
-        var siteSetting = await _orm.Select<SiteSetting>().Where(item => item.TenantId == tenantContext.TenantId).ToOneAsync();
+        var siteSetting = await _orm.Select<SiteSetting>()
+            .DisableGlobalFilter("TenantFilter")
+            .Where(item => item.TenantId == tenantContext.TenantId)
+            .OrderByDescending(item => item.UpdatedAt)
+            .OrderByDescending(item => item.CreatedAt)
+            .ToOneAsync();
         if (siteSetting is null)
         {
             siteSetting = new SiteSetting
@@ -124,6 +150,9 @@ public sealed class SiteSettingService
 
         siteSetting.LogoUrl = logoUrl;
         siteSetting.UpdatedAt = DateTime.UtcNow;
-        await _orm.Update<SiteSetting>().SetSource(siteSetting).ExecuteAffrowsAsync();
+        await _orm.Update<SiteSetting>()
+            .DisableGlobalFilter("TenantFilter")
+            .SetSource(siteSetting)
+            .ExecuteAffrowsAsync();
     }
 }

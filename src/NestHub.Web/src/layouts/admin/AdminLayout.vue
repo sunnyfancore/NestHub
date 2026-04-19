@@ -57,6 +57,7 @@ const allSections = [
       { label: '租户管理', to: '/admin/tenants', icon: OfficeBuilding },
       { label: '公共分类', to: '/admin/public-categories', icon: Grid },
       { label: '公共链接', to: '/admin/public-links', icon: Link },
+      { label: '公共站点', to: '/admin/public-site', icon: Setting },
       { label: '安全设置', to: '/admin/security', icon: Lock },
     ],
   },

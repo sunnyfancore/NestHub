@@ -1,8 +1,12 @@
 <script setup lang="ts">
 import { ElMessage } from 'element-plus'
-import { onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { getSiteSettings, updateSiteSettings, uploadLogo } from '@/api/site'
 import type { SaveSiteSettingsRequest } from '@/types/models'
+
+const route = useRoute()
+const targetTenantId = computed(() => (route.meta?.targetTenantId as string) || undefined)
 
 const CACHE_KEY = 'nesthub-portal-cache'
 
@@ -25,7 +29,7 @@ async function load() {
   loading.value = true
 
   try {
-    form.value = await getSiteSettings()
+    form.value = await getSiteSettings(targetTenantId.value)
   } catch (error: any) {
     ElMessage.error(error?.response?.data?.message || '获取站点设置失败。')
   } finally {
@@ -37,7 +41,7 @@ async function submit() {
   saving.value = true
 
   try {
-    form.value = await updateSiteSettings(form.value)
+    form.value = await updateSiteSettings(form.value, targetTenantId.value)
     localStorage.removeItem(CACHE_KEY)
     ElMessage.success('站点设置已保存。')
   } catch (error: any) {
@@ -49,7 +53,7 @@ async function submit() {
 
 async function handleLogoUpload(options: any) {
   try {
-    const url = await uploadLogo(options.file)
+    const url = await uploadLogo(options.file, targetTenantId.value)
     form.value.logoUrl = url
     localStorage.removeItem(CACHE_KEY)
     ElMessage.success('Logo 上传成功。')
@@ -62,7 +66,7 @@ function removeLogo() {
   form.value.logoUrl = ''
 }
 
-onMounted(load)
+watch(targetTenantId, load, { immediate: true })
 </script>
 
 <template>

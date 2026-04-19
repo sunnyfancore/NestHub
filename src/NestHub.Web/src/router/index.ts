@@ -112,6 +112,12 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminLinksView.vue'),
           meta: { targetTenantId: '00000000-0000-0000-0000-000000000001' },
         },
+        {
+          path: 'public-site',
+          name: 'admin-public-site',
+          component: () => import('@/views/admin/AdminSiteView.vue'),
+          meta: { targetTenantId: '00000000-0000-0000-0000-000000000001' },
+        },
       ],
     },
   ],

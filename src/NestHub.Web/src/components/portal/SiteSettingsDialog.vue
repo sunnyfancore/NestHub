@@ -20,9 +20,12 @@ const form = ref<SaveSiteSettingsRequest>({
   subtitle: '',
   description: '',
   logoText: '',
+  logoUrl: '',
   searchPlaceholder: '',
   footerText: '',
   themeName: '',
+  mobileThemeName: '',
+  logoMode: 'compact',
 })
 
 const rules: FormRules<SaveSiteSettingsRequest> = {
@@ -41,9 +44,12 @@ watch(
       subtitle: props.site.subtitle,
       description: props.site.description,
       logoText: props.site.logoText,
+      logoUrl: props.site.logoUrl ?? '',
       searchPlaceholder: props.site.searchPlaceholder,
       footerText: props.site.footerText,
       themeName: props.site.themeName,
+      mobileThemeName: props.site.mobileThemeName,
+      logoMode: props.site.logoMode ?? 'compact',
     }
   },
   { immediate: true },
@@ -56,9 +62,12 @@ async function handleSubmit() {
     subtitle: form.value.subtitle?.trim() || '',
     description: form.value.description?.trim() || '',
     logoText: form.value.logoText?.trim() || '',
+    logoUrl: form.value.logoUrl?.trim() || '',
     searchPlaceholder: form.value.searchPlaceholder?.trim() || '',
     footerText: form.value.footerText?.trim() || '',
     themeName: form.value.themeName?.trim() || '',
+    mobileThemeName: form.value.mobileThemeName?.trim() || '',
+    logoMode: form.value.logoMode?.trim() || 'compact',
   })
 }
 </script>

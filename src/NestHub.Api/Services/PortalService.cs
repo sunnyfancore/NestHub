@@ -29,6 +29,8 @@ public sealed class PortalService
         var siteSetting = await _orm.Select<SiteSetting>()
             .DisableGlobalFilter("TenantFilter")
             .Where(item => item.TenantId == tenant.Id)
+            .OrderByDescending(item => item.UpdatedAt)
+            .OrderByDescending(item => item.CreatedAt)
             .ToOneAsync();
 
         var categoryQuery = _orm.Select<Folder>()

@@ -21,9 +21,9 @@ public sealed class SiteController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> Get()
+    public async Task<IActionResult> Get([FromQuery] Guid? targetTenantId = null)
     {
-        var tenantContext = _tenantContextAccessor.Current;
+        var tenantContext = ResolveContext(targetTenantId);
         if (tenantContext is null)
         {
             return Unauthorized();
@@ -33,9 +33,9 @@ public sealed class SiteController : ControllerBase
     }
 
     [HttpPut]
-    public async Task<IActionResult> Update([FromBody] SaveSiteSettingsRequest request)
+    public async Task<IActionResult> Update([FromBody] SaveSiteSettingsRequest request, [FromQuery] Guid? targetTenantId = null)
     {
-        var tenantContext = _tenantContextAccessor.Current;
+        var tenantContext = ResolveContext(targetTenantId);
         if (tenantContext is null)
         {
             return Unauthorized();
@@ -73,9 +73,9 @@ public sealed class SiteController : ControllerBase
 
     [HttpPost("upload-logo")]
     [RequestSizeLimit(5_000_000)]
-    public async Task<IActionResult> UploadLogo([FromForm] IFormFile file)
+    public async Task<IActionResult> UploadLogo([FromForm] IFormFile file, [FromQuery] Guid? targetTenantId = null)
     {
-        var tenantContext = _tenantContextAccessor.Current;
+        var tenantContext = ResolveContext(targetTenantId);
         if (tenantContext is null)
         {
             return Unauthorized();
@@ -119,5 +119,18 @@ public sealed class SiteController : ControllerBase
         await _siteSettingService.UpdateLogoUrlAsync(tenantContext, logoUrl);
 
         return Ok(new { logoUrl });
+    }
+
+    private TenantContext? ResolveContext(Guid? targetTenantId)
+    {
+        var ctx = _tenantContextAccessor.Current;
+        if (ctx is null) return null;
+
+        if (targetTenantId.HasValue && ctx.IsSuperAdmin)
+        {
+            return ctx with { TenantId = targetTenantId.Value };
+        }
+
+        return ctx;
     }
 }
