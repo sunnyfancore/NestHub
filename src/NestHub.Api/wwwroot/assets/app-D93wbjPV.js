@@ -1,0 +1,1 @@
+import{o as e}from"./auth-B3a-5eYb.js";async function t(){let{data:t}=await e.get(`/app-info`);return t}export{t};

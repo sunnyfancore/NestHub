@@ -1,0 +1,40 @@
+## .NET
+bin/
+obj/
+publish/
+
+## Node
+node_modules/
+dist/
+
+## IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+## Claude
+.claude/
+
+## Environment
+appsettings.Development.json
+appsettings.Production.json
+
+## Uploads
+AppData/
+
+## Logs & Temp
+*.log
+*.err.log
+*.out.log
+tmp_*.html
+
+## Reference
+.reference/
+
+## Database backups
+db/
+
+## OS
+.DS_Store
+Thumbs.db
