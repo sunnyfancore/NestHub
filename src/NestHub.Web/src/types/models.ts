@@ -34,6 +34,7 @@ export interface PortalSite {
   mobileThemeName: string
   defaultSearchEngine?: string | null
   logoMode?: string
+  showBottomDock?: boolean
 }
 
 export interface PortalTenant {
@@ -134,6 +135,7 @@ export interface SaveSiteSettingsRequest {
   themeName?: string
   mobileThemeName?: string
   logoMode?: string
+  showBottomDock?: boolean
 }
 
 export interface AdminCategoryItem {

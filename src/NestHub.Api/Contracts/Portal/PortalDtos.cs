@@ -42,6 +42,8 @@ public sealed class PortalSiteDto
     public string? DefaultSearchEngine { get; set; }
 
     public string LogoMode { get; set; } = "compact";
+
+    public bool ShowBottomDock { get; set; } = true;
 }
 
 public sealed class PortalTenantDto
@@ -221,6 +223,8 @@ public sealed class SaveSiteSettingsRequest
 
     [StringLength(20)]
     public string? LogoMode { get; set; }
+
+    public bool? ShowBottomDock { get; set; }
 }
 
 public sealed class UpdateSearchEngineRequest

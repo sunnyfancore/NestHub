@@ -26,6 +26,7 @@ const form = ref<SaveSiteSettingsRequest>({
   themeName: '',
   mobileThemeName: '',
   logoMode: 'compact',
+  showBottomDock: true,
 })
 
 const rules: FormRules<SaveSiteSettingsRequest> = {
@@ -50,6 +51,7 @@ watch(
       themeName: props.site.themeName,
       mobileThemeName: props.site.mobileThemeName,
       logoMode: props.site.logoMode ?? 'compact',
+      showBottomDock: props.site.showBottomDock ?? true,
     }
   },
   { immediate: true },
@@ -68,6 +70,7 @@ async function handleSubmit() {
     themeName: form.value.themeName?.trim() || '',
     mobileThemeName: form.value.mobileThemeName?.trim() || '',
     logoMode: form.value.logoMode?.trim() || 'compact',
+    showBottomDock: form.value.showBottomDock ?? true,
   })
 }
 </script>
@@ -122,6 +125,14 @@ async function handleSubmit() {
 
       <el-form-item label="页脚文案">
         <el-input v-model="form.footerText" maxlength="255" show-word-limit />
+      </el-form-item>
+      <el-form-item label="底部按钮区">
+        <el-switch
+          v-model="form.showBottomDock"
+          inline-prompt
+          active-text="显示"
+          inactive-text="隐藏"
+        />
       </el-form-item>
     </el-form>
 

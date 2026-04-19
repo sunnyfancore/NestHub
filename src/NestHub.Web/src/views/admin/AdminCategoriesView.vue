@@ -326,7 +326,8 @@ onBeforeUnmount(destroySortables)
 .admin-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 108px);
+  height: 100%;
+  min-height: 0;
   gap: 16px;
   overflow: hidden;
   min-width: 0;
@@ -355,7 +356,7 @@ onBeforeUnmount(destroySortables)
 
 @media (max-width: 760px) {
   .admin-page {
-    height: calc(100vh - 72px);
+    height: 100%;
   }
 }
 
@@ -364,7 +365,8 @@ onBeforeUnmount(destroySortables)
   background: #fff;
   border: 1px solid #e8eaed;
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .cat-tree__parent {

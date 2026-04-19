@@ -275,7 +275,8 @@ public sealed class PortalService
             ThemeName = siteSetting?.ThemeName ?? "default2",
             MobileThemeName = siteSetting?.MobileThemeName ?? siteSetting?.ThemeName ?? "default2",
             DefaultSearchEngine = siteSetting?.DefaultSearchEngine,
-            LogoMode = siteSetting?.LogoMode ?? "compact"
+            LogoMode = siteSetting?.LogoMode ?? "compact",
+            ShowBottomDock = siteSetting?.ShowBottomDock ?? true
         };
     }
 

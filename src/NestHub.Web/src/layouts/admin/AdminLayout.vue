@@ -173,11 +173,11 @@ function logout() {
 
 <style scoped>
 .admin-shell {
-  min-height: 100vh;
+  height: 100vh;
   display: grid;
   grid-template-columns: 230px 1fr;
   background: #f0f2f5;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 .admin-sidebar {
@@ -274,8 +274,10 @@ function logout() {
 
 .admin-main {
   min-width: 0;
+  min-height: 0;
   display: grid;
   grid-template-rows: auto 1fr;
+  overflow: hidden;
 }
 
 .admin-topbar {
@@ -356,8 +358,12 @@ function logout() {
 }
 
 .admin-content {
+  display: flex;
+  flex-direction: column;
   padding: 24px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 0;
   min-width: 0;
 }
 

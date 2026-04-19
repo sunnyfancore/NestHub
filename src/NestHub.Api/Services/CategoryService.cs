@@ -76,7 +76,7 @@ public sealed class CategoryService
         category.SortOrder = request.SortOrder;
         category.UpdatedAt = DateTime.UtcNow;
 
-        await _orm.Update<Folder>().SetSource(category).ExecuteAffrowsAsync();
+        await _orm.Update<Folder>().DisableGlobalFilter("TenantFilter").SetSource(category).ExecuteAffrowsAsync();
         return MapCategory(category);
     }
 
@@ -106,7 +106,7 @@ public sealed class CategoryService
             throw new InvalidOperationException("请先删除或迁移该分类下的链接。");
         }
 
-        await _orm.Delete<Folder>().Where(item => item.Id == id).ExecuteAffrowsAsync();
+        await _orm.Delete<Folder>().DisableGlobalFilter("TenantFilter").Where(item => item.Id == id).ExecuteAffrowsAsync();
     }
 
     public async Task UpdateOrderAsync(IReadOnlyCollection<Guid> orderedIds)
@@ -140,7 +140,7 @@ public sealed class CategoryService
             category.UpdatedAt = now;
         }
 
-        await _orm.Update<Folder>().SetSource(categories).ExecuteAffrowsAsync();
+        await _orm.Update<Folder>().DisableGlobalFilter("TenantFilter").SetSource(categories).ExecuteAffrowsAsync();
     }
 
     private async Task<Folder?> ValidateParentAsync(Guid? parentId, Guid? selfId)

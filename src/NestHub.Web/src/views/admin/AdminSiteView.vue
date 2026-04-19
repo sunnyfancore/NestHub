@@ -23,6 +23,7 @@ const form = ref<SaveSiteSettingsRequest>({
   themeName: 'default2',
   mobileThemeName: 'default2',
   logoMode: 'compact',
+  showBottomDock: true,
 })
 
 async function load() {
@@ -112,6 +113,14 @@ watch(targetTenantId, load, { immediate: true })
         </el-form-item>
         <el-form-item label="页脚文案">
           <el-input v-model="form.footerText" />
+        </el-form-item>
+        <el-form-item label="底部按钮区">
+          <el-switch
+            v-model="form.showBottomDock"
+            inline-prompt
+            active-text="显示"
+            inactive-text="隐藏"
+          />
         </el-form-item>
         <el-button type="primary" :loading="saving" @click="submit">保存站点设置</el-button>
       </el-form>

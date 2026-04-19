@@ -41,4 +41,7 @@ public sealed class SiteSetting : AuditableEntity, ITenantEntity
 
     [Column(Name = "logo_mode", StringLength = 20)]
     public string? LogoMode { get; set; }
+
+    [Column(Name = "show_bottom_dock")]
+    public bool? ShowBottomDock { get; set; }
 }

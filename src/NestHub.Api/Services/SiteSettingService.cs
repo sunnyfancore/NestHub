@@ -67,6 +67,7 @@ public sealed class SiteSettingService
         siteSetting.ThemeName = string.IsNullOrWhiteSpace(request.ThemeName) ? null : request.ThemeName.Trim();
         siteSetting.MobileThemeName = string.IsNullOrWhiteSpace(request.MobileThemeName) ? null : request.MobileThemeName.Trim();
         siteSetting.LogoMode = string.IsNullOrWhiteSpace(request.LogoMode) ? null : request.LogoMode.Trim();
+        siteSetting.ShowBottomDock = request.ShowBottomDock ?? true;
         siteSetting.UpdatedAt = DateTime.UtcNow;
 
         await _orm.Update<SiteSetting>()
@@ -90,7 +91,8 @@ public sealed class SiteSettingService
             ThemeName = siteSetting?.ThemeName ?? "default2",
             MobileThemeName = siteSetting?.MobileThemeName ?? siteSetting?.ThemeName ?? "default2",
             DefaultSearchEngine = siteSetting?.DefaultSearchEngine,
-            LogoMode = siteSetting?.LogoMode ?? "compact"
+            LogoMode = siteSetting?.LogoMode ?? "compact",
+            ShowBottomDock = siteSetting?.ShowBottomDock ?? true
         };
     }
 

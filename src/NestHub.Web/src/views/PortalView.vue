@@ -2,6 +2,7 @@
 import {
   Connection,
   Edit,
+  FolderAdd,
   Link,
   Plus,
   Refresh,
@@ -472,7 +473,7 @@ async function submitCategory(payload: SavePortalCategoryRequest) {
 
   try {
     if (editingCategory.value) {
-      await updateCategory(editingCategory.value.id, payload)
+      await updateCategory(editingCategory.value.id, payload, getTargetTenantId())
       ElMessage.success('分类已更新。')
     } else {
       await createCategory(payload, getTargetTenantId())
@@ -494,7 +495,7 @@ async function removeCategory(category: PortalCategory) {
   })
 
   try {
-    await deleteCategory(category.id)
+    await deleteCategory(category.id, getTargetTenantId())
     ElMessage.success('分类已删除。')
     await loadPortal(true)
   } catch (error: any) {
@@ -575,6 +576,12 @@ function handleCategoryCommand(category: PortalCategory, command: string | numbe
 
 function toggleMenu(categoryId: string) {
   expandedMenu.value[categoryId] = !expandedMenu.value[categoryId]
+
+  if (portal.value?.canEdit && expandedMenu.value[categoryId]) {
+    void nextTick(() => {
+      initializeSortables()
+    })
+  }
 }
 
 function anchorId(categoryId: string) {
@@ -757,7 +764,7 @@ function initializeSortables() {
       Sortable.create(sidebarNavRef.value, {
         animation: 160,
         draggable: '.portal-sidebar__group',
-        handle: '.portal-sidebar__link',
+        handle: '.portal-sidebar__drag',
         ghostClass: 'portal-sidebar__group--ghost',
         onEnd: async () => {
           if (!sidebarNavRef.value) return
@@ -765,7 +772,7 @@ function initializeSortables() {
             .map((el) => el.dataset.categoryId || '')
             .filter(Boolean)
           try {
-            await sortCategories(orderedIds)
+            await sortCategories(orderedIds, getTargetTenantId())
             /* silently updated */
             await loadPortal(true)
           } catch (error: any) {
@@ -784,13 +791,14 @@ function initializeSortables() {
         Sortable.create(childContainer, {
           animation: 160,
           draggable: '.portal-sidebar__child-item',
+          handle: '.portal-sidebar__child-drag',
           ghostClass: 'portal-sidebar__child-item--ghost',
           onEnd: async () => {
             const orderedIds = Array.from(childContainer.querySelectorAll<HTMLElement>('.portal-sidebar__child-item'))
               .map((el) => el.dataset.categoryId || '')
               .filter(Boolean)
             try {
-              await sortCategories(orderedIds)
+              await sortCategories(orderedIds, getTargetTenantId())
               /* silently updated */
               await loadPortal(true)
             } catch (error: any) {
@@ -815,7 +823,7 @@ function initializeSortables() {
             .filter(Boolean)
 
           try {
-            await sortCategories(orderedIds)
+            await sortCategories(orderedIds, getTargetTenantId())
             /* silently updated */
             await loadPortal(true)
           } catch (error: any) {
@@ -833,14 +841,14 @@ function initializeSortables() {
         Sortable.create(childContainer, {
           ...sortableOpts,
           draggable: '.portal-subsection',
-          handle: '.portal-subsection__title',
+          handle: '.portal-subsection__drag',
           onEnd: async () => {
             const orderedIds = Array.from(childContainer.querySelectorAll<HTMLElement>('.portal-subsection'))
               .map((element) => element.dataset.categoryId || '')
               .filter(Boolean)
 
             try {
-              await sortCategories(orderedIds)
+              await sortCategories(orderedIds, getTargetTenantId())
               /* silently updated */
               await loadPortal(true)
             } catch (error: any) {
@@ -1074,8 +1082,14 @@ onBeforeUnmount(() => {
             :class="{ 'is-active': activeSectionId === category.id }"
             @click.prevent="scrollToSection(category.id); if (category.children.length) toggleMenu(category.id); mobileSidebarOpen = false"
           >
-            <i v-if="category.icon" :class="['fa', category.icon, 'portal-sidebar__link-icon']"></i>
-            <i v-else class="fa fa-folder portal-sidebar__link-icon"></i>
+            <span v-if="portal?.canEdit" class="portal-sidebar__drag">
+              <i v-if="category.icon" :class="['fa', category.icon, 'portal-sidebar__link-icon']"></i>
+              <i v-else class="fa fa-grip-vertical portal-sidebar__grip"></i>
+            </span>
+            <template v-else>
+              <i v-if="category.icon" :class="['fa', category.icon, 'portal-sidebar__link-icon']"></i>
+              <i v-else class="fa fa-folder portal-sidebar__link-icon"></i>
+            </template>
             <span class="portal-sidebar__link-text">{{ category.name }}</span>
             <i
               v-if="category.children.length"
@@ -1101,8 +1115,14 @@ onBeforeUnmount(() => {
                   class="portal-sidebar__child-link"
                   :class="{ 'is-active': activeSectionId === child.id }"
                 >
-                  <i v-if="child.icon" :class="['fa', child.icon, 'portal-sidebar__child-icon']"></i>
-                  <i v-else class="fa fa-file-o portal-sidebar__child-icon"></i>
+                  <span v-if="portal?.canEdit" class="portal-sidebar__child-drag">
+                    <i v-if="child.icon" :class="['fa', child.icon, 'portal-sidebar__child-icon']"></i>
+                    <i v-else class="fa fa-grip-vertical portal-sidebar__grip"></i>
+                  </span>
+                  <template v-else>
+                    <i v-if="child.icon" :class="['fa', child.icon, 'portal-sidebar__child-icon']"></i>
+                    <i v-else class="fa fa-folder-o portal-sidebar__child-icon"></i>
+                  </template>
                   <span>{{ child.name }}</span>
                 </a>
               </div>
@@ -1194,35 +1214,16 @@ onBeforeUnmount(() => {
         </div>
 
         <div v-if="authStore.isAuthenticated" class="portal-searchbar__ops">
-          <div
-            class="portal-view-switch"
-            role="tablist"
-            aria-label="视图切换"
-            :class="{ 'is-public': isPublicView, 'is-private': !isPublicView }"
+          <button
+            class="portal-view-toggle"
+            type="button"
+            :title="isPublicView ? '切换到我的视图' : '切换到公共视图'"
+            @click="setPublicView(!isPublicView)"
           >
-            <button
-              class="portal-view-switch__option portal-view-switch__option--mine"
-              :class="{ 'is-active': !isPublicView }"
-              type="button"
-              title="我的视图"
-              :aria-pressed="!isPublicView"
-              @click="setPublicView(false)"
-            >
-              <i class="fa fa-user-o"></i>
-              <span>我的</span>
-            </button>
-            <button
-              class="portal-view-switch__option portal-view-switch__option--public"
-              :class="{ 'is-active': isPublicView }"
-              type="button"
-              title="公共视图"
-              :aria-pressed="isPublicView"
-              @click="setPublicView(true)"
-            >
-              <i class="fa fa-globe"></i>
-              <span>公共</span>
-            </button>
-          </div>
+            <i :class="isPublicView ? 'fa fa-globe' : 'fa fa-user-o'"></i>
+            <span>{{ isPublicView ? '公共' : '我的' }}</span>
+            <i class="fa fa-exchange portal-view-toggle__switch"></i>
+          </button>
         </div>
       </header>
 
@@ -1300,7 +1301,7 @@ onBeforeUnmount(() => {
               :data-category-id="child.id"
             >
               <div class="portal-subsection__head" @contextmenu.prevent="openCategoryContextMenu(child, $event)">
-                <div class="portal-subsection__title">
+                <div class="portal-subsection__title portal-subsection__drag">
                   <span>{{ child.name }}</span>
                 </div>
 
@@ -1365,8 +1366,11 @@ onBeforeUnmount(() => {
           <i :class="['fa', isDark ? 'fa-sun-o' : 'fa-moon-o']"></i>
         </el-button>
         <template v-if="portal?.canEdit">
-          <el-button circle title="添加链接" aria-label="添加链接" @click="openCreateLink()">
-            <el-icon><Plus /></el-icon>
+          <el-button circle title="新增分类" aria-label="新增分类" @click="openCreateCategory()">
+            <el-icon><FolderAdd /></el-icon>
+          </el-button>
+          <el-button circle title="新增链接" aria-label="新增链接" @click="openCreateLink()">
+            <el-icon><Link /></el-icon>
           </el-button>
           <el-button circle title="后台管理" aria-label="后台管理" @click="openAdmin">
             <el-icon><Setting /></el-icon>
@@ -1388,10 +1392,13 @@ onBeforeUnmount(() => {
       </el-button>
     </div>
 
-      <div v-if="portal?.categories?.length" class="portal-bottom-dock">
+      <div v-if="portal?.categories?.length && portal?.site.showBottomDock !== false" class="portal-bottom-dock">
         <template v-if="portal?.canEdit">
-          <el-button circle title="添加链接" aria-label="添加链接" @click="openCreateLink()">
-            <el-icon><Plus /></el-icon>
+          <el-button circle title="新增分类" aria-label="新增分类" @click="openCreateCategory()">
+            <el-icon><FolderAdd /></el-icon>
+          </el-button>
+          <el-button circle title="新增链接" aria-label="新增链接" @click="openCreateLink()">
+            <el-icon><Link /></el-icon>
           </el-button>
           <el-button circle title="后台管理" aria-label="后台管理" @click="openAdmin">
             <el-icon><Setting /></el-icon>
@@ -1734,15 +1741,15 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 20px 8px 52px;
-  color: #999;
-  font-size: 13px;
+  padding: 8px 20px 8px 34px;
+  color: #444;
+  font-size: 14px;
   transition: all 0.15s;
   cursor: pointer;
 }
 
 .portal-sidebar__child-link:hover {
-  color: #555;
+  color: #333;
   background: #f4f5f7;
 }
 
@@ -1753,9 +1760,40 @@ onBeforeUnmount(() => {
 .portal-sidebar__child-icon {
   width: 16px;
   text-align: center;
-  font-size: 12px;
+  font-size: 13px;
   flex-shrink: 0;
-  opacity: 0.5;
+  opacity: 0.65;
+}
+
+.portal-sidebar__drag,
+.portal-sidebar__child-drag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  cursor: grab;
+  flex-shrink: 0;
+  color: #999;
+  font-size: 14px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.portal-sidebar__drag:hover,
+.portal-sidebar__child-drag:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #555;
+}
+
+.portal-sidebar__grip {
+  font-size: 11px;
+  opacity: 0.4;
+}
+
+.portal-sidebar__drag:hover .portal-sidebar__grip,
+.portal-sidebar__child-drag:hover .portal-sidebar__grip {
+  opacity: 0.7;
 }
 
 .sidebar-slide-enter-active,
@@ -1816,84 +1854,41 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 
-.portal-view-switch {
-  --view-switch-accent: #667eea;
-  --view-switch-accent-strong: #764ba2;
-  --view-switch-border: rgba(102, 126, 234, 0.16);
-  --view-switch-text: #5f6b7a;
-  --view-switch-shadow: rgba(102, 126, 234, 0.22);
-  display: inline-flex;
-  align-items: center;
-}
-
-.portal-view-switch__option {
-  position: relative;
+.portal-view-toggle {
+  --view-toggle-accent: #667eea;
+  --view-toggle-accent-strong: #764ba2;
+  --view-toggle-shadow: rgba(102, 126, 234, 0.2);
   border: 0;
-  background: rgba(255, 255, 255, 0.78);
-  color: var(--view-switch-text);
-  height: 32px;
-  min-width: 72px;
+  background: linear-gradient(135deg, var(--view-toggle-accent) 0%, var(--view-toggle-accent-strong) 100%);
+  color: #fff;
+  height: 34px;
   padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid var(--view-switch-border);
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(31, 41, 55, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  transition: color 0.2s, transform 0.2s, opacity 0.2s, box-shadow 0.2s, background 0.2s;
+  box-shadow: 0 4px 12px var(--view-toggle-shadow);
+  transition: transform 0.2s, box-shadow 0.2s;
   white-space: nowrap;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
 }
 
-.portal-view-switch__option + .portal-view-switch__option {
-  margin-left: -14px;
+.portal-view-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px var(--view-toggle-shadow);
 }
 
-.portal-view-switch__option--mine {
-  z-index: 1;
-}
-
-.portal-view-switch__option--public {
-  z-index: 1;
-}
-
-.portal-view-switch.is-private .portal-view-switch__option--mine,
-.portal-view-switch.is-public .portal-view-switch__option--public {
-  z-index: 3;
-}
-
-.portal-view-switch__option i {
+.portal-view-toggle i:first-child {
   font-size: 12px;
-  opacity: 0.78;
-  transition: opacity 0.2s;
 }
 
-.portal-view-switch__option span {
-  line-height: 1;
-}
-
-.portal-view-switch__option:not(.is-active):hover {
-  color: #2d3645;
-  transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(31, 41, 55, 0.12);
-}
-
-.portal-view-switch__option.is-active {
-  color: #fff;
-  border-color: transparent;
-  background: linear-gradient(135deg, var(--view-switch-accent) 0%, var(--view-switch-accent-strong) 100%);
-  box-shadow: 0 10px 22px var(--view-switch-shadow);
-  transform: translateY(-1px);
-}
-
-.portal-view-switch__option.is-active i {
-  opacity: 1;
+.portal-view-toggle__switch {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-left: 2px;
 }
 
 .portal-search-shell {
@@ -2150,10 +2145,14 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 8px;
   min-height: 28px;
+  min-width: 0;
 }
 
-.portal-section__drag {
+.portal-section__drag,
+.portal-subsection__drag {
   cursor: grab;
+  flex: 1;
+  min-width: 0;
 }
 
 .portal-section__title h2,
@@ -2165,7 +2164,6 @@ onBeforeUnmount(() => {
 }
 
 .portal-subsection__title {
-  cursor: grab;
   padding-left: 12px;
   border-left: 3px solid #667eea;
 }
@@ -2350,32 +2348,34 @@ onBeforeUnmount(() => {
   bottom: 90px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   z-index: 20;
 }
 
 .portal-right-rail :deep(.el-button) {
-  width: 42px !important;
-  height: 42px !important;
-  min-width: 42px;
-  min-height: 42px;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px;
+  min-height: 38px;
   padding: 0 !important;
   margin: 0;
-  border-radius: 10px !important;
+  border-radius: 50% !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  color: #666;
-  transition: all 0.15s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(8px);
+  border: none;
+  color: #555;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .portal-right-rail :deep(.el-button:hover) {
-  color: #667eea;
-  border-color: #c5cae9;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+  color: #4f6ef7;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(79, 110, 247, 0.18);
+  transform: scale(1.08);
 }
 
 .portal-right-rail :deep(.el-icon) {
@@ -2389,29 +2389,43 @@ onBeforeUnmount(() => {
   left: calc(200px + (100vw - 200px) / 2);
   bottom: 44px;
   transform: translateX(-50%);
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 14px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-  padding: 4px 8px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(12px);
+  border: none;
+  border-radius: 24px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  padding: 6px 10px;
   display: flex;
-  gap: 4px;
+  gap: 6px;
   z-index: 20;
 }
 
-.portal-bottom-dock :deep(.el-button.is-circle) {
-  width: 40px !important;
-  height: 40px !important;
-}
-
-.portal-bottom-dock :deep(.el-icon) {
-  font-size: 16px;
-}
-
 .portal-bottom-dock :deep(.el-button) {
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 50% !important;
+  border: none;
+  background: transparent;
+  color: #555;
+  transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.portal-bottom-dock :deep(.el-button.is-circle) {
+  width: 38px !important;
+  height: 38px !important;
+}
+
+.portal-bottom-dock :deep(.el-icon) {
+  font-size: 15px;
+}
+
+.portal-bottom-dock :deep(.el-button:hover) {
+  color: #4f6ef7;
+  background: rgba(79, 110, 247, 0.08);
+  transform: scale(1.08);
 }
 
 /* ── context menu ── */
@@ -2762,7 +2776,7 @@ html.dark .portal-sidebar__link.is-active::before {
 }
 
 html.dark .portal-sidebar__child-link {
-  color: #8a92a4;
+  color: #b0b8c8;
 }
 
 html.dark .portal-sidebar__child-link:hover {
@@ -2773,6 +2787,17 @@ html.dark .portal-sidebar__child-link:hover {
 html.dark .portal-sidebar__child-link.is-active {
   color: #8b9cf7;
   background: rgba(102, 126, 234, 0.12);
+}
+
+html.dark .portal-sidebar__drag,
+html.dark .portal-sidebar__child-drag {
+  color: #555;
+}
+
+html.dark .portal-sidebar__drag:hover,
+html.dark .portal-sidebar__child-drag:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #aaa;
 }
 
 html.dark .portal-main {
@@ -2802,6 +2827,12 @@ html.dark .portal-subsection__title {
   border-left-color: #8b9cf7;
 }
 
+html.dark .portal-section__drag:hover,
+html.dark .portal-subsection__drag:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #aaa;
+}
+
 html.dark .portal-card {
   background: #252830;
   border-color: #2e3040;
@@ -2827,32 +2858,34 @@ html.dark .portal-card__copy p {
 }
 
 html.dark .portal-right-rail :deep(.el-button) {
-  background: #1e2028;
-  border-color: #2e3040;
+  background: rgba(30, 32, 40, 0.92);
+  backdrop-filter: blur(8px);
+  border: none;
   color: #b0b8c8;
 }
 
 html.dark .portal-right-rail :deep(.el-button:hover) {
   color: #8b9cf7;
-  border-color: #3d5a9e;
+  background: rgba(40, 42, 56, 0.95);
+  box-shadow: 0 4px 14px rgba(139, 156, 247, 0.15);
 }
 
 html.dark .portal-bottom-dock {
-  background: #1e2028;
-  border-color: #2e3040;
+  background: rgba(30, 32, 40, 0.92);
+  backdrop-filter: blur(12px);
+  border: none;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 html.dark .portal-bottom-dock :deep(.el-button) {
-  background: #252830;
-  border-color: #2e3040;
+  background: transparent;
+  border: none;
   color: #b0b8c8;
 }
 
 html.dark .portal-bottom-dock :deep(.el-button:hover) {
   color: #8b9cf7;
-  border-color: #3d5a9e;
-  background: #2a2d38;
+  background: rgba(139, 156, 247, 0.1);
 }
 
 html.dark .portal-context-menu {
@@ -2882,21 +2915,15 @@ html.dark .portal-searchbar__input::placeholder {
   color: #7a8294;
 }
 
-html.dark .portal-view-switch {
-  --view-switch-border: rgba(124, 138, 165, 0.22);
-  --view-switch-text: #b2bdd0;
-}
-
-html.dark .portal-view-switch__option {
-  background: rgba(37, 44, 56, 0.9);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
-
-html.dark .portal-view-switch__option:hover {
-  color: #eef2ff;
+html.dark .portal-view-toggle {
+  --view-toggle-shadow: rgba(102, 126, 234, 0.3);
 }
 
 html.dark .portal-section__head h2 {
+  color: #e0e4ec;
+}
+
+html.dark .portal-subsection__title span {
   color: #e0e4ec;
 }
 
@@ -3080,14 +3107,14 @@ html.dark .portal-context-menu__divider {
 .theme-ocean .portal-sidebar__link-icon { font-size: 16px; opacity: 0.7; }
 .theme-ocean .portal-sidebar__link.is-active .portal-sidebar__link-icon { opacity: 1; }
 .theme-ocean .portal-sidebar__link-arrow { color: #6b8faf; }
-.theme-ocean .portal-sidebar__child-link { color: #8daabf; padding: 9px 24px 9px 56px; margin: 0 10px; border-radius: 8px; }
+.theme-ocean .portal-sidebar__child-link { color: #3b6e9e; padding: 9px 24px 9px 56px; margin: 0 10px; border-radius: 8px; }
 .theme-ocean .portal-sidebar__child-link:hover { color: #dbe4ee; background: rgba(59, 130, 246, 0.1); border-radius: 8px; }
 .theme-ocean .portal-sidebar__child-link.is-active { color: #60a5fa; background: rgba(59, 130, 246, 0.12); border-radius: 8px; }
 
 .theme-ocean .portal-main { background: #f0f4f8; }
 .theme-ocean .portal-searchbar { background: #fff; border-color: #dbe4ee; min-height: 78px; padding: 16px 32px; }
 .theme-ocean .portal-searchbar__inner { width: min(720px, 100%); }
-.theme-ocean .portal-view-switch { --view-switch-accent: #3b82f6; --view-switch-accent-strong: #2563eb; --view-switch-shadow: rgba(59, 130, 246, 0.26); }
+.theme-ocean .portal-view-toggle { --view-toggle-accent: #3b82f6; --view-toggle-accent-strong: #2563eb; --view-toggle-shadow: rgba(59, 130, 246, 0.26); }
 .theme-ocean .portal-search-shell {
   background: #fff; border: 2px solid #3b82f6; border-radius: 28px; height: 48px;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08); transition: box-shadow 0.25s, border-color 0.25s;
@@ -3136,9 +3163,9 @@ html.dark .portal-context-menu__divider {
 .theme-ocean .portal-suggest__title { color: #1e3a5f; }
 .theme-ocean .portal-suggest__category { color: #94a3b8; }
 .theme-ocean .portal-footer { color: #94a3b8; border-color: #dbe4ee; }
-.theme-ocean .portal-right-rail :deep(.el-button) { background: #fff; border-color: #dbe4ee; color: #64748b; border-radius: 14px !important; }
-.theme-ocean .portal-right-rail :deep(.el-button:hover) { color: #3b82f6; border-color: #93c5fd; box-shadow: 0 2px 12px rgba(59, 130, 246, 0.12); }
-.theme-ocean .portal-bottom-dock { background: #fff; border-color: #dbe4ee; border-radius: 16px; }
+.theme-ocean .portal-right-rail :deep(.el-button) { background: rgba(255,255,255,0.92); backdrop-filter: blur(8px); border: none; color: #64748b; border-radius: 50% !important; }
+.theme-ocean .portal-right-rail :deep(.el-button:hover) { color: #3b82f6; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.18); }
+.theme-ocean .portal-bottom-dock { background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border: none; border-radius: 24px; }
 .theme-ocean .portal-hamburger { color: #64748b; }
 .theme-ocean .portal-sidebar__close { color: #b0c4de; }
 .theme-ocean .portal-context-menu { background: #fff; border-color: #dbe4ee; border-radius: 14px; }
@@ -3163,7 +3190,7 @@ html.dark .theme-ocean .portal-sidebar__link { color: #6b8faf; border-radius: 10
 html.dark .theme-ocean .portal-sidebar__link:hover { color: #dbe4ee; background: #142640; border-radius: 10px; }
 html.dark .theme-ocean .portal-sidebar__link.is-active { color: #60a5fa; background: rgba(59, 130, 246, 0.12); border-radius: 10px; }
 html.dark .theme-ocean .portal-sidebar__link.is-active::before { background: #60a5fa; }
-html.dark .theme-ocean .portal-sidebar__child-link { color: #5a7d9a; border-radius: 8px; }
+html.dark .theme-ocean .portal-sidebar__child-link { color: #8daabf; border-radius: 8px; }
 html.dark .theme-ocean .portal-sidebar__child-link:hover { color: #dbe4ee; background: #142640; border-radius: 8px; }
 html.dark .theme-ocean .portal-sidebar__child-link.is-active { color: #60a5fa; background: rgba(59, 130, 246, 0.12); border-radius: 8px; }
 html.dark .theme-ocean .portal-section { background: #111f33; border-color: #1e3a5f; border-radius: 16px; }
@@ -3184,9 +3211,9 @@ html.dark .theme-ocean .portal-suggest__item.is-active { background: #142640; }
 html.dark .theme-ocean .portal-suggest__title { color: #dbe4ee; }
 html.dark .theme-ocean .portal-suggest__category { color: #4a6a8a; }
 html.dark .theme-ocean .portal-footer { color: #4a6a8a; border-color: #1e3a5f; }
-html.dark .theme-ocean .portal-right-rail :deep(.el-button) { background: #111f33; border-color: #1e3a5f; color: #6b8faf; border-radius: 14px !important; }
-html.dark .theme-ocean .portal-right-rail :deep(.el-button:hover) { color: #60a5fa; border-color: #3b82f6; }
-html.dark .theme-ocean .portal-bottom-dock { background: #111f33; border-color: #1e3a5f; box-shadow: 0 4px 20px rgba(0,0,0,0.4); border-radius: 16px; }
+html.dark .theme-ocean .portal-right-rail :deep(.el-button) { background: rgba(17, 31, 51, 0.92); backdrop-filter: blur(8px); border: none; color: #6b8faf; border-radius: 50% !important; }
+html.dark .theme-ocean .portal-right-rail :deep(.el-button:hover) { color: #60a5fa; }
+html.dark .theme-ocean .portal-bottom-dock { background: rgba(17, 31, 51, 0.92); backdrop-filter: blur(12px); border: none; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
 html.dark .theme-ocean .portal-hamburger { color: #6b8faf; }
 html.dark .theme-ocean .portal-sidebar__close { color: #6b8faf; }
 html.dark .theme-ocean .portal-context-menu { background: #111f33; border-color: #1e3a5f; box-shadow: 0 6px 24px rgba(0,0,0,0.5); border-radius: 14px; }
@@ -3219,7 +3246,7 @@ html.dark .theme-ocean .portal-context-menu__divider { background: #1e3a5f; }
 .theme-nord .portal-sidebar__link-icon { font-size: 13px; opacity: 0.6; width: 18px; }
 .theme-nord .portal-sidebar__link.is-active .portal-sidebar__link-icon { opacity: 0.9; }
 .theme-nord .portal-sidebar__link-arrow { color: #81a1c1; font-size: 10px; }
-.theme-nord .portal-sidebar__child-link { color: #b0bec5; padding: 6px 14px 6px 34px; font-size: 12px; margin: 0; border-radius: 0; }
+.theme-nord .portal-sidebar__child-link { color: #81a1c1; padding: 6px 14px 6px 34px; margin: 0; border-radius: 0; }
 .theme-nord .portal-sidebar__child-link:hover { color: #eceff4; background: rgba(136, 192, 208, 0.08); border-radius: 0; }
 .theme-nord .portal-sidebar__child-link.is-active { color: #88c0d0; background: rgba(136, 192, 208, 0.1); border-radius: 0; }
 .theme-nord .portal-sidebar__child-icon { font-size: 10px; width: 14px; }
@@ -3227,7 +3254,7 @@ html.dark .theme-ocean .portal-context-menu__divider { background: #1e3a5f; }
 .theme-nord .portal-main { background: #eceff4; }
 .theme-nord .portal-searchbar { background: #e5e9f0; border-color: #d8dee9; min-height: 56px; padding: 10px 20px; }
 .theme-nord .portal-searchbar__inner { width: min(600px, 100%); }
-.theme-nord .portal-view-switch { --view-switch-accent: #5e81ac; --view-switch-accent-strong: #88c0d0; --view-switch-shadow: rgba(94, 129, 172, 0.24); }
+.theme-nord .portal-view-toggle { --view-toggle-accent: #5e81ac; --view-toggle-accent-strong: #88c0d0; --view-toggle-shadow: rgba(94, 129, 172, 0.24); }
 .theme-nord .portal-search-shell {
   background: #fff; border: 1px solid #5e81ac; border-radius: 4px; height: 38px;
   box-shadow: none; transition: border-color 0.15s;
@@ -3275,9 +3302,9 @@ html.dark .theme-ocean .portal-context-menu__divider { background: #1e3a5f; }
 .theme-nord .portal-suggest__title { color: #2e3440; }
 .theme-nord .portal-suggest__category { color: #81a1c1; }
 .theme-nord .portal-footer { color: #7b8a9e; border-color: #d8dee9; }
-.theme-nord .portal-right-rail :deep(.el-button) { background: #fff; border: 1px solid #d8dee9; color: #4c566a; border-radius: 4px !important; box-shadow: none; }
-.theme-nord .portal-right-rail :deep(.el-button:hover) { color: #5e81ac; border-color: #88c0d0; box-shadow: none; }
-.theme-nord .portal-bottom-dock { background: #fff; border: 1px solid #d8dee9; border-radius: 4px; box-shadow: none; }
+.theme-nord .portal-right-rail :deep(.el-button) { background: rgba(255,255,255,0.92); backdrop-filter: blur(8px); border: none; color: #4c566a; border-radius: 50% !important; }
+.theme-nord .portal-right-rail :deep(.el-button:hover) { color: #5e81ac; }
+.theme-nord .portal-bottom-dock { background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); border: none; border-radius: 24px; }
 .theme-nord .portal-hamburger { color: #4c566a; }
 .theme-nord .portal-sidebar__close { color: #d8dee9; }
 .theme-nord .portal-context-menu { background: #fff; border: 1px solid #d8dee9; border-radius: 4px; box-shadow: none; }
@@ -3301,7 +3328,7 @@ html.dark .theme-nord .portal-sidebar__logo-title-full { color: #eceff4; }
 html.dark .theme-nord .portal-sidebar__link { color: #81a1c1; border-left: 2px solid transparent; border-radius: 0; }
 html.dark .theme-nord .portal-sidebar__link:hover { color: #eceff4; background: #3b4252; border-left-color: rgba(136, 192, 208, 0.3); border-radius: 0; }
 html.dark .theme-nord .portal-sidebar__link.is-active { color: #88c0d0; background: rgba(136, 192, 208, 0.1); border-left-color: #88c0d0; border-radius: 0; }
-html.dark .theme-nord .portal-sidebar__child-link { color: #6b8a9e; border-radius: 0; }
+html.dark .theme-nord .portal-sidebar__child-link { color: #81a1c1; border-radius: 0; }
 html.dark .theme-nord .portal-sidebar__child-link:hover { color: #eceff4; background: #3b4252; border-radius: 0; }
 html.dark .theme-nord .portal-sidebar__child-link.is-active { color: #88c0d0; background: rgba(136, 192, 208, 0.12); border-radius: 0; }
 html.dark .theme-nord .portal-section { background: #3b4252; border: 1px solid #434c5e; border-radius: 4px; }
@@ -3322,9 +3349,9 @@ html.dark .theme-nord .portal-suggest__item.is-active { background: #434c5e; }
 html.dark .theme-nord .portal-suggest__title { color: #eceff4; }
 html.dark .theme-nord .portal-suggest__category { color: #6b8a9e; }
 html.dark .theme-nord .portal-footer { color: #6b8a9e; border-color: #434c5e; }
-html.dark .theme-nord .portal-right-rail :deep(.el-button) { background: #3b4252; border: 1px solid #434c5e; color: #81a1c1; border-radius: 4px !important; box-shadow: none; }
-html.dark .theme-nord .portal-right-rail :deep(.el-button:hover) { color: #88c0d0; border-color: #5e81ac; box-shadow: none; }
-html.dark .theme-nord .portal-bottom-dock { background: #3b4252; border: 1px solid #434c5e; box-shadow: none; border-radius: 4px; }
+html.dark .theme-nord .portal-right-rail :deep(.el-button) { background: rgba(59, 66, 82, 0.92); backdrop-filter: blur(8px); border: none; color: #81a1c1; border-radius: 50% !important; }
+html.dark .theme-nord .portal-right-rail :deep(.el-button:hover) { color: #88c0d0; }
+html.dark .theme-nord .portal-bottom-dock { background: rgba(59, 66, 82, 0.92); backdrop-filter: blur(12px); border: none; border-radius: 24px; }
 html.dark .theme-nord .portal-hamburger { color: #81a1c1; }
 html.dark .theme-nord .portal-sidebar__close { color: #81a1c1; }
 html.dark .theme-nord .portal-context-menu { background: #3b4252; border: 1px solid #434c5e; box-shadow: none; border-radius: 4px; }
@@ -3356,7 +3383,7 @@ html.dark .theme-nord .portal-context-menu__divider { background: #434c5e; }
 .theme-glass .portal-sidebar__link-icon { font-size: 15px; opacity: 0.7; }
 .theme-glass .portal-sidebar__link.is-active .portal-sidebar__link-icon { opacity: 1; }
 .theme-glass .portal-sidebar__link-arrow { color: #9575cd; }
-.theme-glass .portal-sidebar__child-link { color: #9575cd; padding: 8px 20px 8px 48px; margin: 0 8px; border-radius: 10px; }
+.theme-glass .portal-sidebar__child-link { color: #6a4c93; padding: 8px 20px 8px 48px; margin: 0 8px; border-radius: 10px; }
 .theme-glass .portal-sidebar__child-link:hover { color: #ede7f6; background: rgba(124, 77, 255, 0.12); border-radius: 10px; }
 .theme-glass .portal-sidebar__child-link.is-active { color: #b388ff; background: rgba(124, 77, 255, 0.18); border-radius: 10px; }
 
@@ -3366,7 +3393,7 @@ html.dark .theme-nord .portal-context-menu__divider { background: #434c5e; }
   border-color: rgba(255,255,255,0.3); min-height: 72px; padding: 14px 28px;
 }
 .theme-glass .portal-searchbar__inner { width: min(680px, 100%); }
-.theme-glass .portal-view-switch { --view-switch-accent: #7c4dff; --view-switch-accent-strong: #5e35b1; --view-switch-shadow: rgba(124, 77, 255, 0.28); }
+.theme-glass .portal-view-toggle { --view-toggle-accent: #7c4dff; --view-toggle-accent-strong: #5e35b1; --view-toggle-shadow: rgba(124, 77, 255, 0.28); }
 .theme-glass .portal-search-shell {
   background: rgba(255,255,255,0.65); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
   border: 2px solid #7c4dff; border-radius: 20px; height: 46px;
@@ -3419,10 +3446,10 @@ html.dark .theme-nord .portal-context-menu__divider { background: #434c5e; }
 .theme-glass .portal-footer { color: #9575cd; border-color: rgba(255,255,255,0.3); }
 .theme-glass .portal-right-rail :deep(.el-button) {
   background: rgba(255,255,255,0.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.4); color: #7e57c2; border-radius: 16px !important;
+  border: none; color: #7e57c2; border-radius: 50% !important;
 }
-.theme-glass .portal-right-rail :deep(.el-button:hover) { color: #7c4dff; border-color: rgba(124, 77, 255, 0.3); }
-.theme-glass .portal-bottom-dock { background: rgba(255,255,255,0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.4); border-radius: 16px; }
+.theme-glass .portal-right-rail :deep(.el-button:hover) { color: #7c4dff; }
+.theme-glass .portal-bottom-dock { background: rgba(255,255,255,0.55); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: none; border-radius: 24px; }
 .theme-glass .portal-hamburger { color: #7e57c2; }
 .theme-glass .portal-sidebar__close { color: #b39ddb; }
 .theme-glass .portal-context-menu { background: rgba(255,255,255,0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.4); border-radius: 16px; }
@@ -3446,7 +3473,7 @@ html.dark .theme-glass .portal-sidebar__link { color: #9575cd; border-radius: 12
 html.dark .theme-glass .portal-sidebar__link:hover { color: #ede7f6; background: rgba(124, 77, 255, 0.12); border-radius: 12px; }
 html.dark .theme-glass .portal-sidebar__link.is-active { color: #ede7f6; background: rgba(124, 77, 255, 0.22); border-radius: 12px; }
 html.dark .theme-glass .portal-sidebar__link.is-active::before { background: #b388ff; }
-html.dark .theme-glass .portal-sidebar__child-link { color: #7e57c2; border-radius: 10px; }
+html.dark .theme-glass .portal-sidebar__child-link { color: #9575cd; border-radius: 10px; }
 html.dark .theme-glass .portal-sidebar__child-link:hover { color: #ede7f6; background: rgba(124, 77, 255, 0.12); border-radius: 10px; }
 html.dark .theme-glass .portal-sidebar__child-link.is-active { color: #b388ff; background: rgba(124, 77, 255, 0.18); border-radius: 10px; }
 html.dark .theme-glass .portal-section { background: rgba(30, 20, 60, 0.5); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(124, 77, 255, 0.12); border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
@@ -3467,9 +3494,9 @@ html.dark .theme-glass .portal-suggest__item.is-active { background: rgba(124, 7
 html.dark .theme-glass .portal-suggest__title { color: #ede7f6; }
 html.dark .theme-glass .portal-suggest__category { color: #7e57c2; }
 html.dark .theme-glass .portal-footer { color: #5e35b1; border-color: rgba(124, 77, 255, 0.12); }
-html.dark .theme-glass .portal-right-rail :deep(.el-button) { background: rgba(30, 20, 60, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(124, 77, 255, 0.12); color: #9575cd; border-radius: 16px !important; }
-html.dark .theme-glass .portal-right-rail :deep(.el-button:hover) { color: #b388ff; border-color: rgba(124, 77, 255, 0.3); }
-html.dark .theme-glass .portal-bottom-dock { background: rgba(20, 10, 50, 0.75); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(124, 77, 255, 0.12); border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+html.dark .theme-glass .portal-right-rail :deep(.el-button) { background: rgba(30, 20, 60, 0.6); backdrop-filter: blur(8px); border: none; color: #9575cd; border-radius: 50% !important; }
+html.dark .theme-glass .portal-right-rail :deep(.el-button:hover) { color: #b388ff; }
+html.dark .theme-glass .portal-bottom-dock { background: rgba(20, 10, 50, 0.75); backdrop-filter: blur(16px); border: none; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
 html.dark .theme-glass .portal-hamburger { color: #9575cd; }
 html.dark .theme-glass .portal-sidebar__close { color: #9575cd; }
 html.dark .theme-glass .portal-context-menu { background: rgba(20, 10, 50, 0.85); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(124, 77, 255, 0.15); border-radius: 16px; box-shadow: 0 6px 24px rgba(0,0,0,0.5); }
@@ -3513,14 +3540,14 @@ html.dark .theme-glass .portal-context-menu__divider { background: rgba(124, 77,
 .theme-neon .portal-sidebar__link-icon { font-size: 13px; opacity: 0.5; width: 18px; }
 .theme-neon .portal-sidebar__link.is-active .portal-sidebar__link-icon { opacity: 1; }
 .theme-neon .portal-sidebar__link-arrow { color: #5b4da6; font-size: 10px; }
-.theme-neon .portal-sidebar__child-link { color: #5b4da6; padding: 7px 16px 7px 36px; font-size: 12px; margin: 0 6px; border-radius: 2px; }
+.theme-neon .portal-sidebar__child-link { color: #7c6ec4; padding: 7px 16px 7px 36px; margin: 0 6px; border-radius: 2px; }
 .theme-neon .portal-sidebar__child-link:hover { color: #ede9fe; background: rgba(139, 92, 246, 0.08); border-radius: 2px; }
 .theme-neon .portal-sidebar__child-link.is-active { color: #06d6a0; background: rgba(6, 214, 160, 0.06); border-radius: 2px; text-shadow: 0 0 6px rgba(6, 214, 160, 0.2); }
 .theme-neon .portal-sidebar__child-icon { font-size: 10px; }
 
 .theme-neon .portal-searchbar { background: #110d24; border-color: #1e1550; min-height: 64px; padding: 12px 24px; }
 .theme-neon .portal-searchbar__inner { width: min(640px, 100%); }
-.theme-neon .portal-view-switch { --view-switch-accent: #06d6a0; --view-switch-accent-strong: #7c3aed; --view-switch-shadow: rgba(6, 214, 160, 0.24); }
+.theme-neon .portal-view-toggle { --view-toggle-accent: #06d6a0; --view-toggle-accent-strong: #7c3aed; --view-toggle-shadow: rgba(6, 214, 160, 0.24); }
 .theme-neon .portal-search-shell {
   background: #0d0a1f; border: 1px solid #8b5cf6; border-radius: 2px; height: 42px;
   box-shadow: 0 0 8px rgba(139, 92, 246, 0.15), inset 0 0 4px rgba(139, 92, 246, 0.05);
@@ -3577,9 +3604,9 @@ html.dark .theme-glass .portal-context-menu__divider { background: rgba(124, 77,
 .theme-neon .portal-suggest__title { color: #ede9fe; }
 .theme-neon .portal-suggest__category { color: #5b4da6; }
 .theme-neon .portal-footer { color: #4c3a99; border-color: #1e1550; }
-.theme-neon .portal-right-rail :deep(.el-button) { background: #110d24; border: 1px solid #1e1550; color: #7c6ec4; border-radius: 2px !important; box-shadow: 0 0 4px rgba(139, 92, 246, 0.06); }
-.theme-neon .portal-right-rail :deep(.el-button:hover) { color: #06d6a0; border-color: #06d6a0; box-shadow: 0 0 12px rgba(6, 214, 160, 0.2); }
-.theme-neon .portal-bottom-dock { background: #110d24; border: 1px solid #1e1550; border-radius: 2px; box-shadow: 0 0 16px rgba(139, 92, 246, 0.08); }
+.theme-neon .portal-right-rail :deep(.el-button) { background: rgba(17, 13, 36, 0.92); backdrop-filter: blur(8px); border: none; color: #7c6ec4; border-radius: 50% !important; }
+.theme-neon .portal-right-rail :deep(.el-button:hover) { color: #06d6a0; box-shadow: 0 0 12px rgba(6, 214, 160, 0.2); }
+.theme-neon .portal-bottom-dock { background: rgba(17, 13, 36, 0.92); backdrop-filter: blur(12px); border: none; border-radius: 24px; box-shadow: 0 0 16px rgba(139, 92, 246, 0.08); }
 .theme-neon .portal-hamburger { color: #7c6ec4; }
 .theme-neon .portal-sidebar__close { color: #7c6ec4; }
 .theme-neon .portal-context-menu { background: #110d24; border: 1px solid #1e1550; border-radius: 2px; box-shadow: 0 0 16px rgba(139, 92, 246, 0.12); }
@@ -3603,7 +3630,7 @@ html.dark .theme-neon .portal-sidebar__logo-title-full { color: #ede9fe; }
 html.dark .theme-neon .portal-sidebar__link { color: #7c6ec4; border-left: 2px solid transparent; border-radius: 2px; }
 html.dark .theme-neon .portal-sidebar__link:hover { color: #ede9fe; background: #150f30; border-radius: 2px; }
 html.dark .theme-neon .portal-sidebar__link.is-active { color: #06d6a0; background: rgba(6, 214, 160, 0.08); border-radius: 2px; }
-html.dark .theme-neon .portal-sidebar__child-link { color: #5b4da6; border-radius: 2px; }
+html.dark .theme-neon .portal-sidebar__child-link { color: #7c6ec4; border-radius: 2px; }
 html.dark .theme-neon .portal-sidebar__child-link:hover { color: #ede9fe; background: #150f30; border-radius: 2px; }
 html.dark .theme-neon .portal-sidebar__child-link.is-active { color: #06d6a0; background: rgba(6, 214, 160, 0.08); border-radius: 2px; }
 html.dark .theme-neon .portal-section { background: #110d24; border-color: #1e1550; border-radius: 2px; }
@@ -3624,9 +3651,9 @@ html.dark .theme-neon .portal-suggest__item.is-active { background: #150f30; }
 html.dark .theme-neon .portal-suggest__title { color: #ede9fe; }
 html.dark .theme-neon .portal-suggest__category { color: #5b4da6; }
 html.dark .theme-neon .portal-footer { color: #4c3a99; border-color: #1e1550; }
-html.dark .theme-neon .portal-right-rail :deep(.el-button) { background: #110d24; border-color: #1e1550; color: #7c6ec4; border-radius: 2px !important; }
-html.dark .theme-neon .portal-right-rail :deep(.el-button:hover) { color: #06d6a0; border-color: #06d6a0; box-shadow: 0 0 12px rgba(6, 214, 160, 0.2); }
-html.dark .theme-neon .portal-bottom-dock { background: #110d24; border-color: #1e1550; box-shadow: 0 0 24px rgba(139, 92, 246, 0.1); border-radius: 2px; }
+html.dark .theme-neon .portal-right-rail :deep(.el-button) { background: rgba(17, 13, 36, 0.92); border: none; color: #7c6ec4; border-radius: 50% !important; }
+html.dark .theme-neon .portal-right-rail :deep(.el-button:hover) { color: #06d6a0; box-shadow: 0 0 12px rgba(6, 214, 160, 0.2); }
+html.dark .theme-neon .portal-bottom-dock { background: rgba(17, 13, 36, 0.92); border: none; border-radius: 24px; box-shadow: 0 0 24px rgba(139, 92, 246, 0.1); }
 html.dark .theme-neon .portal-hamburger { color: #7c6ec4; }
 html.dark .theme-neon .portal-sidebar__close { color: #7c6ec4; }
 html.dark .theme-neon .portal-context-menu { background: #110d24; border-color: #1e1550; box-shadow: 0 0 20px rgba(139, 92, 246, 0.15); border-radius: 2px; }
@@ -3657,14 +3684,14 @@ html.dark .theme-neon .portal-context-menu__divider { background: #1e1550; }
 .theme-paper .portal-sidebar__link-icon { font-size: 15px; opacity: 0.6; }
 .theme-paper .portal-sidebar__link.is-active .portal-sidebar__link-icon { opacity: 1; }
 .theme-paper .portal-sidebar__link-arrow { color: #aa9a73; }
-.theme-paper .portal-sidebar__child-link { color: #aa9a73; padding: 8px 20px 8px 48px; margin: 0 8px; border-radius: 8px; }
+.theme-paper .portal-sidebar__child-link { color: #7a6b52; padding: 8px 20px 8px 48px; margin: 0 8px; border-radius: 8px; }
 .theme-paper .portal-sidebar__child-link:hover { color: #f5f0e8; background: rgba(196, 144, 60, 0.1); border-radius: 8px; }
 .theme-paper .portal-sidebar__child-link.is-active { color: #d4a04c; background: rgba(196, 144, 60, 0.15); border-radius: 8px; }
 
 .theme-paper .portal-main { background: #f5f0e8; }
 .theme-paper .portal-searchbar { background: #faf7f2; border-color: #e0d5c5; min-height: 72px; padding: 14px 28px; }
 .theme-paper .portal-searchbar__inner { width: min(680px, 100%); }
-.theme-paper .portal-view-switch { --view-switch-accent: #c4903c; --view-switch-accent-strong: #8b6914; --view-switch-shadow: rgba(196, 144, 60, 0.24); }
+.theme-paper .portal-view-toggle { --view-toggle-accent: #c4903c; --view-toggle-accent-strong: #8b6914; --view-toggle-shadow: rgba(196, 144, 60, 0.24); }
 .theme-paper .portal-search-shell {
   background: #fffdf9; border: 2px solid #c4903c; border-radius: 20px; height: 46px;
   box-shadow: 0 2px 8px rgba(74, 64, 48, 0.06); transition: box-shadow 0.25s, border-color 0.25s;
@@ -3722,9 +3749,9 @@ html.dark .theme-neon .portal-context-menu__divider { background: #1e1550; }
 .theme-paper .portal-suggest__title { color: #3a3220; }
 .theme-paper .portal-suggest__category { color: #aa9a73; }
 .theme-paper .portal-footer { color: #8b7e66; border-color: #e0d5c5; }
-.theme-paper .portal-right-rail :deep(.el-button) { background: #fffdf9; border: 2px solid #e0d5c5; color: #8b6914; border-radius: 14px !important; }
-.theme-paper .portal-right-rail :deep(.el-button:hover) { color: #c4903c; border-color: #c4903c; box-shadow: 0 4px 12px rgba(74, 64, 48, 0.1); }
-.theme-paper .portal-bottom-dock { background: #fffdf9; border: 2px solid #e0d5c5; border-radius: 14px; }
+.theme-paper .portal-right-rail :deep(.el-button) { background: rgba(255, 253, 249, 0.92); backdrop-filter: blur(8px); border: none; color: #8b6914; border-radius: 50% !important; }
+.theme-paper .portal-right-rail :deep(.el-button:hover) { color: #c4903c; box-shadow: 0 4px 12px rgba(74, 64, 48, 0.1); }
+.theme-paper .portal-bottom-dock { background: rgba(255, 253, 249, 0.92); backdrop-filter: blur(12px); border: none; border-radius: 24px; }
 .theme-paper .portal-hamburger { color: #8b6914; }
 .theme-paper .portal-sidebar__close { color: #c4b596; }
 .theme-paper .portal-context-menu { background: #fffdf9; border: 2px solid #e0d5c5; border-radius: 14px; }
@@ -3748,7 +3775,7 @@ html.dark .theme-paper .portal-sidebar__link { color: #8b7e66; border-radius: 10
 html.dark .theme-paper .portal-sidebar__link:hover { color: #e8dcc8; background: #242018; border-radius: 10px; }
 html.dark .theme-paper .portal-sidebar__link.is-active { color: #d4a04c; background: rgba(196, 144, 60, 0.12); border-radius: 10px; }
 html.dark .theme-paper .portal-sidebar__link.is-active::before { background: #d4a04c; }
-html.dark .theme-paper .portal-sidebar__child-link { color: #6b5e47; border-radius: 8px; }
+html.dark .theme-paper .portal-sidebar__child-link { color: #aa9a73; border-radius: 8px; }
 html.dark .theme-paper .portal-sidebar__child-link:hover { color: #e8dcc8; background: #242018; border-radius: 8px; }
 html.dark .theme-paper .portal-sidebar__child-link.is-active { color: #d4a04c; background: rgba(196, 144, 60, 0.12); border-radius: 8px; }
 html.dark .theme-paper .portal-section { background: #242018; border: 2px solid #3a3220; border-radius: 14px; box-shadow: 0 3px 16px rgba(0,0,0,0.2); }
@@ -3756,7 +3783,7 @@ html.dark .theme-paper .portal-section__head { border-bottom: 2px solid #3a3220;
 html.dark .theme-paper .portal-subsection__head { border-bottom: 1px dashed #3a3220; }
 html.dark .theme-paper .portal-section__title h2 { color: #e8dcc8; font-family: Georgia, 'Times New Roman', 'Noto Serif SC', serif; }
 html.dark .theme-paper .portal-subsection__title span { color: #e8dcc8; font-family: Georgia, 'Times New Roman', 'Noto Serif SC', serif; }
-html.dark .theme-paper .portal-subsection__title { border-left-color: #c4903c; }
+html.dark .theme-paper .portal-subsection__title { border-left-color: #c4903c; border-left-width: 4px; padding-left: 14px; }
 html.dark .theme-paper .portal-card { background: #2a2620; border: 2px solid #3a3220; border-radius: 14px; }
 html.dark .theme-paper .portal-card:hover { background: #302c24; border-color: #8b6914; box-shadow: 0 6px 20px rgba(0,0,0,0.2), 0 2px 4px rgba(196, 144, 60, 0.1); }
 html.dark .theme-paper .portal-card__icon { background: #3a3220; color: #c4903c; width: 40px; height: 40px; border-radius: 10px; }
@@ -3771,9 +3798,9 @@ html.dark .theme-paper .portal-suggest__item.is-active { background: #2a2620; }
 html.dark .theme-paper .portal-suggest__title { color: #e8dcc8; }
 html.dark .theme-paper .portal-suggest__category { color: #6b5e47; }
 html.dark .theme-paper .portal-footer { color: #5a5040; border-color: #3a3220; }
-html.dark .theme-paper .portal-right-rail :deep(.el-button) { background: #242018; border: 2px solid #3a3220; color: #8b7e66; border-radius: 14px !important; }
-html.dark .theme-paper .portal-right-rail :deep(.el-button:hover) { color: #d4a04c; border-color: #8b6914; }
-html.dark .theme-paper .portal-bottom-dock { background: #242018; border: 2px solid #3a3220; box-shadow: 0 4px 20px rgba(0,0,0,0.4); border-radius: 14px; }
+html.dark .theme-paper .portal-right-rail :deep(.el-button) { background: rgba(36, 32, 24, 0.92); backdrop-filter: blur(8px); border: none; color: #8b7e66; border-radius: 50% !important; }
+html.dark .theme-paper .portal-right-rail :deep(.el-button:hover) { color: #d4a04c; }
+html.dark .theme-paper .portal-bottom-dock { background: rgba(36, 32, 24, 0.92); backdrop-filter: blur(12px); border: none; border-radius: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
 html.dark .theme-paper .portal-hamburger { color: #8b7e66; }
 html.dark .theme-paper .portal-sidebar__close { color: #8b7e66; }
 html.dark .theme-paper .portal-context-menu { background: #242018; border: 2px solid #3a3220; box-shadow: 0 6px 24px rgba(0,0,0,0.5); border-radius: 14px; }
