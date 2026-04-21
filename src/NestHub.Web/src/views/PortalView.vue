@@ -2410,7 +2410,7 @@ onBeforeUnmount(() => {
 .portal-bottom-dock {
   position: fixed;
   left: calc(200px + (100vw - 200px) / 2);
-  bottom: 44px;
+  bottom: 28px;
   transform: translateX(-50%);
   background: rgba(255,255,255,0.92);
   backdrop-filter: blur(12px);
