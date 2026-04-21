@@ -1849,10 +1849,10 @@ onBeforeUnmount(() => {
   top: 0;
   z-index: 10;
   min-height: 72px;
-  background: rgba(255, 255, 255, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(232, 234, 238, 0.6);
+  background: #fff;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom: 1px solid #e8eaed;
   display: flex;
   align-items: center;
   justify-content: center;
