@@ -1047,17 +1047,19 @@ onBeforeUnmount(() => {
 
     <aside class="portal-sidebar" :class="{ 'is-mobile-open': mobileSidebarOpen }">
       <div class="portal-sidebar__logo" :class="{ 'is-full': portal?.site.logoMode === 'full' }">
-        <template v-if="portal?.site.logoMode === 'full'">
-          <img v-if="portal?.site.logoUrl" :src="portal.site.logoUrl" :alt="portal?.site.title" class="portal-sidebar__logo-img-full" />
-          <div v-else class="portal-sidebar__logo-full-fallback">
-            <span class="portal-sidebar__logo-letter-full">{{ portal?.site.logoText || 'N' }}</span>
-            <span class="portal-sidebar__logo-title-full">{{ portal?.site.title || 'NestHub' }}</span>
-          </div>
-        </template>
-        <template v-else>
-          <img v-if="portal?.site.logoUrl" :src="portal.site.logoUrl" :alt="portal?.site.title" class="portal-sidebar__logo-img" />
-          <span v-else class="portal-sidebar__logo-letter">{{ portal?.site.logoText || 'N' }}</span>
-          <span class="portal-sidebar__logo-title">{{ portal?.site.title || 'NestHub' }}</span>
+        <template v-if="portal">
+          <template v-if="portal.site.logoMode === 'full'">
+            <img v-if="portal.site.logoUrl" :src="portal.site.logoUrl" :alt="portal.site.title" class="portal-sidebar__logo-img-full" />
+            <div v-else class="portal-sidebar__logo-full-fallback">
+              <span class="portal-sidebar__logo-letter-full">{{ portal.site.logoText || 'N' }}</span>
+              <span class="portal-sidebar__logo-title-full">{{ portal.site.title || 'NestHub' }}</span>
+            </div>
+          </template>
+          <template v-else>
+            <img v-if="portal.site.logoUrl" :src="portal.site.logoUrl" :alt="portal.site.title" class="portal-sidebar__logo-img" />
+            <span v-else class="portal-sidebar__logo-letter">{{ portal.site.logoText || 'N' }}</span>
+            <span class="portal-sidebar__logo-title">{{ portal.site.title || 'NestHub' }}</span>
+          </template>
         </template>
         <button
           class="portal-sidebar__close"
@@ -1548,14 +1550,16 @@ onBeforeUnmount(() => {
 .portal-sidebar {
   min-height: 100vh;
   max-height: 100vh;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   position: sticky;
   top: 0;
   align-self: start;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #e8eaed;
+  border-right: 1px solid rgba(232, 234, 238, 0.6);
 }
 
 .portal-sidebar::-webkit-scrollbar {
@@ -1606,6 +1610,7 @@ onBeforeUnmount(() => {
   object-fit: contain;
   border-radius: 8px;
   flex-shrink: 0;
+  animation: logo-fadein 0.3s ease;
 }
 
 .portal-sidebar__logo.is-full {
@@ -1621,6 +1626,12 @@ onBeforeUnmount(() => {
   max-width: 100%;
   object-fit: contain;
   border-radius: 8px;
+  animation: logo-fadein 0.3s ease;
+}
+
+@keyframes logo-fadein {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .portal-sidebar__logo-full-fallback {
@@ -1687,22 +1698,26 @@ onBeforeUnmount(() => {
 
 .portal-sidebar__link:hover {
   color: #333;
-  background: #f4f5f7;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
 }
 
 .portal-sidebar__link.is-active {
-  color: #667eea;
-  background: #f0edff;
+  color: #5b6abf;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  font-weight: 500;
 }
 .portal-sidebar__link.is-active::before {
   content: '';
   position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: #667eea;
+  height: 16px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #667eea, #764ba2);
 }
 
 .portal-sidebar__link-icon {
@@ -1715,7 +1730,7 @@ onBeforeUnmount(() => {
 
 .portal-sidebar__link.is-active .portal-sidebar__link-icon {
   opacity: 1;
-  color: #667eea;
+  color: #5b6abf;
 }
 
 .portal-sidebar__link-text {
@@ -1750,11 +1765,14 @@ onBeforeUnmount(() => {
 
 .portal-sidebar__child-link:hover {
   color: #333;
-  background: #f4f5f7;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
 }
 
 .portal-sidebar__child-link.is-active {
-  color: #667eea;
+  color: #5b6abf;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
 }
 
 .portal-sidebar__child-icon {
@@ -1817,7 +1835,7 @@ onBeforeUnmount(() => {
 /* ── main area ── */
 .portal-main {
   min-width: 0;
-  background: #f4f5f7;
+  background: linear-gradient(135deg, #f2f4ff 0%, #f4f0f8 30%, #f8f2f6 60%, #f2f5fa 100%);
   height: 100vh;
   overflow-y: auto;
   overflow-x: hidden;
@@ -1831,8 +1849,10 @@ onBeforeUnmount(() => {
   top: 0;
   z-index: 10;
   min-height: 72px;
-  background: #fff;
-  border-bottom: 1px solid #e8eaed;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(232, 234, 238, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1858,9 +1878,11 @@ onBeforeUnmount(() => {
   --view-toggle-accent: #667eea;
   --view-toggle-accent-strong: #764ba2;
   --view-toggle-shadow: rgba(102, 126, 234, 0.2);
-  border: 0;
-  background: linear-gradient(135deg, var(--view-toggle-accent) 0%, var(--view-toggle-accent-strong) 100%);
-  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--view-toggle-accent);
   height: 34px;
   padding: 0 14px;
   border-radius: 999px;
@@ -1871,14 +1893,15 @@ onBeforeUnmount(() => {
   font-weight: 600;
   letter-spacing: 0.01em;
   cursor: pointer;
-  box-shadow: 0 4px 12px var(--view-toggle-shadow);
-  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
   white-space: nowrap;
 }
 
 .portal-view-toggle:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px var(--view-toggle-shadow);
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.12);
 }
 
 .portal-view-toggle i:first-child {
@@ -2203,7 +2226,7 @@ onBeforeUnmount(() => {
   background: #fff;
   border: 1px solid #dcdfe3;
   border-radius: 8px;
-  padding: 14px 16px;
+  padding: 10px 14px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2326,7 +2349,7 @@ onBeforeUnmount(() => {
 /* ── footer ── */
 .portal-footer {
   text-align: center;
-  padding: 10px 24px;
+  padding: 4px 24px;
   color: #888;
   font-size: 12px;
   position: sticky;
@@ -2763,16 +2786,18 @@ html.dark .portal-sidebar__link {
 
 html.dark .portal-sidebar__link:hover {
   color: #d0d4de;
-  background: #252830;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
 }
 
 html.dark .portal-sidebar__link.is-active {
   color: #8b9cf7;
   background: rgba(102, 126, 234, 0.12);
+  border-radius: 8px;
 }
 
 html.dark .portal-sidebar__link.is-active::before {
-  background: #8b9cf7;
+  background: linear-gradient(180deg, #8b9cf7, #a78bfa);
 }
 
 html.dark .portal-sidebar__child-link {
@@ -2781,12 +2806,14 @@ html.dark .portal-sidebar__child-link {
 
 html.dark .portal-sidebar__child-link:hover {
   color: #d0d4de;
-  background: #252830;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
 }
 
 html.dark .portal-sidebar__child-link.is-active {
   color: #8b9cf7;
-  background: rgba(102, 126, 234, 0.12);
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 8px;
 }
 
 html.dark .portal-sidebar__drag,
@@ -2916,7 +2943,9 @@ html.dark .portal-searchbar__input::placeholder {
 }
 
 html.dark .portal-view-toggle {
-  --view-toggle-shadow: rgba(102, 126, 234, 0.3);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #8b9cf7;
 }
 
 html.dark .portal-section__head h2 {
@@ -2945,6 +2974,7 @@ html.dark .portal-link-card__desc {
 }
 
 html.dark .portal-footer {
+  background: #12131a;
   color: #8a92a4;
   border-color: #2e3040;
 }
