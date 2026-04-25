@@ -34,7 +34,7 @@ import type {
   SaveSiteSettingsRequest,
 } from '@/types/models'
 
-type SearchEngine = 'baidu' | 'google' | 'bing' | 'deepseek' | 'toutiao' | 'sogou' | 'so360' | 'zhihu' | 'github'
+type SearchEngine = 'baidu' | 'google' | 'bing' | 'toutiao' | 'sogou' | 'so360' | 'zhihu' | 'github'
 
 const route = useRoute()
 const router = useRouter()
@@ -157,7 +157,6 @@ const sortables = ref<any[]>([])
 const searchEngines = [
   { label: '百度', value: 'baidu' as SearchEngine },
   { label: 'Bing', value: 'bing' as SearchEngine },
-  { label: 'DeepSeek', value: 'deepseek' as SearchEngine },
   { label: 'Google', value: 'google' as SearchEngine },
   { label: '头条', value: 'toutiao' as SearchEngine },
   { label: '搜狗', value: 'sogou' as SearchEngine },
@@ -165,6 +164,7 @@ const searchEngines = [
   { label: '知乎', value: 'zhihu' as SearchEngine },
   { label: 'GitHub', value: 'github' as SearchEngine },
 ]
+const searchEngineValues = searchEngines.map((item) => item.value)
 
 const currentSearchEngineLabel = computed(() => {
   const current = searchEngines.find((item) => item.value === searchEngine.value)
@@ -263,11 +263,16 @@ async function loadPortal(forceRefresh = false) {
 
 function initSearchEngine() {
   const saved = portal.value?.site.defaultSearchEngine as SearchEngine | undefined
-  if (saved && ['baidu', 'google', 'bing', 'deepseek', 'toutiao', 'sogou', 'so360', 'zhihu', 'github'].includes(saved)) {
+  if (saved && searchEngineValues.includes(saved)) {
     searchEngine.value = saved
   } else {
     const local = localStorage.getItem('nesthub-search-engine') as SearchEngine | null
-    if (local) searchEngine.value = local
+    if (local && searchEngineValues.includes(local)) {
+      searchEngine.value = local
+    } else {
+      searchEngine.value = 'google'
+      localStorage.removeItem('nesthub-search-engine')
+    }
   }
 }
 
@@ -333,9 +338,6 @@ function openSearchEngine(keyword: string) {
       break
     case 'bing':
       window.open(`https://cn.bing.com/search?q=${encodeURIComponent(keyword)}`, '_blank', 'noopener,noreferrer')
-      break
-    case 'deepseek':
-      window.open(`https://www.deepseek.com/search?q=${encodeURIComponent(keyword)}`, '_blank', 'noopener,noreferrer')
       break
     case 'toutiao':
       window.open(`https://so.toutiao.com/search?keyword=${encodeURIComponent(keyword)}`, '_blank', 'noopener,noreferrer')
@@ -2053,12 +2055,12 @@ onBeforeUnmount(() => {
 }
 
 .portal-engine-menu__item:hover {
-  color: #667eea;
-  background: #f5f3ff;
+  color: #ff4d55;
+  background: #fff1f2;
 }
 
 .portal-engine-menu__item.is-active {
-  color: #5a4fcf;
+  color: #ff4d55;
   font-weight: 600;
 }
 
