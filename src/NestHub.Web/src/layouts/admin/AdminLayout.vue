@@ -94,6 +94,7 @@ function handleUserCommand(command: string) {
 function logout() {
   authStore.clear()
   localStorage.removeItem('nesthub-portal-cache')
+  localStorage.removeItem('nesthub.public-view')
   router.push('/login')
 }
 </script>
@@ -103,7 +104,9 @@ function logout() {
     <div v-if="sidebarOpen" class="admin-overlay" @click="sidebarOpen = false"></div>
     <aside class="admin-sidebar" :class="{ 'is-open': sidebarOpen }">
       <div class="admin-brand">
-        <div class="admin-brand__icon">N</div>
+        <div class="admin-brand__icon">
+          <i class="fa fa-compass"></i>
+        </div>
         <h1>后台管理</h1>
       </div>
 
@@ -212,16 +215,19 @@ function logout() {
 .admin-brand__icon {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #5b9aff 0%, #3d7be0 100%);
-  box-shadow: 0 4px 12px rgba(59, 125, 233, 0.3);
+  border-radius: 9px;
+  background: linear-gradient(135deg, #ff6269 0%, #ef3f4b 100%);
+  box-shadow: 0 4px 14px rgba(239, 63, 75, 0.28);
   color: #fff;
-  font-size: 18px;
-  font-weight: 800;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+.admin-brand__icon i {
+  font-size: 18px;
+  line-height: 1;
 }
 
 .admin-brand h1 {

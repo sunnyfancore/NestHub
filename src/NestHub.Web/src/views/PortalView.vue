@@ -34,7 +34,7 @@ import type {
   SaveSiteSettingsRequest,
 } from '@/types/models'
 
-type SearchEngine = 'baidu' | 'google' | 'bing' | 'sogou' | 'so360' | 'zhihu' | 'github'
+type SearchEngine = 'baidu' | 'google' | 'bing' | 'deepseek' | 'toutiao' | 'sogou' | 'so360' | 'zhihu' | 'github'
 
 const route = useRoute()
 const router = useRouter()
@@ -156,8 +156,10 @@ const sortables = ref<any[]>([])
 
 const searchEngines = [
   { label: '百度', value: 'baidu' as SearchEngine },
-  { label: 'Google', value: 'google' as SearchEngine },
   { label: 'Bing', value: 'bing' as SearchEngine },
+  { label: 'DeepSeek', value: 'deepseek' as SearchEngine },
+  { label: 'Google', value: 'google' as SearchEngine },
+  { label: '头条', value: 'toutiao' as SearchEngine },
   { label: '搜狗', value: 'sogou' as SearchEngine },
   { label: '360', value: 'so360' as SearchEngine },
   { label: '知乎', value: 'zhihu' as SearchEngine },
@@ -168,7 +170,6 @@ const currentSearchEngineLabel = computed(() => {
   const current = searchEngines.find((item) => item.value === searchEngine.value)
   return current?.label ?? 'Google'
 })
-
 const categoryParents = computed(() =>
   (portal.value?.editor?.categoryOptions || []).filter((item) => item.level === 1),
 )
@@ -225,9 +226,12 @@ async function loadPortal(forceRefresh = false) {
         try {
           const { data, ts, publicView: cachedPublicView } = JSON.parse(raw)
           if (Date.now() - ts <= CACHE_TTL) {
-            const authChanged = authStore.isAuthenticated && !data.canEdit
+            const cachedIsPublicView = !!cachedPublicView
+            const cachedIsPrivateView = !cachedIsPublicView
+            const authChanged = authStore.isAuthenticated && cachedIsPrivateView && !data.canEdit
+            const unauthenticatedPrivateCache = !authStore.isAuthenticated && cachedIsPrivateView && (data.isAuthenticated || data.canEdit)
             const viewChanged = isPublicView.value !== !!cachedPublicView
-            if (!authChanged && !viewChanged) {
+            if (!authChanged && !unauthenticatedPrivateCache && !viewChanged) {
               applyPortalData(data)
               await nextTick()
               initializeSortables()
@@ -259,7 +263,7 @@ async function loadPortal(forceRefresh = false) {
 
 function initSearchEngine() {
   const saved = portal.value?.site.defaultSearchEngine as SearchEngine | undefined
-  if (saved && ['baidu', 'google', 'bing', 'sogou', 'so360', 'zhihu', 'github'].includes(saved)) {
+  if (saved && ['baidu', 'google', 'bing', 'deepseek', 'toutiao', 'sogou', 'so360', 'zhihu', 'github'].includes(saved)) {
     searchEngine.value = saved
   } else {
     const local = localStorage.getItem('nesthub-search-engine') as SearchEngine | null
@@ -329,6 +333,12 @@ function openSearchEngine(keyword: string) {
       break
     case 'bing':
       window.open(`https://cn.bing.com/search?q=${encodeURIComponent(keyword)}`, '_blank', 'noopener,noreferrer')
+      break
+    case 'deepseek':
+      window.open(`https://www.deepseek.com/search?q=${encodeURIComponent(keyword)}`, '_blank', 'noopener,noreferrer')
+      break
+    case 'toutiao':
+      window.open(`https://so.toutiao.com/search?keyword=${encodeURIComponent(keyword)}`, '_blank', 'noopener,noreferrer')
       break
     case 'sogou':
       window.open(`https://www.sogou.com/web?query=${encodeURIComponent(keyword)}`, '_blank', 'noopener,noreferrer')
@@ -592,28 +602,50 @@ function childAnchorId(categoryId: string) {
   return `child-${categoryId}`
 }
 
-function resolveIcon(link: PortalLink) {
+function iconCandidates(link: PortalLink) {
+  const candidates: string[] = []
   if (link.iconUrl) {
-    return link.iconUrl
+    candidates.push(link.iconUrl)
   }
-
   try {
     const u = new URL(link.url)
     const host = u.port ? `${u.hostname}:${u.port}` : u.hostname
+    const domain = u.hostname
     const base64 = btoa(host)
-    return `https://favicon.png.pub/v1/${base64}`
+    const origin = `${u.protocol}//${u.host}`
+    candidates.push(
+      `https://t0.gstatic.cn/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&size=32&url=${encodeURIComponent(origin)}`,
+      `https://favicon.im/${encodeURIComponent(domain)}?larger=true`,
+      `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+      `https://favicon.png.pub/v1/${base64}`,
+      `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`,
+    )
   } catch {
-    return ''
+    // ignore invalid urls and fall through to the fallback letter
   }
+  return candidates
 }
 
-function handleIconError(event: Event) {
+function resolveIcon(link: PortalLink) {
+  return iconCandidates(link)[0] || ''
+}
+
+function handleIconError(event: Event, link: PortalLink) {
   const img = event.target as HTMLImageElement
   if (!img) return
+  const candidates = iconCandidates(link)
+  const currentIndex = Number(img.dataset.iconIndex || '0')
+  const nextIcon = candidates[currentIndex + 1]
+  if (nextIcon) {
+    img.dataset.iconIndex = String(currentIndex + 1)
+    img.src = nextIcon
+    return
+  }
+
   const span = img.parentElement
   if (!span) return
-  const link = span.closest('.portal-card') as HTMLElement | null
-  const title = link?.querySelector('.portal-card__copy strong')?.textContent?.trim() || '?'
+  const cardEl = span.closest('.portal-card') as HTMLElement | null
+  const title = cardEl?.querySelector('.portal-card__copy strong')?.textContent?.trim() || '?'
   span.innerHTML = `<span class="portal-card__fallback">${title.charAt(0).toUpperCase()}</span>`
 }
 
@@ -677,6 +709,11 @@ function getScrollContainer() {
   return mainScrollRef.value
 }
 
+function getAnchorOffset() {
+  const searchbar = mainScrollRef.value?.querySelector<HTMLElement>('.portal-searchbar')
+  return (searchbar?.offsetHeight || 80) - 2
+}
+
 function scrollToTop() {
   const container = getScrollContainer()
   if (container) {
@@ -691,14 +728,16 @@ function scrollToSection(categoryId: string) {
   const el = document.getElementById(anchorId(categoryId)) || document.getElementById(childAnchorId(categoryId))
   if (!el) return
 
+  activeSectionId.value = categoryId
   const container = getScrollContainer()
+  const offset = getAnchorOffset()
   if (container) {
-    const y = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 80
+    const y = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - offset
     container.scrollTo({ top: y, behavior: 'smooth' })
     return
   }
 
-  const y = el.getBoundingClientRect().top + window.scrollY - 80
+  const y = el.getBoundingClientRect().top + window.scrollY - offset
   window.scrollTo({ top: y, behavior: 'smooth' })
 }
 
@@ -948,7 +987,7 @@ function updateActiveSection() {
 
   const topThreshold = 4
   const bottomThreshold = 4
-  const activationOffset = 96
+  const activationOffset = getAnchorOffset() + 8
   const { scrollTop, clientHeight, scrollHeight } = container
 
   if (scrollTop <= topThreshold) {
@@ -1005,6 +1044,10 @@ function setupSectionObserver() {
 
 onMounted(async () => {
   await ensureProfile()
+  if (!authStore.isAuthenticated && isPublicView.value) {
+    isPublicView.value = false
+    localStorage.removeItem(VIEW_KEY)
+  }
   await loadPortal()
   setupSectionObserver()
   window.addEventListener('click', closeContextMenu)
@@ -1215,18 +1258,18 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-if="authStore.isAuthenticated" class="portal-searchbar__ops">
+        <div v-if="authStore.isAuthenticated" class="portal-viewbar">
           <button
             class="portal-view-toggle"
             type="button"
             :title="isPublicView ? '切换到我的视图' : '切换到公共视图'"
             @click="setPublicView(!isPublicView)"
           >
-            <i :class="isPublicView ? 'fa fa-globe' : 'fa fa-user-o'"></i>
-            <span>{{ isPublicView ? '公共' : '我的' }}</span>
-            <i class="fa fa-exchange portal-view-toggle__switch"></i>
+            <span :class="{ 'is-active': !isPublicView }">我的视图</span>
+            <span :class="{ 'is-active': isPublicView }">公共视图</span>
           </button>
         </div>
+
       </header>
 
       <div ref="rootSectionContainerRef" class="portal-content">
@@ -1278,7 +1321,7 @@ onBeforeUnmount(() => {
               <button class="portal-card__main" type="button">
                 <span class="portal-card__icon">
                   <i v-if="link.fontIcon" :class="['fa', link.fontIcon]"></i>
-                  <img v-else :src="resolveIcon(link)" :alt="link.title" @error="handleIconError" />
+                  <img v-else :src="resolveIcon(link)" :alt="link.title" data-icon-index="0" @error="handleIconError($event, link)" />
                 </span>
 
                 <div class="portal-card__copy">
@@ -1340,7 +1383,7 @@ onBeforeUnmount(() => {
                   <button class="portal-card__main" type="button">
                     <span class="portal-card__icon">
                       <i v-if="link.fontIcon" :class="['fa', link.fontIcon]"></i>
-                      <img v-else :src="resolveIcon(link)" :alt="link.title" @error="handleIconError" />
+                      <img v-else :src="resolveIcon(link)" :alt="link.title" data-icon-index="0" @error="handleIconError($event, link)" />
                     </span>
 
                     <div class="portal-card__copy">
@@ -2146,7 +2189,7 @@ onBeforeUnmount(() => {
   border-radius: 10px;
   padding: 22px 24px 24px;
   border: 1px solid #e8eaed;
-  scroll-margin-top: 80px;
+  scroll-margin-top: 120px;
 }
 
 .portal-section__head,
@@ -2339,7 +2382,7 @@ onBeforeUnmount(() => {
 .portal-subsection {
   display: grid;
   gap: 12px;
-  scroll-margin-top: 80px;
+  scroll-margin-top: 120px;
 }
 
 /* ── footer ── */
@@ -2578,8 +2621,636 @@ onBeforeUnmount(() => {
   display: none;
 }
 
+/* discovery-style default theme */
+.theme-default2 {
+  --portal-default2-content-top: 140px;
+  --portal-default2-side-gutter: clamp(28px, 10vw, 230px);
+  --portal-default2-nav-width: 192px;
+  --portal-default2-content-gap: 14px;
+  --portal-default2-content-width: min(1480px, calc(100vw - var(--portal-default2-side-gutter) * 2 - var(--portal-default2-nav-width) - var(--portal-default2-content-gap)));
+  grid-template-columns: var(--portal-default2-side-gutter) var(--portal-default2-nav-width) var(--portal-default2-content-gap) minmax(0, 1fr);
+  background: #eef0f4;
+}
+
+.theme-default2 .portal-sidebar {
+  min-height: calc(100vh - var(--portal-default2-content-top));
+  max-height: calc(100vh - var(--portal-default2-content-top));
+  grid-column: 2;
+  width: var(--portal-default2-nav-width);
+  margin: var(--portal-default2-content-top) 0 0;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 10px 28px rgba(30, 41, 59, 0.04);
+}
+
+.theme-default2 .portal-sidebar__logo {
+  position: fixed;
+  top: 22px;
+  left: var(--portal-default2-side-gutter);
+  z-index: 25;
+  width: var(--portal-default2-nav-width);
+  min-height: 56px;
+  padding: 8px 12px;
+  border-bottom: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.theme-default2 .portal-sidebar__logo-letter,
+.theme-default2 .portal-sidebar__logo-img {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+}
+
+.theme-default2 .portal-sidebar__logo-letter,
+.theme-default2 .portal-sidebar__logo-letter-full {
+  background: linear-gradient(135deg, #ff6269, #ef3f4b);
+  color: #fff;
+  font-size: 0;
+  position: relative;
+}
+
+.theme-default2 .portal-sidebar__logo-letter::before,
+.theme-default2 .portal-sidebar__logo-letter-full::before {
+  content: '\f14e';
+  font-family: FontAwesome;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.theme-default2 .portal-sidebar__logo-title {
+  color: #4f5661;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.theme-default2 .portal-sidebar__nav {
+  padding: 14px 10px 18px;
+}
+
+.theme-default2 .portal-sidebar__group {
+  margin-bottom: 4px;
+}
+
+.theme-default2 .portal-sidebar__link,
+.theme-default2 .portal-sidebar__child-link {
+  min-height: 42px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  color: #646b76;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.theme-default2 .portal-sidebar__child-link {
+  min-height: 34px;
+  padding-left: 38px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.theme-default2 .portal-sidebar__link:hover,
+.theme-default2 .portal-sidebar__child-link:hover {
+  color: #20242a;
+  background: #fff;
+}
+
+.theme-default2 .portal-sidebar__link.is-active,
+.theme-default2 .portal-sidebar__child-link.is-active {
+  color: #ff4d55;
+  background: #fff1f2;
+}
+
+.theme-default2 .portal-sidebar__link.is-active .portal-sidebar__link-icon,
+.theme-default2 .portal-sidebar__child-link.is-active .portal-sidebar__child-icon {
+  color: #ff4d55;
+}
+
+.theme-default2 .portal-sidebar__link.is-active::before {
+  display: none;
+}
+
+.theme-default2 .portal-sidebar__link-icon,
+.theme-default2 .portal-sidebar__child-icon {
+  color: #4f5661;
+  opacity: 0.9;
+}
+
+.theme-default2 .portal-main {
+  grid-column: 4;
+  background: #eef0f4;
+}
+
+.theme-default2 .portal-searchbar {
+  min-height: 118px;
+  padding: 24px 0 60px;
+  background: #eef0f4;
+  border-bottom: 0;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 12px;
+}
+
+.theme-default2 .portal-searchbar__inner {
+  width: var(--portal-default2-content-width);
+  max-width: var(--portal-default2-content-width);
+}
+
+.theme-default2 .portal-search-shell {
+  width: min(1040px, 100%);
+  margin: 0 auto;
+  height: 56px;
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 18px 38px rgba(30, 41, 59, 0.08);
+}
+
+.theme-default2 .portal-search-shell:focus-within {
+  box-shadow: 0 20px 42px rgba(239, 68, 68, 0.14);
+}
+
+.theme-default2 .portal-search-engine-btn,
+.theme-default2 .portal-search-submit {
+  color: #ff4d55;
+}
+
+.theme-default2 .portal-search-engine-btn {
+  min-width: 140px;
+  justify-content: center;
+  padding: 0 24px;
+  border-right: 1px solid #eef0f4;
+  border-radius: 12px 0 0 12px;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.theme-default2 .portal-search-field {
+  color: #333941;
+  padding: 0 22px;
+  font-size: 16px;
+}
+
+.theme-default2 .portal-search-submit {
+  width: 58px;
+  height: 56px;
+  border-radius: 0 12px 12px 0;
+  font-size: 22px;
+}
+
+.theme-default2 .portal-view-toggle {
+  height: 34px;
+  padding: 0 4px;
+  gap: 2px;
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
+  color: #9aa0aa;
+  box-shadow: 0 12px 28px rgba(30, 41, 59, 0.07);
+}
+
+.theme-default2 .portal-viewbar {
+  display: flex;
+  justify-content: flex-end;
+  position: absolute;
+  left: 0;
+  bottom: 6px;
+  z-index: 12;
+  width: var(--portal-default2-content-width);
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.theme-default2 .portal-view-toggle span {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 7px;
+}
+
+.theme-default2 .portal-view-toggle span.is-active {
+  background: #ff4d55;
+  color: #fff;
+}
+
+.theme-default2 .portal-content {
+  width: var(--portal-default2-content-width);
+  max-width: var(--portal-default2-content-width);
+  margin: 0;
+  padding: 0 0 90px;
+  gap: 18px;
+}
+
+.theme-default2 .portal-section {
+  padding: 14px 16px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: none;
+}
+
+.theme-default2 .portal-section__head {
+  min-height: 24px;
+  margin: -2px -2px 14px;
+  padding: 4px 2px 12px;
+  border-bottom: 1px solid #eef0f4;
+}
+
+.theme-default2 .portal-subsection__head {
+  min-height: 22px;
+  margin: 2px 0 10px;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.theme-default2 .portal-section__title h2 {
+  color: #555b65;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.theme-default2 .portal-subsection__title {
+  padding-left: 10px;
+  border-left: 3px solid #ff4d55;
+}
+
+.theme-default2 .portal-subsection__title span {
+  color: #7a8392;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.theme-default2 .portal-section__title h2::before {
+  content: '\f00a';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  border-radius: 7px;
+  background: #fff1f2;
+  color: #ff4d55;
+  font-family: FontAwesome;
+  font-size: 12px;
+}
+
+.theme-default2 .portal-subsection__title span::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: #ff4d55;
+  box-shadow: 0 0 0 4px rgba(255, 77, 85, 0.12);
+  color: #ff4d55;
+}
+
+.theme-default2 .portal-section__actions {
+  gap: 6px;
+  opacity: 1;
+}
+
+.theme-default2 .portal-section__actions :deep(.el-button) {
+  width: 30px;
+  height: 30px;
+  padding: 0 !important;
+  border-radius: 8px !important;
+  background: #f4f6f8;
+  color: #7a8392;
+  transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.theme-default2 .portal-section__actions :deep(.el-button:hover) {
+  background: #fff1f2;
+  color: #ff4d55;
+  box-shadow: 0 8px 18px rgba(255, 77, 85, 0.12);
+  transform: translateY(-1px);
+}
+
+.theme-default2 .portal-section__actions :deep(.el-icon) {
+  margin: 0;
+  font-size: 15px;
+}
+
+.theme-default2 .portal-grid {
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 18px 16px;
+}
+
+.theme-default2 .portal-card {
+  min-height: 68px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #f7f7f8;
+  box-shadow: none;
+}
+
+.theme-default2 .portal-card:hover {
+  background: #fff;
+  box-shadow: 0 12px 26px rgba(30, 41, 59, 0.08);
+  transform: translateY(-2px);
+}
+
+.theme-default2 .portal-card__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #f3f4f6;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.theme-default2 .portal-card:hover .portal-card__icon {
+  background: #fff0f1;
+  box-shadow: 0 8px 18px rgba(255, 77, 85, 0.18);
+  transform: scale(1.08);
+}
+
+.theme-default2 .portal-card__icon img {
+  width: 26px;
+  height: 26px;
+  transition: transform 0.2s ease;
+}
+
+.theme-default2 .portal-card:hover .portal-card__icon img {
+  transform: scale(1.05);
+}
+
+.theme-default2 .portal-card__copy strong {
+  color: #4b515a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.theme-default2 .portal-card:hover .portal-card__copy strong {
+  color: #ff4d55;
+}
+
+.theme-default2 .portal-card__copy p {
+  color: #9da3ad;
+  font-size: 12px;
+}
+
+.theme-default2 .portal-subsection-list {
+  gap: 22px;
+  padding-top: 20px;
+}
+
+.theme-default2 .portal-subsection {
+  padding: 4px 0 0;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+}
+
+.theme-default2 .portal-footer {
+  background: #eef0f4;
+  border-color: transparent;
+}
+
+.theme-default2 .portal-right-rail {
+  right: 24px;
+  bottom: 104px;
+  gap: 10px;
+}
+
+.theme-default2 .portal-right-rail :deep(.el-button) {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid rgba(226, 230, 236, 0.92);
+  background: rgba(255, 255, 255, 0.9);
+  color: #7a8392;
+  box-shadow: 0 10px 24px rgba(30, 41, 59, 0.09);
+  backdrop-filter: blur(10px);
+}
+
+.theme-default2 .portal-right-rail :deep(.el-button:hover) {
+  border-color: rgba(255, 77, 85, 0.28);
+  background: #fff1f2;
+  color: #ff4d55;
+  box-shadow: 0 14px 28px rgba(255, 77, 85, 0.16);
+  transform: translateY(-2px);
+}
+
+.theme-default2 .portal-right-rail :deep(.el-icon),
+.theme-default2 .portal-right-rail :deep(i) {
+  font-size: 17px;
+}
+
+.theme-default2 .portal-bottom-dock {
+  bottom: 26px;
+  padding: 8px;
+  gap: 8px;
+  border: 1px solid rgba(226, 230, 236, 0.9);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 16px 36px rgba(30, 41, 59, 0.12);
+  backdrop-filter: blur(12px);
+}
+
+.theme-default2 .portal-bottom-dock :deep(.el-button) {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px;
+  min-height: 42px;
+  border-radius: 12px !important;
+  background: transparent;
+  color: #7a8392;
+}
+
+.theme-default2 .portal-bottom-dock :deep(.el-button:hover) {
+  background: #fff1f2;
+  color: #ff4d55;
+  transform: translateY(-1px);
+}
+
+.theme-default2 .portal-bottom-dock :deep(.el-icon),
+.theme-default2 .portal-bottom-dock :deep(i) {
+  font-size: 17px;
+}
+
+html.dark .theme-default2 {
+  background: #10131b;
+}
+
+html.dark .theme-default2 .portal-main,
+html.dark .theme-default2 .portal-searchbar,
+html.dark .theme-default2 .portal-content,
+html.dark .theme-default2 .portal-footer {
+  background: #10131b;
+}
+
+html.dark .theme-default2 .portal-sidebar {
+  background: #191d27;
+  box-shadow: none;
+}
+
+html.dark .theme-default2 .portal-sidebar__logo {
+  background: transparent;
+}
+
+html.dark .theme-default2 .portal-sidebar__logo-title,
+html.dark .theme-default2 .portal-sidebar__logo-title-full {
+  color: #d9deea;
+}
+
+html.dark .theme-default2 .portal-sidebar__link,
+html.dark .theme-default2 .portal-sidebar__child-link {
+  color: #c9d2e4;
+}
+
+html.dark .theme-default2 .portal-sidebar__link:hover,
+html.dark .theme-default2 .portal-sidebar__child-link:hover,
+html.dark .theme-default2 .portal-sidebar__link.is-active,
+html.dark .theme-default2 .portal-sidebar__child-link.is-active {
+  color: #8ea8ff;
+  background: #242a3d;
+}
+
+html.dark .theme-default2 .portal-sidebar__link-icon,
+html.dark .theme-default2 .portal-sidebar__child-icon {
+  color: #717b91;
+}
+
+html.dark .theme-default2 .portal-search-shell,
+html.dark .theme-default2 .portal-section {
+  background: #1b202b;
+}
+
+html.dark .theme-default2 .portal-section__head {
+  border-bottom-color: #2a3040;
+}
+
+html.dark .theme-default2 .portal-subsection {
+  background: transparent;
+}
+
+html.dark .theme-default2 .portal-search-shell {
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.18);
+}
+
+html.dark .theme-default2 .portal-search-field {
+  color: #e5e9f3;
+}
+
+html.dark .theme-default2 .portal-search-field::placeholder {
+  color: #7c8496;
+}
+
+html.dark .theme-default2 .portal-search-engine-btn {
+  border-right-color: #2a3040;
+}
+
+html.dark .theme-default2 .portal-section__title h2,
+html.dark .theme-default2 .portal-section__title h2::before,
+html.dark .theme-default2 .portal-subsection__title span::before {
+  color: #e8edf8;
+}
+
+html.dark .theme-default2 .portal-section__title h2::before {
+  background: rgba(142, 168, 255, 0.16);
+  color: #8ea8ff;
+}
+
+html.dark .theme-default2 .portal-subsection__title {
+  border-left-color: #8ea8ff;
+}
+
+html.dark .theme-default2 .portal-subsection__title span {
+  color: #b8c2d6;
+}
+
+html.dark .theme-default2 .portal-subsection__title span::before {
+  background: #8ea8ff;
+  box-shadow: 0 0 0 4px rgba(142, 168, 255, 0.14);
+}
+
+html.dark .theme-default2 .portal-section__actions :deep(.el-button) {
+  background: #242a36;
+  color: #9aa5b8;
+}
+
+html.dark .theme-default2 .portal-section__actions :deep(.el-button:hover) {
+  background: #2a2633;
+  color: #ff7a82;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+}
+
+html.dark .theme-default2 .portal-card {
+  background: #242934;
+  box-shadow: none;
+}
+
+html.dark .theme-default2 .portal-card:hover {
+  background: #2b3242;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
+}
+
+html.dark .theme-default2 .portal-card__icon {
+  background: #2d3346;
+}
+
+html.dark .theme-default2 .portal-card:hover .portal-card__icon {
+  background: #3a2d3a;
+  box-shadow: 0 8px 18px rgba(255, 122, 130, 0.16);
+}
+
+html.dark .theme-default2 .portal-card__copy strong {
+  color: #e8edf8;
+}
+
+html.dark .theme-default2 .portal-card:hover .portal-card__copy strong {
+  color: #ff7a82;
+}
+
+html.dark .theme-default2 .portal-card__copy p {
+  color: #9aa5b8;
+}
+
+html.dark .theme-default2 .portal-right-rail :deep(.el-button) {
+  border-color: #2b3241;
+  background: rgba(27, 32, 43, 0.92);
+  color: #a8b2c5;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+html.dark .theme-default2 .portal-right-rail :deep(.el-button:hover) {
+  border-color: rgba(255, 122, 130, 0.32);
+  background: #2a2633;
+  color: #ff7a82;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.26);
+}
+
+html.dark .theme-default2 .portal-bottom-dock {
+  border-color: #2b3241;
+  background: rgba(27, 32, 43, 0.94);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+}
+
+html.dark .theme-default2 .portal-bottom-dock :deep(.el-button) {
+  color: #a8b2c5;
+}
+
+html.dark .theme-default2 .portal-bottom-dock :deep(.el-button:hover) {
+  background: #2a2633;
+  color: #ff7a82;
+}
+
 /* ── responsive ── */
 @media (max-width: 1160px) {
+  .theme-default2 {
+    --portal-default2-content-width: auto;
+    grid-template-columns: 1fr;
+  }
+
   .portal-page {
     grid-template-columns: 1fr;
   }
@@ -2594,6 +3265,27 @@ onBeforeUnmount(() => {
     transform: translateX(-100%);
     transition: transform 0.25s ease;
     border-right: 1px solid #e8eaed;
+  }
+
+  .theme-default2 .portal-sidebar {
+    min-height: 100vh;
+    max-height: 100vh;
+    width: 260px;
+    margin: 0;
+    border-radius: 0;
+    background: #fff;
+  }
+
+  .theme-default2 .portal-sidebar__logo {
+    position: static;
+    width: auto;
+    min-height: 0;
+    padding: 18px 20px 12px;
+  }
+
+  .theme-default2 .portal-content {
+    padding: 16px 18px 90px;
+    max-width: none;
   }
 
   .portal-sidebar.is-mobile-open {
@@ -2681,6 +3373,49 @@ onBeforeUnmount(() => {
   .portal-content {
     padding: 12px 12px 24px;
     gap: 14px;
+  }
+
+  .theme-default2 .portal-searchbar {
+    min-height: auto;
+    padding: 12px;
+    flex-direction: row;
+  }
+
+  .theme-default2 .portal-search-shell {
+    height: 44px;
+    border-radius: 10px;
+  }
+
+  .theme-default2 .portal-search-engine-btn {
+    min-width: 92px;
+    padding: 0 12px;
+    border-radius: 10px 0 0 10px;
+    font-size: 14px;
+  }
+
+  .theme-default2 .portal-search-field {
+    padding: 0 12px;
+    font-size: 14px;
+  }
+
+  .theme-default2 .portal-search-submit {
+    width: 44px;
+    height: 44px;
+    border-radius: 0 10px 10px 0;
+    font-size: 17px;
+  }
+
+  .theme-default2 .portal-content {
+    padding: 12px 12px 28px;
+    gap: 14px;
+  }
+
+  .theme-default2 .portal-viewbar {
+    display: none;
+  }
+
+  html.dark .theme-default2 .portal-sidebar {
+    background: #191d27;
   }
 
   .portal-section {

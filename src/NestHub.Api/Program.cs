@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using NestHub.Api.Domain.Entities;
@@ -87,7 +88,10 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = SetStaticFileCacheHeaders
+});
 
 var uploadsPath = Path.Combine(app.Environment.ContentRootPath, "AppData", "uploads");
 Directory.CreateDirectory(uploadsPath);
@@ -104,6 +108,27 @@ app.UseAuthorization();
 
 app.MapHealthChecks("/health");
 app.MapControllers();
-app.MapFallbackToFile("index.html");
+app.MapFallbackToFile("index.html", new StaticFileOptions
+{
+    OnPrepareResponse = SetStaticFileCacheHeaders
+});
 
 app.Run();
+
+static void SetStaticFileCacheHeaders(StaticFileResponseContext context)
+{
+    var headers = context.Context.Response.Headers;
+
+    if (string.Equals(context.File.Name, "index.html", StringComparison.OrdinalIgnoreCase))
+    {
+        headers.CacheControl = "no-cache, no-store, must-revalidate";
+        headers.Pragma = "no-cache";
+        headers.Expires = "0";
+        return;
+    }
+
+    if (context.Context.Request.Path.StartsWithSegments("/assets"))
+    {
+        headers.CacheControl = "public, max-age=31536000, immutable";
+    }
+}

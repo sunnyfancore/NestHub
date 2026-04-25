@@ -39,6 +39,9 @@ http.interceptors.response.use(
         }).catch(() => {
           localStorage.removeItem(AUTH_TOKEN_KEY)
           localStorage.removeItem('nesthub.expiresAt')
+          localStorage.removeItem('nesthub.isSuperAdmin')
+          localStorage.removeItem('nesthub-portal-cache')
+          localStorage.removeItem('nesthub.public-view')
         }).finally(() => {
           isRefreshing = false
           refreshPromise = null
