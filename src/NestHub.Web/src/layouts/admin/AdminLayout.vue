@@ -281,8 +281,7 @@ function logout() {
 }
 
 .admin-topbar {
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
+  background: #fff;
   border-bottom: 1px solid #e8ecf0;
   padding: 0 24px;
   display: flex;
