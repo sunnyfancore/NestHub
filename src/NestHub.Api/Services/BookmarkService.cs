@@ -77,7 +77,7 @@ public sealed class BookmarkService
     {
         if (request.FolderId.HasValue)
         {
-            var folderExists = await _orm.Select<Folder>().Where(item => item.Id == request.FolderId.Value).AnyAsync();
+            var folderExists = await _orm.Select<Folder>().Where(item => item.Id == request.FolderId.Value && item.TenantId == tenantContext.TenantId).AnyAsync();
             if (!folderExists)
             {
                 throw new InvalidOperationException("选中的目录不存在。");
@@ -102,12 +102,12 @@ public sealed class BookmarkService
 
         await _orm.Insert(bookmark).ExecuteAffrowsAsync();
 
-        return await GetAsync(bookmark.Id);
+        return await GetAsync(bookmark.Id, tenantContext);
     }
 
-    public async Task<BookmarkDto> UpdateAsync(Guid id, SaveBookmarkRequest request)
+    public async Task<BookmarkDto> UpdateAsync(Guid id, SaveBookmarkRequest request, TenantContext tenantContext)
     {
-        var bookmark = await _orm.Select<Bookmark>().Where(item => item.Id == id).ToOneAsync();
+        var bookmark = await _orm.Select<Bookmark>().Where(item => item.Id == id && item.TenantId == tenantContext.TenantId).ToOneAsync();
         if (bookmark is null)
         {
             throw new KeyNotFoundException("书签不存在。");
@@ -115,7 +115,7 @@ public sealed class BookmarkService
 
         if (request.FolderId.HasValue)
         {
-            var folderExists = await _orm.Select<Folder>().Where(item => item.Id == request.FolderId.Value).AnyAsync();
+            var folderExists = await _orm.Select<Folder>().Where(item => item.Id == request.FolderId.Value && item.TenantId == tenantContext.TenantId).AnyAsync();
             if (!folderExists)
             {
                 throw new InvalidOperationException("选中的目录不存在。");
@@ -134,21 +134,21 @@ public sealed class BookmarkService
 
         await _orm.Update<Bookmark>().SetSource(bookmark).ExecuteAffrowsAsync();
 
-        return await GetAsync(bookmark.Id);
+        return await GetAsync(bookmark.Id, tenantContext);
     }
 
-    public async Task DeleteAsync(Guid id)
+    public async Task DeleteAsync(Guid id, TenantContext tenantContext)
     {
-        var deleted = await _orm.Delete<Bookmark>().Where(item => item.Id == id).ExecuteAffrowsAsync();
+        var deleted = await _orm.Delete<Bookmark>().Where(item => item.Id == id && item.TenantId == tenantContext.TenantId).ExecuteAffrowsAsync();
         if (deleted == 0)
         {
             throw new KeyNotFoundException("书签不存在。");
         }
     }
 
-    public async Task OpenAsync(Guid id)
+    public async Task OpenAsync(Guid id, TenantContext tenantContext)
     {
-        var bookmark = await _orm.Select<Bookmark>().Where(item => item.Id == id).ToOneAsync();
+        var bookmark = await _orm.Select<Bookmark>().Where(item => item.Id == id && item.TenantId == tenantContext.TenantId).ToOneAsync();
         if (bookmark is null)
         {
             throw new KeyNotFoundException("书签不存在。");
@@ -161,16 +161,16 @@ public sealed class BookmarkService
         await _orm.Update<Bookmark>().SetSource(bookmark).ExecuteAffrowsAsync();
     }
 
-    private async Task<BookmarkDto> GetAsync(Guid id)
+    private async Task<BookmarkDto> GetAsync(Guid id, TenantContext tenantContext)
     {
-        var bookmark = await _orm.Select<Bookmark>().Where(item => item.Id == id).ToOneAsync();
+        var bookmark = await _orm.Select<Bookmark>().Where(item => item.Id == id && item.TenantId == tenantContext.TenantId).ToOneAsync();
         if (bookmark is null)
         {
             throw new KeyNotFoundException("书签不存在。");
         }
 
         var folderName = bookmark.FolderId.HasValue
-            ? (await _orm.Select<Folder>().Where(item => item.Id == bookmark.FolderId.Value).ToOneAsync())?.Name
+            ? (await _orm.Select<Folder>().Where(item => item.Id == bookmark.FolderId.Value && item.TenantId == tenantContext.TenantId).ToOneAsync())?.Name
             : null;
 
         return new BookmarkDto

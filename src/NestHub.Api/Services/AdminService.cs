@@ -29,7 +29,7 @@ public sealed class AdminService
         var categoryIds = categories.Select(item => item.Id).ToList();
         var linkCounts = await _orm.Select<Bookmark>()
             .DisableGlobalFilter("TenantFilter")
-            .Where(item => item.FolderId != null && categoryIds.Contains(item.FolderId.Value))
+            .Where(item => item.TenantId == tenantContext.TenantId && item.FolderId != null && categoryIds.Contains(item.FolderId.Value))
             .GroupBy(item => item.FolderId!.Value)
             .ToListAsync(item => new { FolderId = item.Key, Count = item.Count() });
         var linkCountMap = linkCounts.ToDictionary(item => item.FolderId, item => item.Count);
@@ -215,6 +215,19 @@ public sealed class AdminService
 
     public async Task<BookmarkImportResultDto> ImportBookmarksAsync(Guid? categoryId, Stream fileStream, TenantContext tenantContext)
     {
+        if (categoryId.HasValue)
+        {
+            var categoryExists = await _orm.Select<Folder>()
+                .DisableGlobalFilter("TenantFilter")
+                .Where(item => item.Id == categoryId.Value && item.TenantId == tenantContext.TenantId)
+                .AnyAsync();
+
+            if (!categoryExists)
+            {
+                throw new InvalidOperationException("导入目标分类不存在。");
+            }
+        }
+
         using var reader = new StreamReader(fileStream);
         var content = await reader.ReadToEndAsync();
 

@@ -14,13 +14,20 @@ public sealed class ShareService
         _orm = orm;
     }
 
-    public async Task<IReadOnlyCollection<ShareLinkItemDto>> GetListAsync()
+    public async Task<IReadOnlyCollection<ShareLinkItemDto>> GetListAsync(TenantContext tenantContext)
     {
-        var shares = await _orm.Select<ShareLink>().OrderByDescending(item => item.CreatedAt).ToListAsync();
+        var shares = await _orm.Select<ShareLink>()
+            .DisableGlobalFilter("TenantFilter")
+            .Where(item => item.TenantId == tenantContext.TenantId)
+            .OrderByDescending(item => item.CreatedAt)
+            .ToListAsync();
         var categoryIds = shares.Select(item => item.CategoryId).Distinct().ToList();
         var categories = categoryIds.Count == 0
             ? []
-            : await _orm.Select<Folder>().Where(item => categoryIds.Contains(item.Id)).ToListAsync();
+            : await _orm.Select<Folder>()
+                .DisableGlobalFilter("TenantFilter")
+                .Where(item => item.TenantId == tenantContext.TenantId && categoryIds.Contains(item.Id))
+                .ToListAsync();
         var categoryMap = categories.ToDictionary(item => item.Id, item => item.Name);
 
         return shares.Select(item => new ShareLinkItemDto
@@ -38,7 +45,10 @@ public sealed class ShareService
 
     public async Task<ShareLinkItemDto> CreateAsync(SaveShareLinkRequest request, TenantContext tenantContext)
     {
-        var category = await _orm.Select<Folder>().Where(item => item.Id == request.CategoryId).ToOneAsync();
+        var category = await _orm.Select<Folder>()
+            .DisableGlobalFilter("TenantFilter")
+            .Where(item => item.Id == request.CategoryId && item.TenantId == tenantContext.TenantId)
+            .ToOneAsync();
         if (category is null)
         {
             throw new InvalidOperationException("分享分类不存在。");
@@ -72,9 +82,12 @@ public sealed class ShareService
         };
     }
 
-    public async Task DeleteAsync(Guid id)
+    public async Task DeleteAsync(Guid id, TenantContext tenantContext)
     {
-        var deleted = await _orm.Delete<ShareLink>().Where(item => item.Id == id).ExecuteAffrowsAsync();
+        var deleted = await _orm.Delete<ShareLink>()
+            .DisableGlobalFilter("TenantFilter")
+            .Where(item => item.Id == id && item.TenantId == tenantContext.TenantId)
+            .ExecuteAffrowsAsync();
         if (deleted == 0)
         {
             throw new KeyNotFoundException("分享记录不存在。");

@@ -52,7 +52,9 @@ const searchDialogVisible = ref(false)
 const searchEngine = ref<SearchEngine>('google')
 const searchEngineMenuVisible = ref(false)
 const expandedMenu = ref<Record<string, boolean>>({})
+const activeChildTabs = ref<Record<string, string>>({})
 const mobileSidebarOpen = ref(false)
+const mobileRailOpen = ref(false)
 const searchSuggestionIndex = ref(-1)
 const searchSuggestions = ref<PortalSearchResult[]>([])
 
@@ -182,6 +184,44 @@ function rootLinks(category: PortalCategory) {
 
 function childLinks(category: PortalCategory) {
   return [...category.links].sort((left, right) => right.sortOrder - left.sortOrder)
+}
+
+function activeChildTab(category: PortalCategory) {
+  const activeId = activeChildTabs.value[category.id]
+  if (activeId && category.children.some((child) => child.id === activeId)) {
+    return activeId
+  }
+  return category.children[0]?.id || ''
+}
+
+function setActiveChildTab(category: PortalCategory, childId: string) {
+  activeChildTabs.value[category.id] = childId
+  if (childId) {
+    activeSectionId.value = childId
+  }
+  if (portal.value?.canEdit) {
+    void nextTick(() => {
+      initializeSortables()
+    })
+  }
+}
+
+function categoryDisplayLinks(category: PortalCategory) {
+  if (!category.children.length) {
+    return rootLinks(category)
+  }
+
+  const activeId = activeChildTab(category)
+  const child = category.children.find((item) => item.id === activeId)
+  return child ? childLinks(child) : []
+}
+
+function activeLinkContainerId(category: PortalCategory) {
+  if (!category.children.length) {
+    return category.id
+  }
+
+  return activeChildTab(category)
 }
 
 async function ensureProfile() {
@@ -532,7 +572,7 @@ async function submitLink(payload: SavePortalLinkRequest) {
 
   try {
     if (editingLink.value) {
-      await updateLink(editingLink.value.id, payload)
+      await updateLink(editingLink.value.id, payload, getTargetTenantId())
       ElMessage.success('链接已更新。')
     } else {
       await createLink(payload, getTargetTenantId())
@@ -554,7 +594,7 @@ async function removeLink(link: PortalLink) {
   })
 
   try {
-    await deleteLink(link.id)
+    await deleteLink(link.id, getTargetTenantId())
     ElMessage.success('链接已删除。')
     await loadPortal(true)
   } catch (error: any) {
@@ -752,6 +792,12 @@ async function refreshPortal() {
   }
 }
 
+function selectChildCategory(category: PortalCategory, childId: string) {
+  setActiveChildTab(category, childId)
+  scrollToSection(category.id)
+  activeSectionId.value = childId
+}
+
 function toggleSearchEngineMenu() {
   searchEngineMenuVisible.value = !searchEngineMenuVisible.value
 }
@@ -775,7 +821,8 @@ function setChildContainerRef(categoryId: string, element: unknown) {
   childSectionContainerRefs.value[categoryId] = element instanceof HTMLElement ? element : null
 }
 
-function setLinkContainerRef(categoryId: string, element: unknown) {
+function setLinkContainerRef(categoryId: string | null, element: unknown) {
+  if (!categoryId) return
   linkContainerRefs.value[categoryId] = element instanceof HTMLElement ? element : null
 }
 
@@ -881,10 +928,9 @@ function initializeSortables() {
       sortables.value.push(
         Sortable.create(childContainer, {
           ...sortableOpts,
-          draggable: '.portal-subsection',
-          handle: '.portal-subsection__drag',
+          draggable: '.portal-child-tab',
           onEnd: async () => {
-            const orderedIds = Array.from(childContainer.querySelectorAll<HTMLElement>('.portal-subsection'))
+            const orderedIds = Array.from(childContainer.querySelectorAll<HTMLElement>('.portal-child-tab'))
               .map((element) => element.dataset.categoryId || '')
               .filter(Boolean)
 
@@ -913,7 +959,7 @@ function initializeSortables() {
               .filter(Boolean)
 
             try {
-              await sortLinks(orderedIds)
+              await sortLinks(orderedIds, getTargetTenantId())
               /* silently updated */
               await loadPortal(true)
             } catch (error: any) {
@@ -941,7 +987,7 @@ function initializeSortables() {
               .filter(Boolean)
 
             try {
-              await sortLinks(orderedIds)
+              await sortLinks(orderedIds, getTargetTenantId())
               /* silently updated */
               await loadPortal(true)
             } catch (error: any) {
@@ -1045,12 +1091,14 @@ function setupSectionObserver() {
 }
 
 onMounted(async () => {
-  await ensureProfile()
   if (!authStore.isAuthenticated && isPublicView.value) {
     isPublicView.value = false
     localStorage.removeItem(VIEW_KEY)
   }
-  await loadPortal()
+  await Promise.all([
+    ensureProfile(),
+    loadPortal(),
+  ])
   setupSectionObserver()
   window.addEventListener('click', closeContextMenu)
   window.addEventListener('click', closeCategoryContextMenu)
@@ -1158,7 +1206,7 @@ onBeforeUnmount(() => {
                 :data-category-id="child.id"
               >
                 <a
-                  @click.prevent="scrollToSection(child.id); mobileSidebarOpen = false"
+                  @click.prevent="selectChildCategory(category, child.id); mobileSidebarOpen = false"
                   class="portal-sidebar__child-link"
                   :class="{ 'is-active': activeSectionId === child.id }"
                 >
@@ -1287,33 +1335,33 @@ onBeforeUnmount(() => {
               <h2>{{ category.name }}</h2>
             </div>
 
-            <div v-if="portal?.canEdit" class="portal-section__actions">
-              <el-button text size="small" title="添加子分类" aria-label="添加子分类" @click="openCreateCategory(category.id)">
-                <el-icon><Plus /></el-icon>
-              </el-button>
-              <el-button text size="small" title="添加链接" aria-label="添加链接" @click="openCreateLink(category.id)">
-                <el-icon><Link /></el-icon>
-              </el-button>
-              <el-dropdown @command="handleCategoryCommand(category, $event)">
-                <el-button text size="small" title="分类操作" aria-label="分类操作">
-                  <el-icon><Edit /></el-icon>
-                </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item command="edit">编辑分类</el-dropdown-item>
-                    <el-dropdown-item command="delete">删除分类</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </div>
+          </div>
+
+          <div
+            v-if="category.children.length"
+            class="portal-child-tabs"
+            :ref="(element) => setChildContainerRef(category.id, element)"
+          >
+            <button
+              v-for="child in category.children"
+              :key="child.id"
+              type="button"
+              class="portal-child-tab"
+              :class="{ 'is-active': activeChildTab(category) === child.id }"
+              :data-category-id="child.id"
+              @click="setActiveChildTab(category, child.id)"
+              @contextmenu.prevent="openCategoryContextMenu(child, $event)"
+            >
+              {{ child.name }}
+            </button>
           </div>
 
           <div
             class="portal-grid"
-            :ref="(element) => setLinkContainerRef(category.id, element)"
+            :ref="(element) => setLinkContainerRef(activeLinkContainerId(category), element)"
           >
             <article
-              v-for="link in rootLinks(category)"
+              v-for="link in categoryDisplayLinks(category)"
               :key="link.id"
               class="portal-card"
               :data-link-id="link.id"
@@ -1336,7 +1384,7 @@ onBeforeUnmount(() => {
           </div>
 
           <div
-            v-if="category.children.length"
+            v-if="false && category.children.length"
             class="portal-subsection-list"
             :ref="(element) => setChildContainerRef(category.id, element)"
           >
@@ -1403,8 +1451,17 @@ onBeforeUnmount(() => {
       <footer v-if="portal?.site.footerText && portal?.categories?.length" class="portal-footer" v-html="portal.site.footerText">
       </footer>
 
-      <div class="portal-right-rail">
+      <div class="portal-right-rail" :class="{ 'is-mobile-open': mobileRailOpen }">
         <el-button
+          class="portal-mobile-tools-toggle"
+          circle
+          :aria-label="mobileRailOpen ? '收起操作' : '展开操作'"
+          @click="mobileRailOpen = !mobileRailOpen"
+        >
+          <i :class="['fa', mobileRailOpen ? 'fa-times' : 'fa-ellipsis-h']"></i>
+        </el-button>
+        <el-button
+          class="portal-rail-action"
           circle
           :title="isDark ? '切换亮色模式' : '切换暗色模式'"
           :aria-label="isDark ? '切换亮色模式' : '切换暗色模式'"
@@ -1412,32 +1469,43 @@ onBeforeUnmount(() => {
         >
           <i :class="['fa', isDark ? 'fa-sun-o' : 'fa-moon-o']"></i>
         </el-button>
+        <el-button
+          v-if="authStore.isAuthenticated"
+          class="portal-rail-action portal-mobile-view-switch"
+          circle
+          :title="isPublicView ? '切换到我的视图' : '切换到公共视图'"
+          :aria-label="isPublicView ? '切换到我的视图' : '切换到公共视图'"
+          @click="setPublicView(!isPublicView)"
+        >
+          <i :class="['fa', isPublicView ? 'fa-user-o' : 'fa-globe']"></i>
+        </el-button>
         <template v-if="portal?.canEdit">
-          <el-button circle title="新增分类" aria-label="新增分类" @click="openCreateCategory()">
+          <el-button class="portal-rail-action" circle title="新增分类" aria-label="新增分类" @click="openCreateCategory()">
             <el-icon><FolderAdd /></el-icon>
           </el-button>
-          <el-button circle title="新增链接" aria-label="新增链接" @click="openCreateLink()">
+          <el-button class="portal-rail-action" circle title="新增链接" aria-label="新增链接" @click="openCreateLink()">
             <el-icon><Link /></el-icon>
           </el-button>
-          <el-button circle title="后台管理" aria-label="后台管理" @click="openAdmin">
+          <el-button class="portal-rail-action" circle title="后台管理" aria-label="后台管理" @click="openAdmin">
             <el-icon><Setting /></el-icon>
           </el-button>
-          <el-button circle title="退出登录" aria-label="退出登录" @click="logout">
+          <el-button class="portal-rail-action" circle title="退出登录" aria-label="退出登录" @click="logout">
             <el-icon><SwitchButton /></el-icon>
           </el-button>
         </template>
         <template v-else-if="!authStore.isAuthenticated">
-        <el-button circle title="登录" aria-label="登录" @click="openLoginDialog">
+        <el-button class="portal-rail-action" circle title="登录" aria-label="登录" @click="openLoginDialog">
           <el-icon><Connection /></el-icon>
         </el-button>
       </template>
-      <el-button circle title="刷新数据" aria-label="刷新数据" @click="refreshPortal">
+      <el-button class="portal-rail-action" circle title="刷新数据" aria-label="刷新数据" @click="refreshPortal">
         <el-icon><Refresh /></el-icon>
       </el-button>
-      <el-button circle title="返回顶部" aria-label="返回顶部" @click="scrollToTop">
+    </div>
+
+      <el-button class="portal-back-top" circle title="返回顶部" aria-label="返回顶部" @click="scrollToTop">
         <el-icon><Top /></el-icon>
       </el-button>
-    </div>
 
       <div v-if="portal?.categories?.length && portal?.site.showBottomDock !== false" class="portal-bottom-dock">
         <template v-if="portal?.canEdit">
@@ -1536,7 +1604,23 @@ onBeforeUnmount(() => {
       :style="categoryContextMenuStyle"
       @click.stop
     >
-      <button type="button" class="portal-context-menu__item" @click="openEditCategory(categoryContextMenu.category); closeCategoryContextMenu()">编辑</button>
+      <button
+        v-if="!categoryContextMenu.category.parentId"
+        type="button"
+        class="portal-context-menu__item"
+        @click="openCreateCategory(categoryContextMenu.category.id); closeCategoryContextMenu()"
+      >
+        添加子分类
+      </button>
+      <button
+        type="button"
+        class="portal-context-menu__item"
+        @click="openCreateLink(categoryContextMenu.category.id); closeCategoryContextMenu()"
+      >
+        添加链接
+      </button>
+      <div class="portal-context-menu__divider" />
+      <button type="button" class="portal-context-menu__item" @click="openEditCategory(categoryContextMenu.category); closeCategoryContextMenu()">编辑分类</button>
       <button type="button" class="portal-context-menu__item is-danger" @click="removeCategory(categoryContextMenu.category); closeCategoryContextMenu()">删除</button>
     </div>
 
@@ -1959,6 +2043,7 @@ onBeforeUnmount(() => {
   position: relative;
   display: flex;
   align-items: center;
+  min-width: 0;
   height: 44px;
   border: 2px solid #4285f4;
   border-radius: 24px;
@@ -1972,6 +2057,7 @@ onBeforeUnmount(() => {
 
 .portal-search-field {
   flex: 1;
+  min-width: 0;
   height: 100%;
   border: 0;
   outline: none;
@@ -2256,6 +2342,49 @@ onBeforeUnmount(() => {
   padding: 6px !important;
 }
 
+.portal-child-tabs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 24px;
+  padding: 2px 0 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.portal-child-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.portal-child-tab {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #7a86a0;
+  border-radius: 10px;
+  padding: 9px 16px;
+  min-height: 42px;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.portal-child-tab:hover {
+  color: #2f66b7;
+  background: #f5f8ff;
+  border-color: #e7eefb;
+}
+
+.portal-child-tab.is-active {
+  color: #1657b8;
+  background: linear-gradient(180deg, #edf5ff 0%, #e6f0ff 100%);
+  border-color: #c5dbfb;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.72), 0 6px 14px rgba(22, 87, 184, 0.08);
+}
+
 /* ── link grid ── */
 .portal-grid {
   display: grid;
@@ -2444,6 +2573,45 @@ onBeforeUnmount(() => {
 .portal-right-rail :deep(.el-icon) {
   margin: 0;
   font-size: 15px;
+}
+
+.portal-back-top {
+  position: fixed;
+  right: 18px;
+  bottom: 44px;
+  z-index: 20;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 0 !important;
+  margin: 0;
+  border: 0;
+  border-radius: 50% !important;
+  background: #fff;
+  color: #555;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  transition: all 0.2s ease;
+}
+
+.portal-back-top:hover {
+  color: #4f6ef7;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(79, 110, 247, 0.18);
+  transform: scale(1.08);
+}
+
+.portal-back-top :deep(.el-icon) {
+  margin: 0;
+  font-size: 15px;
+}
+
+.portal-right-rail :deep(.portal-mobile-view-switch) {
+  display: none !important;
+}
+
+.portal-right-rail :deep(.portal-mobile-tools-toggle) {
+  display: none !important;
 }
 
 /* ── bottom dock ── */
@@ -3022,6 +3190,28 @@ onBeforeUnmount(() => {
   gap: 10px;
 }
 
+.theme-default2 .portal-back-top {
+  right: 24px;
+  bottom: 52px;
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid rgba(226, 230, 236, 0.92);
+  background: rgba(255, 255, 255, 0.9);
+  color: #7a8392;
+  box-shadow: 0 10px 24px rgba(30, 41, 59, 0.09);
+  backdrop-filter: blur(10px);
+}
+
+.theme-default2 .portal-back-top:hover {
+  border-color: rgba(255, 77, 85, 0.28);
+  background: #fff1f2;
+  color: #ff4d55;
+  box-shadow: 0 14px 28px rgba(255, 77, 85, 0.16);
+  transform: translateY(-2px);
+}
+
 .theme-default2 .portal-right-rail :deep(.el-button) {
   width: 44px !important;
   height: 44px !important;
@@ -3224,7 +3414,21 @@ html.dark .theme-default2 .portal-right-rail :deep(.el-button) {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
 }
 
+html.dark .theme-default2 .portal-back-top {
+  border-color: #2b3241;
+  background: rgba(27, 32, 43, 0.92);
+  color: #a8b2c5;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
 html.dark .theme-default2 .portal-right-rail :deep(.el-button:hover) {
+  border-color: rgba(255, 122, 130, 0.32);
+  background: #2a2633;
+  color: #ff7a82;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.26);
+}
+
+html.dark .theme-default2 .portal-back-top:hover {
   border-color: rgba(255, 122, 130, 0.32);
   background: #2a2633;
   color: #ff7a82;
@@ -3320,35 +3524,57 @@ html.dark .theme-default2 .portal-bottom-dock :deep(.el-button:hover) {
 }
 
 @media (max-width: 760px) {
+  .theme-default2 {
+    --portal-default2-content-width: 100%;
+  }
+
+  .portal-main,
+  .theme-default2 .portal-main {
+    grid-column: 1;
+    background: #eef3f9;
+  }
+
   .portal-searchbar {
-    padding: 10px 12px;
+    padding: 12px 10px 8px;
     flex-wrap: nowrap;
     min-height: auto;
-    gap: 8px;
+    gap: 10px;
+    background: #eef3f9;
+    border-bottom: 1px solid rgba(217, 226, 237, 0.82);
+    box-shadow: 0 8px 18px rgba(31, 41, 55, 0.04);
   }
 
   .portal-hamburger {
-    width: 40px;
-    height: 40px;
+    width: 38px;
+    height: 38px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    border-radius: 12px;
+    color: #445062;
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: 0 8px 20px rgba(31, 41, 55, 0.06);
   }
 
   .portal-searchbar__inner {
     flex: 1;
     min-width: 0;
     width: auto;
+    max-width: none;
   }
 
   .portal-search-shell {
-    height: 40px;
-    border-radius: 20px;
+    height: 46px;
+    border: 0;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.94);
+    overflow: hidden;
+    box-shadow: 0 12px 28px rgba(31, 41, 55, 0.08);
   }
 
   .portal-search-field {
-    padding: 0 10px;
+    padding: 0 8px;
     font-size: 14px;
   }
 
@@ -3358,9 +3584,9 @@ html.dark .theme-default2 .portal-bottom-dock :deep(.el-button:hover) {
   }
 
   .portal-search-submit {
-    width: 40px;
-    height: 40px;
-    border-radius: 0 20px 20px 0;
+    width: 44px;
+    height: 46px;
+    border-radius: 0 14px 14px 0;
   }
 
   .portal-engine-menu {
@@ -3373,43 +3599,62 @@ html.dark .theme-default2 .portal-bottom-dock :deep(.el-button:hover) {
   }
 
   .portal-content {
-    padding: 12px 12px 24px;
-    gap: 14px;
+    padding: 12px 10px 88px;
+    gap: 16px;
   }
 
   .theme-default2 .portal-searchbar {
     min-height: auto;
-    padding: 12px;
+    padding: 12px 10px 8px;
     flex-direction: row;
+    background: #eef3f9;
+    border-bottom: 1px solid rgba(217, 226, 237, 0.82);
+    box-shadow: 0 8px 18px rgba(31, 41, 55, 0.04);
+  }
+
+  .theme-default2 .portal-searchbar__inner {
+    flex: 1;
+    min-width: 0;
+    width: auto;
+    max-width: none;
   }
 
   .theme-default2 .portal-search-shell {
-    height: 44px;
-    border-radius: 10px;
+    height: 46px;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 12px 28px rgba(31, 41, 55, 0.08);
   }
 
   .theme-default2 .portal-search-engine-btn {
-    min-width: 92px;
-    padding: 0 12px;
-    border-radius: 10px 0 0 10px;
-    font-size: 14px;
+    min-width: 76px;
+    max-width: 86px;
+    padding: 0 10px;
+    border-radius: 14px 0 0 14px;
+    font-size: 13px;
   }
 
   .theme-default2 .portal-search-field {
-    padding: 0 12px;
-    font-size: 14px;
+    padding: 0 8px;
+    font-size: 13px;
   }
 
   .theme-default2 .portal-search-submit {
     width: 44px;
-    height: 44px;
-    border-radius: 0 10px 10px 0;
+    height: 46px;
+    border-radius: 0 14px 14px 0;
     font-size: 17px;
   }
 
   .theme-default2 .portal-content {
-    padding: 12px 12px 28px;
-    gap: 14px;
+    width: 100%;
+    max-width: none;
+    padding: 12px 10px 88px;
+    gap: 16px;
+  }
+
+  .portal-viewbar {
+    display: none;
   }
 
   .theme-default2 .portal-viewbar {
@@ -3421,39 +3666,91 @@ html.dark .theme-default2 .portal-bottom-dock :deep(.el-button:hover) {
   }
 
   .portal-section {
-    padding: 12px 14px 14px;
-    border-radius: 8px;
+    padding: 14px 14px 16px;
+    border: 0;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 12px 30px rgba(31, 41, 55, 0.06);
+  }
+
+  .theme-default2 .portal-section {
+    padding: 14px 14px 16px;
+    border: 0;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 12px 30px rgba(31, 41, 55, 0.06);
+  }
+
+  .theme-default2 .portal-section__head {
+    margin: -2px 0 14px;
+    padding: 0 0 13px;
   }
 
   .portal-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .theme-default2 .portal-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .portal-card {
-    padding: 10px 12px;
-    gap: 8px;
-    border-radius: 6px;
+    min-height: 74px;
+    padding: 12px 14px;
+    gap: 12px;
+    border-radius: 12px;
+    background: #f8fafc;
+  }
+
+  .theme-default2 .portal-card {
+    min-height: 74px;
+    padding: 12px 14px;
+    gap: 12px;
+    border-radius: 12px;
+    background: #f8fafc;
   }
 
   .portal-card__icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    font-size: 13px;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    font-size: 16px;
+  }
+
+  .theme-default2 .portal-card__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
   }
 
   .portal-card__icon img {
-    width: 16px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
+  }
+
+  .theme-default2 .portal-card__icon img {
+    width: 24px;
+    height: 24px;
   }
 
   .portal-card__copy strong {
-    font-size: 12px;
+    font-size: 15px;
+    line-height: 20px;
+  }
+
+  .theme-default2 .portal-card__copy strong {
+    font-size: 15px;
+    line-height: 20px;
   }
 
   .portal-card__copy p {
-    font-size: 11px;
+    font-size: 13px;
+  }
+
+  .theme-default2 .portal-card__copy p {
+    font-size: 13px;
   }
 
   .portal-section__head,
@@ -3465,17 +3762,125 @@ html.dark .theme-default2 .portal-bottom-dock :deep(.el-button:hover) {
 
   .portal-section__title h2,
   .portal-subsection__title span {
-    font-size: 15px;
+    font-size: 17px;
   }
 
   .portal-right-rail {
-    right: 8px;
-    bottom: 16px;
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(18px, calc(env(safe-area-inset-bottom) + 18px));
     top: auto;
+    flex-direction: row-reverse;
+    align-items: center;
+    max-width: calc(100vw - 20px);
+    max-height: none;
+    gap: 6px;
+    padding: 6px;
+    border: 1px solid rgba(226, 232, 240, 0.82);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.68);
+    box-shadow: 0 16px 34px rgba(31, 41, 55, 0.14);
+    backdrop-filter: blur(14px);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .theme-default2 .portal-right-rail {
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(18px, calc(env(safe-area-inset-bottom) + 18px));
+    gap: 6px;
+  }
+
+  .portal-right-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .portal-right-rail :deep(.el-button) {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px;
+    min-height: 32px;
+    border: 0;
+    background: rgba(255, 255, 255, 0.84);
+    color: #64748b;
+    box-shadow: none;
+  }
+
+  .theme-default2 .portal-right-rail :deep(.el-button) {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px;
+    min-height: 32px;
+    background: rgba(255, 255, 255, 0.84);
+    box-shadow: none;
+  }
+
+  .portal-right-rail :deep(.el-icon),
+  .portal-right-rail :deep(i),
+  .theme-default2 .portal-right-rail :deep(.el-icon),
+  .theme-default2 .portal-right-rail :deep(i) {
+    font-size: 15px;
+  }
+
+  .portal-back-top,
+  .theme-default2 .portal-back-top {
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(68px, calc(env(safe-area-inset-bottom) + 68px));
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px;
+    min-height: 38px;
+    border: 1px solid rgba(226, 232, 240, 0.82);
+    background: rgba(255, 255, 255, 0.86);
+    color: #64748b;
+    box-shadow: 0 12px 26px rgba(31, 41, 55, 0.12);
+    backdrop-filter: blur(14px);
+  }
+
+  .portal-back-top :deep(.el-icon),
+  .theme-default2 .portal-back-top :deep(.el-icon) {
+    font-size: 16px;
+  }
+
+  .portal-right-rail :deep(.portal-mobile-view-switch) {
+    display: inline-flex !important;
+    color: #ff4d55 !important;
+  }
+
+  .portal-right-rail :deep(.portal-mobile-tools-toggle) {
+    display: inline-flex !important;
+    color: #ff4d55 !important;
+    background: #fff !important;
+    box-shadow: 0 10px 22px rgba(255, 77, 85, 0.18) !important;
+  }
+
+  .portal-right-rail:not(.is-mobile-open) :deep(.portal-rail-action) {
+    display: none !important;
+  }
+
+  .portal-right-rail:not(.is-mobile-open) {
+    padding: 5px;
+    background: rgba(255, 255, 255, 0.78);
   }
 
   .portal-bottom-dock {
     display: none;
+  }
+
+  .portal-footer,
+  .theme-default2 .portal-footer {
+    position: static;
+    margin: 0;
+    padding: 0 14px 18px;
+    border: 0;
+    background: transparent;
+    color: #8a94a6;
+  }
+
+  html.dark .portal-searchbar,
+  html.dark .theme-default2 .portal-searchbar {
+    background: #191d27;
+    border-bottom-color: rgba(50, 58, 74, 0.9);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
   }
 }
 
@@ -3591,6 +3996,23 @@ html.dark .portal-subsection__drag:hover {
   color: #aaa;
 }
 
+html.dark .portal-child-tab {
+  color: #9ca8bf;
+}
+
+html.dark .portal-child-tab:hover {
+  color: #d9e5ff;
+  background: rgba(255, 255, 255, 0.055);
+  border-color: rgba(139, 156, 247, 0.16);
+}
+
+html.dark .portal-child-tab.is-active {
+  color: #e3ebff;
+  background: linear-gradient(180deg, rgba(76, 99, 198, 0.26), rgba(70, 87, 168, 0.2));
+  border-color: rgba(139, 156, 247, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06), 0 8px 18px rgba(0, 0, 0, 0.16);
+}
+
 html.dark .portal-card {
   background: #252830;
   border-color: #2e3040;
@@ -3621,10 +4043,35 @@ html.dark .portal-right-rail :deep(.el-button) {
   color: #b0b8c8;
 }
 
+html.dark .portal-back-top {
+  background: #1e2028;
+  border: none;
+  color: #b0b8c8;
+}
+
 html.dark .portal-right-rail :deep(.el-button:hover) {
   color: #8b9cf7;
   background: #282a38;
   box-shadow: 0 4px 14px rgba(139, 156, 247, 0.15);
+}
+
+html.dark .portal-back-top:hover {
+  color: #8b9cf7;
+  background: #282a38;
+  box-shadow: 0 4px 14px rgba(139, 156, 247, 0.15);
+}
+
+@media (max-width: 760px) {
+  html.dark .portal-right-rail {
+    background: rgba(30, 32, 40, 0.88);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+  }
+
+  html.dark .portal-back-top {
+    border: 1px solid rgba(50, 58, 74, 0.9);
+    background: rgba(30, 32, 40, 0.88);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+  }
 }
 
 html.dark .portal-bottom-dock {
@@ -4566,4 +5013,24 @@ html.dark .theme-paper .portal-context-menu { background: #242018; border: 2px s
 html.dark .theme-paper .portal-context-menu__item { color: #e8dcc8; }
 html.dark .theme-paper .portal-context-menu__item:hover { color: #d4a04c; background: #2a2620; }
 html.dark .theme-paper .portal-context-menu__divider { background: #3a3220; }
+
+@media (max-width: 760px) {
+  .portal-page .portal-main,
+  .portal-page .portal-content,
+  .portal-page .portal-section,
+  .portal-page .portal-grid,
+  .portal-page .portal-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .portal-page .portal-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .portal-page .portal-card {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
 </style>

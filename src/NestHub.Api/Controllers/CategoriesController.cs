@@ -38,11 +38,14 @@ public sealed class CategoriesController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] SavePortalCategoryRequest request)
+    public async Task<IActionResult> Update(Guid id, [FromBody] SavePortalCategoryRequest request, [FromQuery] Guid? targetTenantId = null)
     {
+        var ctx = ResolveContext(targetTenantId);
+        if (ctx is null) return Unauthorized();
+
         try
         {
-            return Ok(await _categoryService.UpdateAsync(id, request));
+            return Ok(await _categoryService.UpdateAsync(id, request, ctx));
         }
         catch (KeyNotFoundException ex)
         {
@@ -55,11 +58,14 @@ public sealed class CategoriesController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
+    public async Task<IActionResult> Delete(Guid id, [FromQuery] Guid? targetTenantId = null)
     {
+        var ctx = ResolveContext(targetTenantId);
+        if (ctx is null) return Unauthorized();
+
         try
         {
-            await _categoryService.DeleteAsync(id);
+            await _categoryService.DeleteAsync(id, ctx);
             return NoContent();
         }
         catch (KeyNotFoundException ex)
@@ -73,11 +79,14 @@ public sealed class CategoriesController : ControllerBase
     }
 
     [HttpPost("sort")]
-    public async Task<IActionResult> Sort([FromBody] SortRequest request)
+    public async Task<IActionResult> Sort([FromBody] SortRequest request, [FromQuery] Guid? targetTenantId = null)
     {
+        var ctx = ResolveContext(targetTenantId);
+        if (ctx is null) return Unauthorized();
+
         try
         {
-            await _categoryService.UpdateOrderAsync(request.OrderedIds);
+            await _categoryService.UpdateOrderAsync(request.OrderedIds, ctx);
             return NoContent();
         }
         catch (InvalidOperationException ex)

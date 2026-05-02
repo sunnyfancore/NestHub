@@ -25,7 +25,13 @@ public sealed class FoldersController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetList()
     {
-        return Ok(await _folderService.GetListAsync());
+        var tenantContext = _tenantContextAccessor.Current;
+        if (tenantContext is null)
+        {
+            return Unauthorized();
+        }
+
+        return Ok(await _folderService.GetListAsync(tenantContext));
     }
 
     [HttpPost]
@@ -50,9 +56,15 @@ public sealed class FoldersController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] SaveFolderRequest request)
     {
+        var tenantContext = _tenantContextAccessor.Current;
+        if (tenantContext is null)
+        {
+            return Unauthorized();
+        }
+
         try
         {
-            return Ok(await _folderService.UpdateAsync(id, request));
+            return Ok(await _folderService.UpdateAsync(id, request, tenantContext));
         }
         catch (KeyNotFoundException ex)
         {
@@ -67,9 +79,15 @@ public sealed class FoldersController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
+        var tenantContext = _tenantContextAccessor.Current;
+        if (tenantContext is null)
+        {
+            return Unauthorized();
+        }
+
         try
         {
-            await _folderService.DeleteAsync(id);
+            await _folderService.DeleteAsync(id, tenantContext);
             return NoContent();
         }
         catch (KeyNotFoundException ex)

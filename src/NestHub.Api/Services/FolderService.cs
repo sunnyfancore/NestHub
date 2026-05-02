@@ -14,9 +14,10 @@ public sealed class FolderService
         _orm = orm;
     }
 
-    public async Task<IReadOnlyCollection<FolderDto>> GetListAsync()
+    public async Task<IReadOnlyCollection<FolderDto>> GetListAsync(TenantContext tenantContext)
     {
         var folders = await _orm.Select<Folder>()
+            .Where(item => item.TenantId == tenantContext.TenantId)
             .OrderBy(item => item.SortOrder)
             .OrderBy(item => item.Name)
             .ToListAsync();
@@ -24,7 +25,9 @@ public sealed class FolderService
         var folderIds = folders.Select(item => item.Id).ToList();
         var bookmarks = folderIds.Count == 0
             ? []
-            : await _orm.Select<Bookmark>().Where(item => item.FolderId.HasValue && folderIds.Contains(item.FolderId.Value)).ToListAsync();
+            : await _orm.Select<Bookmark>()
+                .Where(item => item.TenantId == tenantContext.TenantId && item.FolderId.HasValue && folderIds.Contains(item.FolderId.Value))
+                .ToListAsync();
 
         var bookmarkCountMap = bookmarks
             .GroupBy(item => item.FolderId!.Value)
@@ -43,7 +46,7 @@ public sealed class FolderService
 
     public async Task<FolderDto> CreateAsync(SaveFolderRequest request, TenantContext tenantContext)
     {
-        var existed = await _orm.Select<Folder>().Where(item => item.Name == request.Name.Trim()).AnyAsync();
+        var existed = await _orm.Select<Folder>().Where(item => item.TenantId == tenantContext.TenantId && item.Name == request.Name.Trim()).AnyAsync();
         if (existed)
         {
             throw new InvalidOperationException("同一租户下已经存在同名目录。");
@@ -73,9 +76,9 @@ public sealed class FolderService
         };
     }
 
-    public async Task<FolderDto> UpdateAsync(Guid id, SaveFolderRequest request)
+    public async Task<FolderDto> UpdateAsync(Guid id, SaveFolderRequest request, TenantContext tenantContext)
     {
-        var folder = await _orm.Select<Folder>().Where(item => item.Id == id).ToOneAsync();
+        var folder = await _orm.Select<Folder>().Where(item => item.Id == id && item.TenantId == tenantContext.TenantId).ToOneAsync();
         if (folder is null)
         {
             throw new KeyNotFoundException("目录不存在。");
@@ -84,6 +87,7 @@ public sealed class FolderService
         var normalizedName = request.Name.Trim();
         var existed = await _orm.Select<Folder>()
             .Where(item => item.Id != id && item.Name == normalizedName)
+            .Where(item => item.TenantId == tenantContext.TenantId)
             .AnyAsync();
 
         if (existed)
@@ -98,7 +102,7 @@ public sealed class FolderService
 
         await _orm.Update<Folder>().SetSource(folder).ExecuteAffrowsAsync();
 
-        var bookmarkCount = await _orm.Select<Bookmark>().Where(item => item.FolderId == folder.Id).CountAsync();
+        var bookmarkCount = await _orm.Select<Bookmark>().Where(item => item.TenantId == tenantContext.TenantId && item.FolderId == folder.Id).CountAsync();
 
         return new FolderDto
         {
@@ -111,20 +115,20 @@ public sealed class FolderService
         };
     }
 
-    public async Task DeleteAsync(Guid id)
+    public async Task DeleteAsync(Guid id, TenantContext tenantContext)
     {
-        var folder = await _orm.Select<Folder>().Where(item => item.Id == id).ToOneAsync();
+        var folder = await _orm.Select<Folder>().Where(item => item.Id == id && item.TenantId == tenantContext.TenantId).ToOneAsync();
         if (folder is null)
         {
             throw new KeyNotFoundException("目录不存在。");
         }
 
-        var bookmarkCount = await _orm.Select<Bookmark>().Where(item => item.FolderId == folder.Id).CountAsync();
+        var bookmarkCount = await _orm.Select<Bookmark>().Where(item => item.TenantId == tenantContext.TenantId && item.FolderId == folder.Id).CountAsync();
         if (bookmarkCount > 0)
         {
             throw new InvalidOperationException("该目录下还有书签，请先转移或删除书签。");
         }
 
-        await _orm.Delete<Folder>().Where(item => item.Id == id).ExecuteAffrowsAsync();
+        await _orm.Delete<Folder>().Where(item => item.Id == id && item.TenantId == tenantContext.TenantId).ExecuteAffrowsAsync();
     }
 }

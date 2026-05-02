@@ -107,7 +107,7 @@ async function submit(payload: SavePortalLinkRequest) {
 
   try {
     if (editingLink.value) {
-      await updateLink(editingLink.value.id, payload)
+      await updateLink(editingLink.value.id, payload, targetTenantId.value)
       ElMessage.success('链接已更新。')
     } else {
       await createLink(payload, targetTenantId.value)
@@ -129,7 +129,7 @@ async function remove(item: AdminLinkItem) {
   })
 
   try {
-    await deleteLink(item.id)
+    await deleteLink(item.id, targetTenantId.value)
     ElMessage.success('链接已删除。')
     await loadLinks()
   } catch (error: any) {

@@ -23,7 +23,13 @@ public sealed class ShareController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetList()
     {
-        return Ok(await _shareService.GetListAsync());
+        var tenantContext = _tenantContextAccessor.Current;
+        if (tenantContext is null)
+        {
+            return Unauthorized();
+        }
+
+        return Ok(await _shareService.GetListAsync(tenantContext));
     }
 
     [HttpPost]
@@ -48,9 +54,15 @@ public sealed class ShareController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
+        var tenantContext = _tenantContextAccessor.Current;
+        if (tenantContext is null)
+        {
+            return Unauthorized();
+        }
+
         try
         {
-            await _shareService.DeleteAsync(id);
+            await _shareService.DeleteAsync(id, tenantContext);
             return NoContent();
         }
         catch (KeyNotFoundException ex)

@@ -104,7 +104,7 @@ async function submit(payload: SavePortalCategoryRequest) {
   saving.value = true
   try {
     if (editingCategory.value) {
-      await updateCategory(editingCategory.value.id, payload)
+      await updateCategory(editingCategory.value.id, payload, targetTenantId.value)
       ElMessage.success('分类已更新。')
     } else {
       await createCategory(payload, targetTenantId.value)
@@ -127,7 +127,7 @@ async function remove(item: AdminCategoryItem) {
   }
   await ElMessageBox.confirm(`确认删除分类「${item.name}」吗？`, '删除分类', { type: 'warning' })
   try {
-    await deleteCategory(item.id)
+    await deleteCategory(item.id, targetTenantId.value)
     ElMessage.success('分类已删除。')
     await load()
   } catch (error: any) {
@@ -157,7 +157,7 @@ function initSortables() {
           .map((el) => el.dataset.id || '')
           .filter(Boolean)
         try {
-          await sortCategories(orderedIds)
+          await sortCategories(orderedIds, targetTenantId.value)
           ElMessage.success('分类排序已更新。')
           await load()
         } catch (error: any) {
@@ -182,7 +182,7 @@ function initSortables() {
             .map((el) => el.dataset.id || '')
             .filter(Boolean)
           try {
-            await sortCategories(orderedIds)
+            await sortCategories(orderedIds, targetTenantId.value)
             ElMessage.success('子分类排序已更新。')
             await load()
           } catch (error: any) {
@@ -200,11 +200,11 @@ async function resetSortOrder() {
     // Must send same-level groups separately
     const parentIds = tree.value.map((n) => n.item.id)
     if (parentIds.length) {
-      await sortCategories(parentIds)
+      await sortCategories(parentIds, targetTenantId.value)
     }
     for (const node of tree.value) {
       if (node.children.length) {
-        await sortCategories(node.children.map((c) => c.id))
+        await sortCategories(node.children.map((c) => c.id), targetTenantId.value)
       }
     }
     ElMessage.success('排序已重置。')

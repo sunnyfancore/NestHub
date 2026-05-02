@@ -50,9 +50,15 @@ public sealed class BookmarksController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] SaveBookmarkRequest request)
     {
+        var tenantContext = _tenantContextAccessor.Current;
+        if (tenantContext is null)
+        {
+            return Unauthorized();
+        }
+
         try
         {
-            return Ok(await _bookmarkService.UpdateAsync(id, request));
+            return Ok(await _bookmarkService.UpdateAsync(id, request, tenantContext));
         }
         catch (KeyNotFoundException ex)
         {
@@ -67,9 +73,15 @@ public sealed class BookmarksController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
     {
+        var tenantContext = _tenantContextAccessor.Current;
+        if (tenantContext is null)
+        {
+            return Unauthorized();
+        }
+
         try
         {
-            await _bookmarkService.DeleteAsync(id);
+            await _bookmarkService.DeleteAsync(id, tenantContext);
             return NoContent();
         }
         catch (KeyNotFoundException ex)
@@ -81,9 +93,15 @@ public sealed class BookmarksController : ControllerBase
     [HttpPost("{id:guid}/open")]
     public async Task<IActionResult> Open(Guid id)
     {
+        var tenantContext = _tenantContextAccessor.Current;
+        if (tenantContext is null)
+        {
+            return Unauthorized();
+        }
+
         try
         {
-            await _bookmarkService.OpenAsync(id);
+            await _bookmarkService.OpenAsync(id, tenantContext);
             return NoContent();
         }
         catch (KeyNotFoundException ex)

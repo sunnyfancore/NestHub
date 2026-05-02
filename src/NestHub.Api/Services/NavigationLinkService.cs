@@ -18,7 +18,7 @@ public sealed class NavigationLinkService
     {
         var category = await _orm.Select<Folder>()
             .DisableGlobalFilter("TenantFilter")
-            .Where(item => item.Id == request.CategoryId).ToOneAsync();
+            .Where(item => item.Id == request.CategoryId && item.TenantId == tenantContext.TenantId).ToOneAsync();
         if (category is null)
         {
             throw new InvalidOperationException("所属分类不存在。");
@@ -46,11 +46,11 @@ public sealed class NavigationLinkService
         return MapLink(link, category.Name);
     }
 
-    public async Task<PortalLinkDto> UpdateAsync(Guid id, SavePortalLinkRequest request)
+    public async Task<PortalLinkDto> UpdateAsync(Guid id, SavePortalLinkRequest request, TenantContext tenantContext)
     {
         var link = await _orm.Select<Bookmark>()
             .DisableGlobalFilter("TenantFilter")
-            .Where(item => item.Id == id).ToOneAsync();
+            .Where(item => item.Id == id && item.TenantId == tenantContext.TenantId).ToOneAsync();
         if (link is null)
         {
             throw new KeyNotFoundException("链接不存在。");
@@ -58,7 +58,7 @@ public sealed class NavigationLinkService
 
         var category = await _orm.Select<Folder>()
             .DisableGlobalFilter("TenantFilter")
-            .Where(item => item.Id == request.CategoryId).ToOneAsync();
+            .Where(item => item.Id == request.CategoryId && item.TenantId == tenantContext.TenantId).ToOneAsync();
         if (category is null)
         {
             throw new InvalidOperationException("所属分类不存在。");
@@ -76,22 +76,22 @@ public sealed class NavigationLinkService
         link.SortOrder = request.SortOrder;
         link.UpdatedAt = DateTime.UtcNow;
 
-        await _orm.Update<Bookmark>().SetSource(link).ExecuteAffrowsAsync();
+        await _orm.Update<Bookmark>().DisableGlobalFilter("TenantFilter").SetSource(link).ExecuteAffrowsAsync();
         return MapLink(link, category.Name);
     }
 
-    public async Task DeleteAsync(Guid id)
+    public async Task DeleteAsync(Guid id, TenantContext tenantContext)
     {
         var deleted = await _orm.Delete<Bookmark>()
             .DisableGlobalFilter("TenantFilter")
-            .Where(item => item.Id == id).ExecuteAffrowsAsync();
+            .Where(item => item.Id == id && item.TenantId == tenantContext.TenantId).ExecuteAffrowsAsync();
         if (deleted == 0)
         {
             throw new KeyNotFoundException("链接不存在。");
         }
     }
 
-    public async Task UpdateOrderAsync(IReadOnlyCollection<Guid> orderedIds)
+    public async Task UpdateOrderAsync(IReadOnlyCollection<Guid> orderedIds, TenantContext tenantContext)
     {
         if (orderedIds.Count == 0)
         {
@@ -101,7 +101,7 @@ public sealed class NavigationLinkService
         var ids = orderedIds.Distinct().ToList();
         var links = await _orm.Select<Bookmark>()
             .DisableGlobalFilter("TenantFilter")
-            .Where(item => ids.Contains(item.Id)).ToListAsync();
+            .Where(item => item.TenantId == tenantContext.TenantId && ids.Contains(item.Id)).ToListAsync();
         if (links.Count != ids.Count)
         {
             throw new InvalidOperationException("存在无效的链接排序数据。");
@@ -122,7 +122,7 @@ public sealed class NavigationLinkService
             link.UpdatedAt = now;
         }
 
-        await _orm.Update<Bookmark>().SetSource(links).ExecuteAffrowsAsync();
+        await _orm.Update<Bookmark>().DisableGlobalFilter("TenantFilter").SetSource(links).ExecuteAffrowsAsync();
     }
 
     private static PortalLinkDto MapLink(Bookmark link, string categoryName)

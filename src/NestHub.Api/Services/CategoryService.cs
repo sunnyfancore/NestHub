@@ -16,12 +16,12 @@ public sealed class CategoryService
 
     public async Task<PortalCategoryDto> CreateAsync(SavePortalCategoryRequest request, TenantContext tenantContext)
     {
-        var parent = await ValidateParentAsync(request.ParentId, null);
+        var parent = await ValidateParentAsync(request.ParentId, null, tenantContext.TenantId);
         var normalizedName = request.Name.Trim();
 
         var exists = await _orm.Select<Folder>()
             .DisableGlobalFilter("TenantFilter")
-            .Where(item => item.ParentId == request.ParentId && item.Name == normalizedName)
+            .Where(item => item.TenantId == tenantContext.TenantId && item.ParentId == request.ParentId && item.Name == normalizedName)
             .AnyAsync();
 
         if (exists)
@@ -47,21 +47,21 @@ public sealed class CategoryService
         return MapCategory(category);
     }
 
-    public async Task<PortalCategoryDto> UpdateAsync(Guid id, SavePortalCategoryRequest request)
+    public async Task<PortalCategoryDto> UpdateAsync(Guid id, SavePortalCategoryRequest request, TenantContext tenantContext)
     {
         var category = await _orm.Select<Folder>()
             .DisableGlobalFilter("TenantFilter")
-            .Where(item => item.Id == id).ToOneAsync();
+            .Where(item => item.Id == id && item.TenantId == tenantContext.TenantId).ToOneAsync();
         if (category is null)
         {
             throw new KeyNotFoundException("分类不存在。");
         }
 
-        var parent = await ValidateParentAsync(request.ParentId, id);
+        var parent = await ValidateParentAsync(request.ParentId, id, tenantContext.TenantId);
         var normalizedName = request.Name.Trim();
         var exists = await _orm.Select<Folder>()
             .DisableGlobalFilter("TenantFilter")
-            .Where(item => item.Id != id && item.ParentId == request.ParentId && item.Name == normalizedName)
+            .Where(item => item.TenantId == tenantContext.TenantId && item.Id != id && item.ParentId == request.ParentId && item.Name == normalizedName)
             .AnyAsync();
 
         if (exists)
@@ -80,11 +80,11 @@ public sealed class CategoryService
         return MapCategory(category);
     }
 
-    public async Task DeleteAsync(Guid id)
+    public async Task DeleteAsync(Guid id, TenantContext tenantContext)
     {
         var category = await _orm.Select<Folder>()
             .DisableGlobalFilter("TenantFilter")
-            .Where(item => item.Id == id).ToOneAsync();
+            .Where(item => item.Id == id && item.TenantId == tenantContext.TenantId).ToOneAsync();
         if (category is null)
         {
             throw new KeyNotFoundException("分类不存在。");
@@ -92,7 +92,7 @@ public sealed class CategoryService
 
         var childCount = await _orm.Select<Folder>()
             .DisableGlobalFilter("TenantFilter")
-            .Where(item => item.ParentId == id).CountAsync();
+            .Where(item => item.TenantId == tenantContext.TenantId && item.ParentId == id).CountAsync();
         if (childCount > 0)
         {
             throw new InvalidOperationException("请先删除子分类。");
@@ -100,16 +100,16 @@ public sealed class CategoryService
 
         var linkCount = await _orm.Select<Bookmark>()
             .DisableGlobalFilter("TenantFilter")
-            .Where(item => item.FolderId == id).CountAsync();
+            .Where(item => item.TenantId == tenantContext.TenantId && item.FolderId == id).CountAsync();
         if (linkCount > 0)
         {
             throw new InvalidOperationException("请先删除或迁移该分类下的链接。");
         }
 
-        await _orm.Delete<Folder>().DisableGlobalFilter("TenantFilter").Where(item => item.Id == id).ExecuteAffrowsAsync();
+        await _orm.Delete<Folder>().DisableGlobalFilter("TenantFilter").Where(item => item.Id == id && item.TenantId == tenantContext.TenantId).ExecuteAffrowsAsync();
     }
 
-    public async Task UpdateOrderAsync(IReadOnlyCollection<Guid> orderedIds)
+    public async Task UpdateOrderAsync(IReadOnlyCollection<Guid> orderedIds, TenantContext tenantContext)
     {
         if (orderedIds.Count == 0)
         {
@@ -119,7 +119,7 @@ public sealed class CategoryService
         var ids = orderedIds.Distinct().ToList();
         var categories = await _orm.Select<Folder>()
             .DisableGlobalFilter("TenantFilter")
-            .Where(item => ids.Contains(item.Id)).ToListAsync();
+            .Where(item => item.TenantId == tenantContext.TenantId && ids.Contains(item.Id)).ToListAsync();
         if (categories.Count != ids.Count)
         {
             throw new InvalidOperationException("存在无效的分类排序数据。");
@@ -143,7 +143,7 @@ public sealed class CategoryService
         await _orm.Update<Folder>().DisableGlobalFilter("TenantFilter").SetSource(categories).ExecuteAffrowsAsync();
     }
 
-    private async Task<Folder?> ValidateParentAsync(Guid? parentId, Guid? selfId)
+    private async Task<Folder?> ValidateParentAsync(Guid? parentId, Guid? selfId, Guid tenantId)
     {
         if (!parentId.HasValue)
         {
@@ -157,7 +157,7 @@ public sealed class CategoryService
 
         var parent = await _orm.Select<Folder>()
             .DisableGlobalFilter("TenantFilter")
-            .Where(item => item.Id == parentId.Value).ToOneAsync();
+            .Where(item => item.Id == parentId.Value && item.TenantId == tenantId).ToOneAsync();
         if (parent is null)
         {
             throw new InvalidOperationException("父级分类不存在。");

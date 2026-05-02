@@ -37,11 +37,14 @@ public sealed class LinksController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] SavePortalLinkRequest request)
+    public async Task<IActionResult> Update(Guid id, [FromBody] SavePortalLinkRequest request, [FromQuery] Guid? targetTenantId = null)
     {
+        var ctx = ResolveContext(targetTenantId);
+        if (ctx is null) return Unauthorized();
+
         try
         {
-            return Ok(await _navigationLinkService.UpdateAsync(id, request));
+            return Ok(await _navigationLinkService.UpdateAsync(id, request, ctx));
         }
         catch (KeyNotFoundException ex)
         {
@@ -54,11 +57,14 @@ public sealed class LinksController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id)
+    public async Task<IActionResult> Delete(Guid id, [FromQuery] Guid? targetTenantId = null)
     {
+        var ctx = ResolveContext(targetTenantId);
+        if (ctx is null) return Unauthorized();
+
         try
         {
-            await _navigationLinkService.DeleteAsync(id);
+            await _navigationLinkService.DeleteAsync(id, ctx);
             return NoContent();
         }
         catch (KeyNotFoundException ex)
@@ -68,11 +74,14 @@ public sealed class LinksController : ControllerBase
     }
 
     [HttpPost("sort")]
-    public async Task<IActionResult> Sort([FromBody] SortRequest request)
+    public async Task<IActionResult> Sort([FromBody] SortRequest request, [FromQuery] Guid? targetTenantId = null)
     {
+        var ctx = ResolveContext(targetTenantId);
+        if (ctx is null) return Unauthorized();
+
         try
         {
-            await _navigationLinkService.UpdateOrderAsync(request.OrderedIds);
+            await _navigationLinkService.UpdateOrderAsync(request.OrderedIds, ctx);
             return NoContent();
         }
         catch (InvalidOperationException ex)
