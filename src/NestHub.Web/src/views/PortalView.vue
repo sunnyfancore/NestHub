@@ -1055,7 +1055,7 @@ function setupSectionObserver() {
 
 function handleExtensionTheme(event: Event) {
   const { themeName, tenantId } = (event as CustomEvent).detail || {}
-  if (!portal.value || portal.value.tenant.id !== tenantId || !['default2', 'ocean', 'neon', 'paper', 'lime', 'blackgold', 'liquid', 'directory', 'workspace', 'launchpad'].includes(themeName)) return
+  if (!portal.value || portal.value.tenant.id !== tenantId || !['default2', 'ocean', 'neon', 'paper', 'lime', 'blackgold', 'liquid', 'directory', 'workspace', 'launchpad', 'sakura'].includes(themeName)) return
   portal.value.site.themeName = themeName
   portal.value.site.mobileThemeName = themeName
   localStorage.removeItem(CACHE_KEY)
@@ -5015,3 +5015,5 @@ html.dark .theme-paper .portal-context-menu__divider { background: #3a3220; }
 
 <style scoped src="../styles/portal-classics.css"></style>
 <style scoped src="../styles/portal-refinement.css"></style>
+
+<style scoped src="../styles/portal-sakura.css"></style>

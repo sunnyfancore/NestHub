@@ -1,0 +1,20 @@
+/* Sakura details stay within this theme and use the shared day/night palette. */
+.portal-page.portal-page.portal-page.theme-sakura .portal-main {
+  background: radial-gradient(ellipse at 90% 0%, color-mix(in srgb, var(--p-selected) 70%, transparent), transparent 48%), var(--p-bg);
+}
+.theme-sakura .portal-content { width: 100%; max-width: 1240px; margin-inline: auto; box-sizing: border-box; }
+.theme-sakura .portal-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.portal-page.portal-page.portal-page.theme-sakura .portal-section { border-radius: 22px; box-shadow: 0 8px 28px color-mix(in srgb, var(--p-accent) 7%, transparent); }
+.theme-sakura .portal-section__title::after { content: '✧'; color: var(--p-accent); font-size: 22px; margin-left: 8px; }
+.portal-page.portal-page.portal-page.theme-sakura .portal-card { border-radius: 16px; transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
+.theme-sakura .portal-sidebar__logo-letter { background: linear-gradient(135deg, #f5badb, #dfa7e9); color: #682b54; border-radius: 15px; }
+.portal-page.portal-page.portal-page.theme-sakura .portal-search-shell { border-radius: 24px; }
+.theme-sakura .portal-sidebar__logo { position: relative; }
+.theme-sakura .portal-sidebar__logo::after { content: '✦ · ✧'; position: absolute; right: 16px; bottom: 8px; color: var(--p-accent); font-size: 12px; letter-spacing: 4px; pointer-events: none; }
+@media (hover: hover) and (pointer: fine) {
+  .portal-page.portal-page.portal-page.theme-sakura .portal-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px color-mix(in srgb, var(--p-accent) 15%, transparent); border-color: var(--p-accent); }
+}
+@media (max-width: 1100px) { .theme-sakura .portal-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .portal-page.theme-sakura .portal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+@media (max-width: 420px) { .portal-page.theme-sakura .portal-grid { grid-template-columns: minmax(0, 1fr) !important; } }
+@media (prefers-reduced-motion: reduce) { .portal-page.portal-page.portal-page.theme-sakura .portal-card { transition: none; } .portal-page.portal-page.portal-page.theme-sakura .portal-card:hover { transform: none; } }

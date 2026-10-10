@@ -122,3 +122,6 @@ html[data-portal-theme=lime] .el-button--primary {
   color: var(--p-lime-highlight-ink);
 }
 html[data-portal-theme=lime] .el-button--primary:hover { background: #d7fa90; border-color: #d7fa90; }
+
+html[data-portal-theme=sakura]{--p-bg:#fff3f8;--p-panel:#fffafd;--p-card:#ffffff;--p-ink:#492a40;--p-muted:#806075;--p-line:#f0d5e4;--p-accent:#b93877;--p-soft:#fce1ef;--p-hover:#fff0f7;--p-sidebar:#fff5fa;--p-side-ink:#69465e;--p-side-muted:#806075;--p-selected:#f8cde3;--p-selected-ink:#852852;--p-shadow:0 6px 24px #b9387709;--p-radius:20px}
+html.dark[data-portal-theme=sakura]{--p-bg:#241a26;--p-panel:#302232;--p-card:#382839;--p-ink:#fae9f2;--p-muted:#cfb3c5;--p-line:#60425a;--p-accent:#f3a6d0;--p-soft:#513247;--p-hover:#453045;--p-sidebar:#2b1e2d;--p-side-ink:#f3dce9;--p-side-muted:#cfb3c5;--p-selected:#623b53;--p-selected-ink:#ffd4eb}

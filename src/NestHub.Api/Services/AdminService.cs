@@ -153,6 +153,14 @@ public sealed class AdminService
             },
             new AdminThemeOptionDto
             {
+                Name = "sakura",
+                Title = "樱糖 · 二次元粉色",
+                Version = "1.4.0",
+                Description = "樱花粉与奶油白，糖果渐变、星光点缀与轻盈悬浮反馈，支持夜樱深色模式与手机布局。",
+                ScreenshotUrl = ""
+            },
+            new AdminThemeOptionDto
+            {
                 Name = "lime",
                 Title = "青柠 · 清新自然",
                 Version = "1.4.0",

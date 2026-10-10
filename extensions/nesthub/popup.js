@@ -1,6 +1,7 @@
 const $ = id => document.getElementById(id);
-const themeNames = ['default2', 'ocean', 'neon', 'paper', 'lime', 'blackgold', 'liquid', 'directory', 'workspace', 'launchpad'];
+const themeNames = ['default2', 'ocean', 'neon', 'paper', 'lime', 'blackgold', 'liquid', 'directory', 'workspace', 'launchpad', 'sakura'];
 const themeDescriptions = {
+  sakura: '樱花粉与奶油白，糖果渐变和星光点缀，轻盈可爱的二次元风格。',
   directory: '白底蓝绿链接、紧凑网址网格与分类分隔，适合大量网址快速查找。',
   workspace: '深色分类侧栏与整齐工具卡片，适合工作资源和团队常用工具。',
   launchpad: '居中大搜索、宽松留白与图标卡片，适合个人浏览器起始页。',

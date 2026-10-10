@@ -470,4 +470,5 @@ onMounted(load)
 .theme-preview--directory {--preview-bg:#f5f8fa; --preview-sidebar:#f8fbfc; --preview-panel:#ffffff; --preview-card:#ffffff; --preview-accent:#1f6695; --preview-muted:#607585; --preview-line:#dce6eb; }
 .theme-preview--workspace {--preview-bg:#f2f5f9; --preview-sidebar:#202a3c; --preview-panel:#ffffff; --preview-card:#ffffff; --preview-accent:#4f5eb7; --preview-muted:#64738a; --preview-line:#dfe5ee; }
 .theme-preview--launchpad {--preview-bg:#f7f8f5; --preview-sidebar:#f0f4ef; --preview-panel:#ffffff; --preview-card:#ffffff; --preview-accent:#3f6c51; --preview-muted:#65776c; --preview-line:#dfe7df; }
+.theme-preview--sakura {--preview-bg:#fff3f8;--preview-sidebar:#f8cde3;--preview-panel:#fffafd;--preview-card:#ffffff;--preview-accent:#b93877;--preview-muted:#806075;--preview-line:#f0d5e4;}
 </style>

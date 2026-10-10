@@ -75,6 +75,7 @@
       :host([data-theme=paper]) .collect{background:#96713c;color:#fff8ee;box-shadow:0 2px 8px #96713c26}
       :host([data-theme=directory]) .collect{background:#2563a6;color:#fff}
         :host([data-theme=workspace]) .collect{background:#5265d8;color:#fff}
+        :host([data-theme=sakura]) .collect{background:#b93877;color:#fff}
         :host([data-theme=launchpad]) .collect{background:#537862;color:#fff}
         :host([data-theme=blackgold]) .collect{background:linear-gradient(145deg,#29251d,#141413);color:#e4c78c;border-color:#bfa46b99}
       :host([data-theme=liquid]) .collect{background:linear-gradient(145deg,#e7f7ffdd,#b6d2f5dd);color:#315576;border-color:#ffffffe0;backdrop-filter:blur(8px)}

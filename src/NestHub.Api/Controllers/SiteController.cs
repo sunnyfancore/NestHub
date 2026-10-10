@@ -78,7 +78,7 @@ public sealed class SiteController : ControllerBase
     {
         var tenantContext = _tenantContextAccessor.Current;
         if (tenantContext is null) return Unauthorized();
-        var themes = new[] { "default2", "ocean", "neon", "paper", "lime", "blackgold", "liquid", "directory", "workspace", "launchpad" };
+        var themes = new[] { "default2", "ocean", "neon", "paper", "lime", "blackgold", "liquid", "directory", "workspace", "launchpad", "sakura" };
         if (!themes.Contains(request.ThemeName)) return BadRequest(new { message = "请选择有效的主题。" });
         await _siteSettingService.UpdateThemeAsync(request.ThemeName, tenantContext);
         return Ok(new { themeName = request.ThemeName, tenantId = tenantContext.TenantId });

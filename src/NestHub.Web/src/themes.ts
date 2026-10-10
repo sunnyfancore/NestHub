@@ -3,6 +3,7 @@ export const themeOptions = [
   { name: 'ocean', title: '海洋 · 蔚蓝清爽' },
   { name: 'neon', title: '霓虹 · 未来科技' },
   { name: 'paper', title: '纸笺 · 温润书卷' },
+  { name: 'sakura', title: '樱糖 · 二次元粉色' },
   { name: 'lime', title: '青柠 · 清新自然' },
   { name: 'blackgold', title: '曜金 · 高级黑金' },
   { name: 'liquid', title: '流光 · 液态玻璃' },

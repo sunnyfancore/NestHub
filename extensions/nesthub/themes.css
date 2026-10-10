@@ -18,3 +18,7 @@
 :root[data-theme=blackgold] body{background:radial-gradient(ellipse at 90% -20%,#d4b7790c,transparent 55%),var(--page)}
 :root footer{opacity:1;color:var(--muted)}
 :root input::placeholder,:root textarea::placeholder{color:var(--muted)}
+
+:root[data-theme=sakura]{--page:#fff5fa;--surface:#fffafd;--ink:#492a40;--muted:#806075;--label:#69465e;--accent:#b93877;--accent-hover:#a52d68;--accent-ink:#fff;--line:#f0d5e4;--tint:#fce1ef;--tint-line:#edbdd5;--tint-ink:#8f2e60}
+:root[data-theme=sakura] body{background:radial-gradient(ellipse at 100% 0,#f8d4ec,transparent 45%),var(--page)}
+:root[data-theme=sakura] .primary-button{background:linear-gradient(115deg,#b93877,#9a428f);color:#fff}
