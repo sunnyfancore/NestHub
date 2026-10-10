@@ -1323,6 +1323,14 @@ onBeforeUnmount(() => {
       </header>
 
       <div ref="rootSectionContainerRef" class="portal-content">
+        <header v-if="activeTheme === 'lime' && portal" class="lime-intro">
+          <div>
+            <span class="lime-intro__eyebrow">你的日常，从这里开始</span>
+            <h1>{{ portal.site.subtitle || '让好内容，有处安放。' }}</h1>
+            <p>{{ portal.site.description || '收藏灵感，连接工具，把喜欢的内容放在一起。' }}</p>
+          </div>
+          <span class="lime-intro__mark" aria-hidden="true">↗</span>
+        </header>
         <section
           v-for="category in portal?.categories || []"
           :id="anchorId(category.id)"
@@ -5034,3 +5042,7 @@ html.dark .theme-paper .portal-context-menu__divider { background: #3a3220; }
   }
 }
 </style>
+
+<style scoped src="../styles/portal-lime.css"></style>
+
+<style scoped src="../styles/portal-classics.css"></style>

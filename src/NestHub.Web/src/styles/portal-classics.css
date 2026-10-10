@@ -1,0 +1,64 @@
+/* Shared surfaces; each theme below changes both palette and layout. */
+.portal-page:is(.theme-directory,.theme-workspace,.theme-launchpad,.theme-blackgold,.theme-liquid) {
+  --classic-bg:#f5f7fa; --classic-panel:#fff; --classic-ink:#263747; --classic-muted:#687887; --classic-accent:#2563a6; --classic-line:#dfe6ee;
+  color:var(--classic-ink); background:var(--classic-bg);
+}
+.portal-page.theme-workspace { --classic-bg:#f3f5f8; --classic-accent:#5265d8; }
+.portal-page.theme-launchpad { --classic-bg:#f8f7f4; --classic-accent:#537862; }
+.portal-page.theme-blackgold { --classic-bg:#141413; --classic-panel:#22211e; --classic-ink:#f0e9da; --classic-muted:#b3a88f; --classic-accent:#d5b87c; --classic-line:#3d372b; }
+.portal-page.theme-liquid { --classic-bg:#edf5fa; --classic-panel:#ffffffaa; --classic-ink:#294458; --classic-muted:#677f92; --classic-accent:#5086b3; --classic-line:#cedfe9; }
+html.dark .portal-page:is(.theme-directory,.theme-workspace,.theme-launchpad,.theme-liquid) { --classic-bg:#18222d; --classic-panel:#233140; --classic-ink:#e4edf7; --classic-muted:#a4b5c8; --classic-line:#3b4c60; --classic-accent:#9bc7ed; }
+.portal-page:is(.theme-directory,.theme-workspace,.theme-launchpad,.theme-blackgold,.theme-liquid) .portal-main { background:var(--classic-bg); }
+.portal-page:is(.theme-directory,.theme-workspace,.theme-launchpad,.theme-blackgold,.theme-liquid) .portal-sidebar { background:var(--classic-panel); border-color:var(--classic-line); }
+.portal-page:is(.theme-directory,.theme-workspace,.theme-launchpad,.theme-blackgold,.theme-liquid) :is(.portal-sidebar__logo-title,.portal-sidebar__logo-title-full,.portal-sidebar__link,.portal-sidebar__child-link,.portal-section__title h2,.portal-card__copy strong,.portal-search-field) { color:var(--classic-ink); }
+.portal-page:is(.theme-directory,.theme-workspace,.theme-launchpad,.theme-blackgold,.theme-liquid) :is(.portal-sidebar__link.is-active,.portal-sidebar__child-link.is-active,.portal-search-submit,.portal-search-engine-btn) { color:var(--classic-accent); }
+.portal-page:is(.theme-directory,.theme-workspace,.theme-launchpad,.theme-blackgold,.theme-liquid) :is(.portal-searchbar,.portal-section,.portal-card,.portal-search-shell,.portal-engine-menu,.portal-suggest) { background:var(--classic-panel); border-color:var(--classic-line); color:var(--classic-ink); }
+.portal-page:is(.theme-directory,.theme-workspace,.theme-launchpad,.theme-blackgold,.theme-liquid) :is(.portal-card__copy p,.portal-footer,.portal-search-field::placeholder) { color:var(--classic-muted); }
+.portal-page:is(.theme-directory,.theme-workspace,.theme-launchpad,.theme-blackgold,.theme-liquid) .portal-card__icon { background:var(--classic-bg); color:var(--classic-accent); }
+.portal-page:is(.theme-directory,.theme-workspace,.theme-launchpad,.theme-blackgold,.theme-liquid) :is(.portal-sidebar__logo-letter,.portal-sidebar__logo-letter-full) { background:var(--classic-accent); color:var(--classic-bg); }
+.portal-page:is(.theme-directory,.theme-workspace,.theme-launchpad,.theme-blackgold,.theme-liquid) .portal-sidebar__link.is-active::before { background:var(--classic-accent); }
+.portal-page:is(.theme-directory,.theme-workspace,.theme-launchpad,.theme-blackgold,.theme-liquid) .portal-footer { background:var(--classic-panel); border-color:var(--classic-line); }
+.portal-page:is(.theme-directory,.theme-workspace,.theme-launchpad,.theme-blackgold,.theme-liquid) .portal-right-rail :deep(.el-button) { background:var(--classic-panel); color:var(--classic-ink); border-color:var(--classic-line); }
+.portal-page.theme-directory .portal-content { gap:16px; padding:24px; }
+.portal-page.theme-directory .portal-section { border-radius:4px; box-shadow:none; padding:18px; }
+.portal-page.theme-directory .portal-section__head { border-bottom:2px solid var(--classic-line); padding-bottom:12px; }
+.portal-page.theme-directory .portal-grid { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:4px 16px; }
+.portal-page.theme-directory .portal-card { border:0; border-radius:4px; padding:10px 6px; box-shadow:none; }
+.portal-page.theme-directory .portal-card__copy strong { color:var(--classic-accent); font-weight:500; }
+.portal-page.theme-directory .portal-card__copy p { display:none; }
+.portal-page.theme-directory .portal-card__icon { width:24px; height:24px; background:transparent; }
+.portal-page.theme-workspace .portal-sidebar { background:#20283e; }
+.portal-page.theme-workspace :is(.portal-sidebar__logo-title,.portal-sidebar__logo-title-full,.portal-sidebar__link,.portal-sidebar__child-link) { color:#d5dced; }
+.portal-page.theme-workspace .portal-sidebar__link.is-active { background:#5265d8; color:#fff; border-radius:8px; }
+.portal-page.theme-workspace .portal-grid { grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
+.portal-page.theme-workspace .portal-card { border-radius:10px; box-shadow:0 3px 10px #23304708; }
+.portal-page.theme-launchpad .portal-searchbar { min-height:160px; justify-content:center; background:transparent; border:0; }
+.portal-page.theme-launchpad .portal-searchbar__inner { width:min(760px,100%); }
+.portal-page.theme-launchpad .portal-search-shell { height:56px; border-radius:28px; box-shadow:0 8px 30px #283c3210; }
+.portal-page.theme-launchpad .portal-content { max-width:1200px; margin:auto; gap:32px; }
+.portal-page.theme-launchpad .portal-section { background:transparent; border:0; box-shadow:none; }
+.portal-page.theme-launchpad .portal-grid { grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:20px; }
+.portal-page.theme-launchpad .portal-card { padding:20px 12px; border-radius:18px; }
+.portal-page.theme-launchpad .portal-card__main { flex-direction:column; text-align:center; width:100%; }
+.portal-page.theme-launchpad .portal-card__icon { width:48px; height:48px; border-radius:16px; }
+.portal-page.theme-launchpad .portal-card__copy p { display:none; }
+.portal-page.theme-blackgold .portal-section { border-radius:16px; box-shadow:0 8px 24px #0002; }
+.portal-page.theme-blackgold .portal-search-shell { border-color:#7c6840; }
+.portal-page.theme-blackgold .portal-card:hover { border-color:var(--classic-accent); box-shadow:0 6px 22px #d5b87c18; }
+.portal-page.theme-liquid .portal-main { background:radial-gradient(ellipse at 90% 5%,#9fd7ed55,transparent 45%),radial-gradient(ellipse at 0 70%,#9eaff755,transparent 50%),var(--classic-bg); }
+.portal-page.theme-liquid :is(.portal-section,.portal-card,.portal-searchbar,.portal-sidebar) { backdrop-filter:blur(18px); border-radius:18px; box-shadow:inset 0 1px 0 #ffffff50,0 5px 18px #486b8f0a; }
+.portal-page.theme-liquid .portal-card:hover { transform:translateY(-3px); box-shadow:0 9px 24px #486b8f20; }
+@media(min-width:1000px) {
+  .portal-page.theme-launchpad { grid-template-columns:190px minmax(0,1fr); }
+  .portal-page.theme-directory { grid-template-columns:200px minmax(0,1fr); }
+}
+@media(max-width:640px) {
+  .portal-page.theme-launchpad .portal-searchbar { min-height:100px; padding:16px; }
+  .portal-page.theme-directory .portal-content { padding:12px; }
+  .portal-page.theme-directory .portal-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .portal-page.theme-launchpad .portal-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .portal-page.theme-workspace .portal-grid { grid-template-columns:minmax(0,1fr); }
+}
+@media(prefers-reduced-motion:reduce) {
+  .portal-page:is(.theme-directory,.theme-workspace,.theme-launchpad,.theme-blackgold,.theme-liquid) .portal-card { transition:none; transform:none; }
+}

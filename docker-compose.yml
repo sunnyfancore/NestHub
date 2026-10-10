@@ -1,20 +1,40 @@
-version: '3'
-networks:
-    docker-network:
-      name: docker-network
-      driver: bridge
+name: nesthub
 services:
   nesthub:
-    build: .
-    working_dir: /app
+    image: ${NESTHUB_IMAGE:-ghcr.io/sunnyfancore/nesthub:latest}
     ports:
-      - "5186:8080"
-    volumes:
-      - ./publish:/app
+      - "${NESTHUB_BIND_ADDRESS:-0.0.0.0}:${NESTHUB_PORT:-5186}:8080"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:8080
-      - TZ=Asia/Shanghai
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      TZ: ${TZ:-Asia/Shanghai}
+      Database__ConnectionString: "Server=mysql;Port=3306;Database=nesthub;User ID=nesthub;Password=${MYSQL_PASSWORD:?Run scripts/deploy.sh or configure .env first};Charset=utf8mb4;SslMode=None;"
+      Database__AutoSyncStructure: "true"
+      Jwt__SecretKey: ${JWT_SECRET:?Configure JWT_SECRET in .env}
+      SuperAdmin__Email: ${ADMIN_EMAIL:-admin@example.com}
+      SuperAdmin__Password: ${ADMIN_PASSWORD:?Configure ADMIN_PASSWORD in .env}
+      SuperAdmin__DisplayName: 超级管理员
+    volumes:
+      - ./data/app:/app/AppData
+    depends_on:
+      mysql:
+        condition: service_healthy
     restart: unless-stopped
-    networks:
-      - docker-network
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: nesthub
+      MYSQL_USER: nesthub
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Configure MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Configure MYSQL_ROOT_PASSWORD in .env}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_PASSWORD\" mysql --protocol=TCP -h 127.0.0.1 -u nesthub -D nesthub -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    restart: unless-stopped

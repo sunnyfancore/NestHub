@@ -4,10 +4,10 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 
-async function setup(unauthorized = false, sourceTab = false) {
+async function setup(unauthorized = false, sourceTab = false, initialStorage = {}) {
   const elements = new Map();
   const requests = [];
-  const storage = { connection: { site: 'https://nest.example', token: 'test-token' } };
+  const storage = { connection: { site: 'https://nest.example', token: 'test-token' }, ...initialStorage };
   function element(id) {
     if (!elements.has(id)) elements.set(id, {
       value: '', options: [], handlers: {}, checked: false,
@@ -22,7 +22,7 @@ async function setup(unauthorized = false, sourceTab = false) {
   const completed = new Promise(resolve => { ready = resolve; });
   const context = vm.createContext({
     URL, AbortSignal, location: { href: `chrome-extension://test/popup.html${sourceTab ? '?sourceTab=7' : ''}` },
-    document: { getElementById: element, createElement: () => ({}) },
+    document: { documentElement: { dataset: {} }, getElementById: element, createElement: () => ({}) },
     chrome: {
       storage: { local: {
         setAccessLevel: async () => {}, get: async () => ({ ...storage }),
@@ -30,10 +30,16 @@ async function setup(unauthorized = false, sourceTab = false) {
         remove: async keys => keys.forEach(key => delete storage[key])
       } },
       tabs: {
-        query: async () => [{ title: 'Example', url: 'https://example.com/' }],
+        query: async query => query.url ? [{ id: 9, url: 'https://nest.example/' }] : [{ title: 'Example', url: 'https://example.com/' }],
         get: async id => { assert.equal(id, 7); return { title: 'Source page', url: 'https://source.example/' }; }
       },
-      permissions: { request: async () => true }
+      permissions: { request: async () => true },
+      scripting: { executeScript: async options => {
+        assert.equal(options.target.tabId, 9);
+        assert.equal(options.args[0], 'https://nest.example');
+        return [{ result: 'website-token' }];
+      } },
+      runtime: { sendMessage: async () => ({ ok: true }) }
     },
     fetch: async (url, options) => {
       requests.push({ url, options });
@@ -91,4 +97,56 @@ test('floating collection window reads source webpage instead of itself', async 
   const { element } = await setup(false, true);
   assert.equal(element('title').value, 'Source page');
   assert.equal(element('url').value, 'https://source.example/');
+});
+
+const categoryCache = {
+  site: 'https://nest.example', token: 'test-token',
+  tenant: { id: 'cached-tenant', name: '缓存空间' },
+  editor: { categoryOptions: [{ id: 'cached-category', name: '缓存分类', level: 0 }] }
+};
+test('cached categories open without a request and manual refresh replaces them', async () => {
+  const app = await setup(false, false, { categoryCache, lastCategory: 'cached-category' });
+  assert.equal(app.requests.length, 0);
+  assert.equal(app.element('saveForm').hidden, false);
+  assert.equal(app.element('category').value, 'cached-category');
+  await app.element('refresh').handlers.click();
+  assert.equal(app.requests.length, 1);
+  assert.equal(app.element('category').value, 'category-id');
+  assert.equal(app.storage.categoryCache.tenant.id, 'tenant-id');
+  assert.equal(app.element('refresh').disabled, false);
+});
+test('cache from another token cannot be reused', async () => {
+  const app = await setup(false, false, { categoryCache: { ...categoryCache, token: 'other-token' } });
+  assert.equal(app.requests.length, 1);
+  assert.equal(app.element('category').value, 'category-id');
+});
+test('expired token when saving with cache clears cached categories too', async () => {
+  const app = await setup(true, false, { categoryCache });
+  assert.equal(app.requests.length, 0);
+  await app.element('saveForm').handlers.submit({ preventDefault() {} });
+  assert.equal(app.storage.categoryCache, undefined);
+  assert.equal(app.storage.connection, undefined);
+  assert.equal(app.element('connectionForm').hidden, false);
+});
+test('theme and startup settings persist and unsafe startup URLs are rejected', async () => {
+  const app = await setup();
+  app.element('theme').value = 'blackgold';
+  await app.element('theme').handlers.change();
+  assert.equal(app.storage.theme, 'blackgold');
+  app.element('openOnStartup').checked = true;
+  app.element('startupUrl').value = 'https://nav.example/home';
+  await app.element('saveStartup').handlers.click();
+  assert.equal(app.storage.startupUrl, 'https://nav.example/home');
+  assert.equal(app.storage.openOnStartup, true);
+  app.element('startupUrl').value = 'javascript:alert(1)';
+  await app.element('saveStartup').handlers.click();
+  assert.equal(app.storage.startupUrl, 'https://nav.example/home');
+});
+test('explicit website connection validates the imported login token with the selected site', async () => {
+  const app = await setup();
+  app.element('site').value = 'https://nest.example';
+  await app.element('connectFromSite').handlers.click();
+  assert.equal(app.storage.connection.token, 'website-token');
+  assert.equal(app.requests.at(-1).options.headers.Authorization, 'Bearer website-token');
+  assert.equal(app.element('token').value, '');
 });

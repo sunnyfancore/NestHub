@@ -7,7 +7,7 @@
 - **多租户架构** — 数据隔离，每个租户独立空间
 - **书签管理** — 目录分类、拖拽排序、批量导入（浏览器 HTML 书签）、点击计数
 - **浏览器快捷收藏** — Chrome / Edge 等 Chromium 浏览器扩展，自动读取当前网页标题与地址，选择分类后直接保存；安装方式见 [扩展说明](extensions/nesthub/README.md)
-- **门户页面** — 5 套主题（默认 / 海洋 / 极光 / 玻璃 / 霓虹 / 纸质），亮色 / 暗色模式
+- **门户页面** — 10 套中文主题（经典 / 海洋 / 霓虹 / 纸笺 / 青柠 / 黑金 / 液态玻璃 / 网址簿 / 效率台 / 起始页），亮色 / 暗色模式
 - **搜索引擎** — 可切换搜索引擎，内置搜索建议
 - **图标自动获取** — 基于 favicon.png.pub 服务自动获取网站图标
 - **书签分享** — 生成分享链接，支持公开访问
@@ -53,7 +53,7 @@ NestHub/
 ### 前置要求
 
 - .NET 10 SDK
-- Node.js 18+
+- Node.js 22.12+（Docker 使用 Node.js 24）
 - MySQL 5.7+
 
 ### 1. 克隆项目
@@ -106,17 +106,28 @@ npm run dev
 
 Vite 开发服务器地址 `http://localhost:5173`，已配置 API 代理。
 
-### 5. Docker 部署
+### 5. Docker 一键部署（推荐）
+
+推送 GitHub 后自动构建前端、后端和插件，并发布 AMD64 / ARM64 镜像：`ghcr.io/sunnyfancore/nesthub:latest`。
+
+Linux 服务器安装 Docker Compose v2 和 OpenSSL 后，在仓库目录运行：
 
 ```bash
-# 构建并发布
-dotnet publish src/NestHub.Api/NestHub.Api.csproj -c Release -o publish "-p:SkipFrontendBuild=true"
-
-# 启动
-docker compose up -d
+bash scripts/deploy.sh
 ```
 
-> 需先在 `appsettings.Production.json` 中配置生产环境数据库连接。
+自动生成密码、创建数据目录并启动应用和 MySQL，默认访问 `http://服务器IP:5186`。首次镜像发布后，如拉取提示没有权限，需要将 GitHub Packages 中的 `nesthub` 镜像设为公开。
+
+后续只更新应用：
+
+```bash
+docker compose pull nesthub
+docker compose up -d --no-deps --wait --wait-timeout 300 nesthub
+```
+
+`data/mysql` 持久化数据库，`data/app` 持久化上传文件，`.env` 保存连接配置和密钥；不要挂载整个 `/app`。更新前备份数据。
+
+完整的一键部署、目录挂载、外部数据库迁移、备份恢复和版本回退说明见 [Docker 部署指南](docs/docker-deployment.md)。
 
 ## 配置说明
 

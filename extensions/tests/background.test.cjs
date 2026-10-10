@@ -7,9 +7,11 @@ function setup() {
   const storage = { connection: { token: 'secret' } };
   const registered = [], windows = [], injected = [], removed = [];
   let listener;
+  let startup;
+  const openedTabs = [];
   const event = { addListener() {} };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../nesthub/background.js'), 'utf8'), {
-    console,
+    console, URL,
     chrome: {
       storage: { local: {
         setAccessLevel: async () => {},
@@ -18,17 +20,19 @@ function setup() {
       } },
       runtime: {
         getURL: file => `chrome-extension://test/${file}`,
-        onInstalled: event, onStartup: event,
+        onInstalled: event, onStartup: { addListener: handler => { startup = handler; } },
         onMessage: { addListener: handler => { listener = handler; } }
       },
       permissions: { contains: async () => true, onRemoved: event },
       scripting: {
         getRegisteredContentScripts: async () => registered,
         registerContentScripts: async scripts => registered.push(...scripts),
+        updateContentScripts: async scripts => { registered.splice(0, registered.length, ...scripts); },
         unregisterContentScripts: async () => { registered.length = 0; },
         executeScript: async target => injected.push(target)
       },
       tabs: {
+        create: async options => openedTabs.push(options),
         query: async () => [{ id: 7, url: 'https://example.com/' }],
         sendMessage: async (...args) => removed.push(args)
       },
@@ -38,7 +42,7 @@ function setup() {
   const send = (message, sender) => new Promise(resolve => {
     if (listener(message, sender, resolve) === false) resolve(null);
   });
-  return { storage, registered, windows, injected, removed, send };
+  return { storage, registered, windows, injected, removed, send, openedTabs, startup };
 }
 const popup = { url: 'chrome-extension://test/popup.html' };
 const webpage = { tab: { id: 7 }, frameId: 0, url: 'https://example.com/' };
@@ -47,6 +51,11 @@ test('opt-in registers floating button, opens original tab collection window and
   const app = setup();
   assert.equal((await app.send({ type: 'floating-toggle', enabled: true }, popup)).ok, true);
   assert.equal(app.registered.length, 1);
+  assert.equal(app.registered[0].runAt, 'document_start');
+  // Existing installs must also receive the earlier injection timing.
+  app.registered[0].runAt = 'document_idle';
+  await app.send({ type: 'floating-toggle', enabled: true }, popup);
+  assert.equal(app.registered[0].runAt, 'document_start');
   assert.equal(app.injected[0].target.tabId, 7);
   assert.equal((await app.send({ type: 'floating-open' }, webpage)).ok, true);
   assert.equal(app.windows[0].url, 'chrome-extension://test/popup.html?sourceTab=7');
@@ -54,6 +63,26 @@ test('opt-in registers floating button, opens original tab collection window and
   assert.equal(app.registered.length, 0);
   assert.equal(app.removed.length, 1);
   assert.equal((await app.send({ type: 'floating-open' }, webpage)).ok, false);
+});
+
+test('startup navigation is opt-in, uses the saved address, and avoids an existing matching tab', async () => {
+  const app = setup();
+  app.startup();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(app.openedTabs.length, 0);
+  app.storage.openOnStartup = true;
+  app.storage.startupUrl = 'https://nav.example/';
+  app.startup();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(app.openedTabs[0].url, 'https://nav.example/');
+  app.storage.startupUrl = 'https://example.com/';
+  app.startup();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(app.openedTabs.length, 1);
+  app.storage.startupUrl = 'javascript:alert(1)';
+  app.startup();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(app.openedTabs.length, 1);
 });
 
 test('webpage receives only floating settings and cannot change global toggle', async () => {
@@ -65,4 +94,18 @@ test('webpage receives only floating settings and cannot change global toggle', 
   assert.equal((await app.send({ type: 'floating-position', side: 'right', ratio: 2 }, webpage)).ok, false);
   assert.equal((await app.send({ type: 'floating-position', side: 'left', ratio: 0.3 }, webpage)).ok, true);
   assert.equal(app.storage.floatingPosition.ratio, 0.3);
+});
+
+test('collection window opens beside the click and stays inside the monitor work area', async () => {
+  const app = setup();
+  app.storage.floatingEnabled = true;
+  const screen = { left: -1920, top: 0, width: 1920, height: 1040 };
+  await app.send({ type: 'floating-open', anchor: { x: -18, y: 980, side: 'right', screen } }, webpage);
+  assert.equal(app.windows[0].left, -460);
+  assert.equal(app.windows[0].top, 400);
+  await app.send({ type: 'floating-open', anchor: { x: -1910, y: 100, side: 'left', screen } }, webpage);
+  assert.equal(app.windows[1].left, -1898);
+  assert.equal(app.windows[1].top, 76);
+  await app.send({ type: 'floating-open', anchor: { x: NaN, y: 0, side: 'left', screen } }, webpage);
+  assert.equal(app.windows[2].left, undefined);
 });

@@ -1,0 +1,97 @@
+name: Docker image
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: nesthub:smoke
+          cache-from: type=gha,scope=smoke
+          cache-to: type=gha,mode=max,scope=smoke
+      - name: Start Compose and check website and extension
+        shell: bash
+        run: |
+          umask 077
+          {
+            echo 'NESTHUB_IMAGE=nesthub:smoke'
+            echo 'ADMIN_EMAIL=ci@example.com'
+            echo "ADMIN_PASSWORD=$(openssl rand -hex 16)"
+            echo "MYSQL_PASSWORD=$(openssl rand -hex 24)"
+            echo "MYSQL_ROOT_PASSWORD=$(openssl rand -hex 24)"
+            echo "JWT_SECRET=$(openssl rand -hex 32)"
+          } > .env
+          mkdir -p data/app
+          sudo chown 1654:1654 data/app
+          docker compose config --quiet
+          docker compose up -d --wait --wait-timeout 300
+          curl --fail http://localhost:5186/health
+          curl --fail http://localhost:5186/ | grep -q 'id="app"'
+          curl --fail http://localhost:5186/downloads/nesthub-extension.zip -o /tmp/extension.zip
+          unzip -t /tmp/extension.zip
+          docker compose exec -T nesthub sh -c 'echo persistent > /app/AppData/ci-persistence'
+          docker compose up -d --force-recreate nesthub --wait --wait-timeout 300
+          docker compose exec -T nesthub sh -c 'test "$(cat /app/AppData/ci-persistence)" = persistent'
+      - name: Failure diagnostics
+        if: failure()
+        run: docker compose logs --tail=100
+      - name: Cleanup
+        if: always()
+        run: docker compose down
+
+  publish:
+    if: github.event_name != 'pull_request'
+    needs: smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lowercase image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,prefix=sha-
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: |
+            type=gha,scope=smoke
+            type=gha,scope=release
+          cache-to: type=gha,mode=max,scope=release

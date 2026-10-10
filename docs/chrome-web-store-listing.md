@@ -1,6 +1,6 @@
 # Chrome Web Store 上架填写资料
 
-对应插件：NestHub 快捷收藏 1.1.1。以下资料依据当前扩展代码编写，适用于自部署 NestHub 版本。
+对应插件：NestHub 快捷收藏 1.3.0。以下资料依据当前扩展代码编写，适用于自部署 NestHub 版本。
 
 ## 商品详情
 
@@ -21,9 +21,12 @@ NestHub 快捷收藏是开源书签导航工具 NestHub 的浏览器扩展。连
 • 自动填入当前网页标题和地址，可在保存前修改。
 • 选择所属分类，添加描述、标签或置顶设置。
 • 记住最近使用的分类，减少重复操作。
-• 可选网页贴边收藏按钮：主动开启后显示，可拖动到左右边缘并记住位置，也可隐藏或关闭。
+• 可选网页贴边收藏按钮：主动开启后显示，可拖动到左右边缘并记住位置，可在插件设置中关闭。
 • 支持工具栏入口及可自行绑定的快捷键。
 • 使用 API 令牌连接，不需要在扩展中输入邮箱或密码。
+• 支持 10 套插件主题，均提供中文名称和说明，包含高级黑金、液态玻璃与经典导航配色。
+• 可主动使用同一浏览器内指定 NestHub 网站的登录状态连接，无需手动复制令牌。
+• 可选在浏览器启动时打开用户设置的导航地址。
 
 开始使用
 
@@ -118,7 +121,7 @@ Testing the bookmark workflow requires a working NestHub instance. Follow the re
 
 Open the extension, enter http://localhost:5186 and the copied token, and approve access to the local instance. Open https://example.com in another tab, open the extension, select a category and click “添加到 NestHub”. Verify the created bookmark in the local NestHub instance.
 
-The optional floating button can be tested without a NestHub connection: open the extension, enable “在网页上显示贴边收藏按钮”, approve HTTP/HTTPS access, and open or refresh https://example.com. A movable collection button appears at the screen edge. Clicking it opens an extension window with the source page URL and title. Drag the button to change its position; click × to hide it on the current page; disable the setting in the extension to turn it off globally.
+The optional floating button can be tested without a NestHub connection: open the extension, expand “插件设置”, enable “在网页上显示贴边收藏按钮”, approve HTTP/HTTPS access, and open or refresh https://example.com. A movable collection button appears at the screen edge. Clicking it opens an extension window with the source page URL and title. Drag the button to change its position; disable the setting in the extension to turn it off globally.
 
 The toolbar and shortcut workflows are available without enabling the floating button. Configure the shortcut at chrome://extensions/shortcuts if necessary. Browser-internal pages and the Chrome Web Store restrict script injection.
 
@@ -141,7 +144,7 @@ All code is bundled. The extension does not ask for an email or password and doe
 ## 提交顺序
 
 1. 将隐私政策文件发布到公开 GitHub main 分支并验证可访问。
-2. 下载或重新生成 1.1.1 插件包，在「文件包」页上传，保留现有商店项目 ID，不另建项目。
+2. 下载或重新生成 1.3.0 插件包，在「文件包」页上传，保留现有商店项目 ID，不另建项目。
 3. 填写商品详情并上传图标、至少一张真实截图。
 4. 填写隐私权、权限理由、政策网址和测试说明。
 5. 完成账号与分发所需信息，保存草稿，点击「我为何无法提交？」确认剩余项。

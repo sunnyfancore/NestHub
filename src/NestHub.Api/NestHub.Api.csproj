@@ -32,6 +32,11 @@
     <Message Text="Building NestHub.Web and syncing files into wwwroot..." Importance="high" />
     <Exec WorkingDirectory="$(SpaRoot)" Command="$(NpmCommand) ci" Condition="!Exists('$(SpaRoot)node_modules')" />
     <Exec WorkingDirectory="$(SpaRoot)" Command="$(NpmCommand) run build" />
+    <!-- Capture evaluated items before deleting files: a wildcard Remove after deletion misses stale hashes. -->
+    <ItemGroup>
+      <PreviousFrontendContent Include="@(Content)" Condition="$([System.String]::Copy('%(Content.FullPath)').StartsWith('$(FrontendWwwRoot)'))" />
+      <Content Remove="@(PreviousFrontendContent)" />
+    </ItemGroup>
     <RemoveDir Directories="$(FrontendWwwRoot)" Condition="Exists('$(FrontendWwwRoot)')" />
     <MakeDir Directories="$(FrontendWwwRoot)" />
     <ItemGroup>
@@ -39,7 +44,6 @@
     </ItemGroup>
     <Copy SourceFiles="@(FrontendDistFiles)" DestinationFiles="@(FrontendDistFiles->'$(FrontendWwwRoot)%(RecursiveDir)%(Filename)%(Extension)')" />
     <ItemGroup>
-      <Content Remove="wwwroot\**" />
       <Content Include="wwwroot\**\*" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
   </Target>
