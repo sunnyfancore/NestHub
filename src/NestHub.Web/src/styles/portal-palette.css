@@ -1,5 +1,5 @@
 /* One palette per theme: portal content and teleported controls share these tokens. */
-html[data-portal-theme] {
+html[data-portal-theme]:not([data-portal-theme=default2]) {
   --p-bg: #f3f5f7; --p-panel: #ffffff; --p-card: #ffffff;
   --p-ink: #243044; --p-muted: #647184; --p-line: #e1e6ed;
   --p-accent: #cb3d52; --p-soft: #fff0f2; --p-hover: #f9fafc;
@@ -85,7 +85,7 @@ html.dark[data-portal-theme=paper] { --p-bg: #211e19; --p-panel: #2b2721; --p-ca
 html.dark[data-portal-theme=lime] { --p-bg: #1c231c; --p-panel: #252e24; --p-card: #2b3629; --p-ink: #e7eddf; --p-muted: #b1bfa5; --p-line: #40513a; --p-accent: #b9dd87; --p-soft: #38482e; --p-hover: #34452e; --p-sidebar: #222b20; --p-side-ink: #e7eddf; --p-side-muted: #b1bfa5; --p-selected: #38482e; --p-selected-ink: #d2eba9; }
 html.dark[data-portal-theme=workspace] { --p-accent: #b6bdf9; --p-soft: #343d61; --p-selected: #343d61; --p-selected-ink: #e1e4ff; }
 html.dark[data-portal-theme=launchpad] { --p-accent: #b0d1b8; --p-soft: #314b3c; --p-selected: #314b3c; --p-selected-ink: #d4ecd8; }
-html[data-portal-theme] {
+html[data-portal-theme]:not([data-portal-theme=default2]) {
   --el-color-primary: var(--p-accent);
   --el-color-primary-light-3: color-mix(in srgb, var(--p-accent) 75%, var(--p-panel));
   --el-color-primary-light-5: color-mix(in srgb, var(--p-accent) 50%, var(--p-panel));
@@ -100,17 +100,17 @@ html[data-portal-theme] {
   --el-border-color: var(--p-line); --el-border-color-light: var(--p-line);
   --el-border-color-lighter: var(--p-line); --el-mask-color: #0a102266;
 }
-html[data-portal-theme] .el-overlay-dialog .el-dialog {
+html[data-portal-theme]:not([data-portal-theme=default2]) .el-overlay-dialog .el-dialog {
   border: 1px solid var(--p-line); border-radius: 16px;
   background: var(--p-panel); color: var(--p-ink);
   --el-dialog-bg-color: var(--p-panel); max-width: calc(100vw - 28px);
 }
-html[data-portal-theme] .el-dialog__body { color: var(--p-ink); }
-html[data-portal-theme] .el-dialog :is(p,small,.el-form-item__label,.el-checkbox__label,.el-radio__label) { color: var(--p-muted); }
-html[data-portal-theme] .el-dialog :is(h2,h3,h4,strong) { color: var(--p-ink); }
-html[data-portal-theme] .el-input__wrapper,
-html[data-portal-theme] .el-select__wrapper,
-html[data-portal-theme] .el-textarea__inner { background: var(--p-card); border-radius: 9px; }
-html[data-portal-theme] .el-button--primary { color: var(--p-panel); }
-html[data-portal-theme] .el-select-dropdown__item.is-selected { color: var(--p-accent); background: var(--p-soft); }
-html[data-portal-theme] .el-popper.is-light { border-color: var(--p-line); background: var(--p-panel); color: var(--p-ink); }
+html[data-portal-theme]:not([data-portal-theme=default2]) .el-dialog__body { color: var(--p-ink); }
+html[data-portal-theme]:not([data-portal-theme=default2]) .el-dialog :is(p,small,.el-form-item__label,.el-checkbox__label,.el-radio__label) { color: var(--p-muted); }
+html[data-portal-theme]:not([data-portal-theme=default2]) .el-dialog :is(h2,h3,h4,strong) { color: var(--p-ink); }
+html[data-portal-theme]:not([data-portal-theme=default2]) .el-input__wrapper,
+html[data-portal-theme]:not([data-portal-theme=default2]) .el-select__wrapper,
+html[data-portal-theme]:not([data-portal-theme=default2]) .el-textarea__inner { background: var(--p-card); border-radius: 9px; }
+html[data-portal-theme]:not([data-portal-theme=default2]) .el-button--primary { color: var(--p-panel); }
+html[data-portal-theme]:not([data-portal-theme=default2]) .el-select-dropdown__item.is-selected { color: var(--p-accent); background: var(--p-soft); }
+html[data-portal-theme]:not([data-portal-theme=default2]) .el-popper.is-light { border-color: var(--p-line); background: var(--p-panel); color: var(--p-ink); }

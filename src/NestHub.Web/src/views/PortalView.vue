@@ -23,7 +23,6 @@ import LoginDialog from '@/components/portal/LoginDialog.vue'
 import PortalCategoryDialog from '@/components/portal/PortalCategoryDialog.vue'
 import PortalLinkDialog from '@/components/portal/PortalLinkDialog.vue'
 import PortalSiteIcon from '@/components/portal/PortalSiteIcon.vue'
-import { safeIconSource } from '@/components/portal/siteIcons'
 import SiteSettingsDialog from '@/components/portal/SiteSettingsDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 import { resolveTheme } from '@/themes'
@@ -1265,7 +1264,7 @@ onBeforeUnmount(() => {
                 >
                   <img
                     v-if="item.iconUrl"
-                    :src="safeIconSource(item.iconUrl)"
+                    :src="item.iconUrl"
                     class="portal-suggest__icon"
                     @error="($event.target as HTMLImageElement).style.display = 'none'"
                   />
