@@ -1,4 +1,18 @@
 /* Sakura details stay within this theme and use the shared day/night palette. */
+.sakura-starfall { position: fixed; inset: 0; z-index: 30; overflow: hidden; pointer-events: none; contain: strict; }
+.sakura-starfall__trail { position: absolute; top: -32px; animation: sakura-fall var(--fall-time) var(--fall-delay) linear infinite; }
+.sakura-starfall__star { display: block; font-size: var(--star-size); line-height: 1; color: #db6fa8; text-shadow: 0 0 8px #f3a9d0; animation: sakura-twinkle 3.6s var(--fall-delay) ease-in-out infinite; }
+.sakura-starfall__trail:nth-child(3n) .sakura-starfall__star { color: #a878d4; }
+html.dark .sakura-starfall__star { color: #f6acd5; text-shadow: 0 0 10px #e584ba66; }
+@keyframes sakura-fall {
+  0% { transform: translate3d(0, -32px, 0) rotate(-20deg); opacity: 0; }
+  8% { opacity: .55; }
+  85% { opacity: .55; }
+  100% { transform: translate3d(var(--star-drift), calc(100vh + 64px), 0) rotate(150deg); opacity: 0; }
+}
+@keyframes sakura-twinkle { 0%,100% { opacity: .45; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.12); } }
+@media (max-width: 760px) { .sakura-starfall__trail:nth-child(n+9) { display: none; } }
+@media (prefers-reduced-motion: reduce) { .sakura-starfall { display: none; } .sakura-starfall__trail,.sakura-starfall__star { animation: none; } }
 .portal-page.portal-page.portal-page.theme-sakura .portal-main {
   background: radial-gradient(ellipse at 90% 0%, color-mix(in srgb, var(--p-selected) 70%, transparent), transparent 48%), var(--p-bg);
 }

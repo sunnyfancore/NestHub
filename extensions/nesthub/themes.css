@@ -22,3 +22,13 @@
 :root[data-theme=sakura]{--page:#fff5fa;--surface:#fffafd;--ink:#492a40;--muted:#806075;--label:#69465e;--accent:#b93877;--accent-hover:#a52d68;--accent-ink:#fff;--line:#f0d5e4;--tint:#fce1ef;--tint-line:#edbdd5;--tint-ink:#8f2e60}
 :root[data-theme=sakura] body{background:radial-gradient(ellipse at 100% 0,#f8d4ec,transparent 45%),var(--page)}
 :root[data-theme=sakura] .primary-button{background:linear-gradient(115deg,#b93877,#9a428f);color:#fff}
+.sakura-starfall{display:none;pointer-events:none}
+:root[data-theme=sakura] .sakura-starfall{display:block;position:fixed;inset:0;overflow:hidden;z-index:10;contain:strict}
+.sakura-starfall span{position:absolute;top:-24px;left:12%;color:#db6fa8;font-size:16px;opacity:0;animation:sakura-popup-fall 15s -3s linear infinite;text-shadow:0 0 6px #f3a9d0}
+.sakura-starfall span:nth-child(2){left:30%;animation-duration:19s;animation-delay:-12s;color:#a878d4}
+.sakura-starfall span:nth-child(3){left:48%;animation-duration:17s;animation-delay:-8s;font-size:11px}
+.sakura-starfall span:nth-child(4){left:67%;animation-duration:21s;animation-delay:-17s}
+.sakura-starfall span:nth-child(5){left:82%;animation-duration:16s;animation-delay:-10s;font-size:12px}
+.sakura-starfall span:nth-child(6){left:94%;animation-duration:20s;animation-delay:-5s;color:#a878d4}
+@keyframes sakura-popup-fall{0%{transform:translate3d(0,-24px,0) rotate(0);opacity:0}10%,80%{opacity:.45}45%{opacity:.2}100%{transform:translate3d(-35px,calc(100vh + 48px),0) rotate(150deg);opacity:0}}
+@media(prefers-reduced-motion:reduce){:root[data-theme=sakura] .sakura-starfall{display:none}.sakura-starfall span{animation:none}}

@@ -1111,6 +1111,15 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="portal-page" :class="'theme-' + activeTheme" v-loading="loading">
+    <div v-if="activeTheme === 'sakura'" class="sakura-starfall" aria-hidden="true">
+      <span v-for="star in 18" :key="star" class="sakura-starfall__trail" :style="{
+        left: `${(star * 37) % 100}%`,
+        '--fall-time': `${13 + (star % 6) * 2}s`,
+        '--fall-delay': `${-star * 2.7}s`,
+        '--star-size': `${10 + (star % 4) * 4}px`,
+        '--star-drift': `${(star % 2 ? 1 : -1) * (25 + star * 3)}px`,
+      }"><span class="sakura-starfall__star">{{ star % 3 === 0 ? '✧' : '✦' }}</span></span>
+    </div>
     <!-- mobile sidebar overlay -->
     <div v-if="mobileSidebarOpen" class="portal-sidebar-overlay" @click="mobileSidebarOpen = false"></div>
 
