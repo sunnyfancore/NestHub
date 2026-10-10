@@ -1,21 +1,10 @@
-# Optional overlay: docker compose -f docker-compose.yml -f docker-compose.update.yml up -d
+# Legacy overlay filename retained; the main Compose already enables native updates.
 services:
   nesthub:
+    container_name: ${NESTHUB_CONTAINER_NAME:-nesthub}
+    user: "0:0"
     environment:
       Updates__Enabled: "true"
-      Updates__ServiceUrl: http://updater:8080
-      Updates__Token: ${UPDATE_API_TOKEN:?Set UPDATE_API_TOKEN to a random value in .env}
-    labels:
-      com.centurylinklabs.watchtower.enable: "true"
-      com.centurylinklabs.watchtower.scope: nesthub
-
-  updater:
-    image: containrrr/watchtower:1.7.1
-    command: ["--http-api-update", "--label-enable", "--scope", "nesthub"]
-    environment:
-      WATCHTOWER_HTTP_API_TOKEN: ${UPDATE_API_TOKEN:?Configure UPDATE_API_TOKEN in .env}
-      WATCHTOWER_HTTP_API_PERIODIC_POLLS: "false"
-      DOCKER_API_VERSION: "1.44"
+      Updates__ContainerName: ${NESTHUB_CONTAINER_NAME:-nesthub}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    restart: unless-stopped

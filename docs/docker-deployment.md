@@ -12,7 +12,7 @@ cd NestHub
 bash scripts/deploy.sh
 ```
 
-默认使用 SQLite，同时启动应用与后台更新服务，无需数据库容器。脚本生成 `.env` 和随机密码，设置挂载目录权限并启动应用。访问 `http://服务器IP:5186`，初始邮箱 `admin@example.com`，密码首次显示并保存在 `.env`。设置目录权限时可能提示 sudo 密码。
+默认使用 SQLite，仅运行一个 NestHub 容器，内置后台更新逻辑，无需 Watchtower 或数据库容器。脚本生成 `.env` 和随机密码，设置挂载目录权限并启动应用。访问 `http://服务器IP:5186`，初始邮箱 `admin@example.com`，密码首次显示并保存在 `.env`。设置目录权限时可能提示 sudo 密码。
 
 手动部署：
 
@@ -100,17 +100,35 @@ docker run --rm --add-host host.docker.internal:host-gateway \
 
 ### 后台一键更新（默认包含）
 
-只使用一个 Compose 文件部署，应用与更新服务已经配置在同一个文件中。`.env` 需要填写随机 `UPDATE_API_TOKEN`（例如 `openssl rand -hex 32`）；一键部署脚本会自动生成。
+SQLite 部署只运行一个 NestHub 容器；MySQL 版另有数据库容器。没有常驻更新服务，不使用 Watchtower，也不再需要 `UPDATE_API_TOKEN`。
 
-```bash
-docker compose up -d --wait --wait-timeout 300
+```yaml
+container_name: nesthub
+user: "0:0"
+environment:
+  Updates__Enabled: "true"
+  Updates__ContainerName: nesthub
+volumes:
+  - ./data/app:/app/AppData
+  - /var/run/docker.sock:/var/run/docker.sock
 ```
 
-MySQL 版只需 `docker compose -f docker-compose.mysql.yml up -d --wait --wait-timeout 300`。无需叠加 `docker-compose.update.yml`。之后超级管理员进入 **后台 → 应用更新**，检查版本并点击更新即可。
+完整示例见仓库根目录 `docker-compose.yml` 和 `docker-compose.mysql.yml`。多个实例请分别设置不同的 `NESTHUB_CONTAINER_NAME`。应用名称必须与 `Updates__ContainerName` 一致。
 
-旧部署升级：保留原挂载目录与 `.env`，替换为新的 Compose 文件，补充 `UPDATE_API_TOKEN`，执行上述启动命令一次。之后更新都在后台操作。
+更新过程：先拉取现有容器配置中指定的镜像（包括代理地址），原应用继续运行；镜像有变化后保留端口、环境变量、标签、网络、数据挂载和健康检查，替换容器。健康检查失败时尝试恢复旧容器。执行任务使用当前 NestHub 镜像的临时容器，结束自动删除，正常运行仍只有一个应用容器。镜像代理尚未同步或固定版本无变化时会显示“镜像仓库尚无更新”。
 
-更新服务与应用位于同一个 Compose 项目，不对外开放端口，通过随机令牌验证请求。Docker socket 只挂载到更新服务；只替换应用镜像，不更新 MySQL，也不会定时自动更新。应用更新时短暂重启，数据继续使用原挂载目录。镜像使用 `latest` 才会跟随主分支最新版，更新前请备份数据。
+首次升级到本实现：备份数据，保留 `.env`、数据库和原有挂载目录，用新版 Compose 补充容器名称和 socket 配置，移除旧 `updater` 服务。当前旧版镜像没有内置更新执行器，必须手动更新一次：
+
+```bash
+docker compose pull nesthub
+docker compose up -d --remove-orphans
+```
+
+MySQL 版命令添加 `-f docker-compose.mysql.yml`。之后超级管理员进入 **后台 → 应用更新** 点击更新。Compose 目录或 `.env` 修改不会自动同步到已运行容器，配置变更仍需运行 `docker compose up -d`。
+
+挂载 Docker socket 赋予应用管理 Docker 的权限。示例使用 `user: "0:0"`，仅超级管理员能调用更新接口；若不需要此功能，移除 socket 挂载和 `user` 设置，将 `Updates__Enabled` 设为 `false`。应用恢复使用镜像默认 UID 1654，已有数据目录和文件需保持该用户可写。
+
+任务状态写入数据目录中的 `update-status.json`。失败回退保留原数据，但数据库结构变更不保证兼容旧版，因此更新前仍需备份。当前支持 Linux Docker Engine 的 Unix socket、公开镜像及公开镜像代理；不支持私有镜像仓库认证或 Windows named pipe。
 
 ### 手动更新
 

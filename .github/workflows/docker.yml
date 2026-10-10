@@ -45,7 +45,6 @@ jobs:
             echo "MYSQL_PASSWORD=$(openssl rand -hex 24)"
             echo "MYSQL_ROOT_PASSWORD=$(openssl rand -hex 24)"
             echo "JWT_SECRET=$(openssl rand -hex 32)"
-            echo "UPDATE_API_TOKEN=$(openssl rand -hex 32)"
           } > .env
           mkdir -p data/app
           sudo chown 1654:1654 data/app
@@ -81,19 +80,31 @@ jobs:
           printf '%s\n' 'services:' '  nesthub:' '    environment:' '      Database__ConnectionString: "Data Source=/app/AppData/migrated.db"' > /tmp/migrated.yml
           docker compose -f docker-compose.yml -f /tmp/migrated.yml up -d --wait --wait-timeout 300
           python3 scripts/check-api.py --snapshot /tmp/mysql-api.json
-      - name: Built-in updater requires its token
+      - name: Single-container self update preserves data
         shell: bash
         run: |
-          docker compose -f docker-compose.yml -f /tmp/migrated.yml up -d --wait --wait-timeout 300
-          docker compose exec -T nesthub sh -c 'for attempt in 1 2 3 4 5; do code=$(curl -s -o /dev/null -w "%{http_code}" http://updater:8080/v1/update); if [ "$code" = 401 ]; then exit 0; fi; sleep 2; done; exit 1'
+          docker run -d --name nesthub-ci-registry -p 127.0.0.1:5000:5000 registry:2
+          docker tag nesthub:smoke localhost:5000/nesthub-ci:latest
+          for attempt in 1 2 3 4 5; do docker push localhost:5000/nesthub-ci:latest && break; sleep 2; done
+          NESTHUB_IMAGE=localhost:5000/nesthub-ci:latest docker compose -f docker-compose.yml -f /tmp/migrated.yml up -d --wait --wait-timeout 300
+          printf '%s\n' 'FROM nesthub:smoke' 'ENV NESTHUB_BUILD_REVISION=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' > /tmp/update.Dockerfile
+          docker build -f /tmp/update.Dockerfile -t localhost:5000/nesthub-ci:latest .
+          docker push localhost:5000/nesthub-ci:latest
+          set -a
+          source .env
+          set +a
+          python3 scripts/check-self-update.py
+          python3 scripts/check-api.py --snapshot /tmp/mysql-api.json
+          test "$(docker ps --filter name=nesthub-update-task --format '{{.ID}}')" = ''
       - name: Failure diagnostics
         if: failure()
         run: docker compose -f docker-compose.mysql.yml logs --tail=100
       - name: Cleanup
         if: always()
         run: |
-          UPDATE_API_TOKEN=cleanup-token docker compose down
-          UPDATE_API_TOKEN=cleanup-token docker compose -f docker-compose.mysql.yml down
+          docker compose down
+          docker compose -f docker-compose.mysql.yml down
+          docker rm -f nesthub-ci-registry || true
 
   publish:
     if: github.event_name != 'pull_request'

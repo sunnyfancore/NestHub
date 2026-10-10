@@ -6,7 +6,7 @@
 
 ## Docker Compose 部署（推荐）
 
-镜像：`ghcr.io/sunnyfancore/nesthub:latest`，支持 Linux AMD64 / ARM64。默认使用 SQLite，一个 Compose 文件启动应用和后台更新服务，无需安装 MySQL、Node.js 或 .NET。
+镜像：`ghcr.io/sunnyfancore/nesthub:latest`，支持 Linux AMD64 / ARM64。默认使用 SQLite，只运行一个 NestHub 容器并内置后台更新逻辑，无需安装 MySQL、Node.js 或 .NET。
 
 ### 1. 准备配置
 
@@ -16,6 +16,8 @@
 name: nesthub
 services:
   nesthub:
+    container_name: nesthub
+    user: "0:0"
     image: ${NESTHUB_IMAGE:-ghcr.io/sunnyfancore/nesthub:latest}
     ports:
       - "${NESTHUB_BIND_ADDRESS:-0.0.0.0}:${NESTHUB_PORT:-5186}:8080"
@@ -31,25 +33,12 @@ services:
       SuperAdmin__Password: ${ADMIN_PASSWORD:?Configure ADMIN_PASSWORD in .env}
       SuperAdmin__DisplayName: 超级管理员
       Updates__Enabled: "true"
-      Updates__ServiceUrl: http://updater:8080
-      Updates__Token: ${UPDATE_API_TOKEN:?Configure UPDATE_API_TOKEN in .env}
-    labels:
-      com.centurylinklabs.watchtower.enable: "true"
-      com.centurylinklabs.watchtower.scope: nesthub
+      Updates__ContainerName: nesthub
     volumes:
       - ./data/app:/app/AppData
-    restart: unless-stopped
-
-  updater:
-    image: containrrr/watchtower:1.7.1
-    command: ["--http-api-update", "--label-enable", "--scope", "nesthub"]
-    environment:
-      WATCHTOWER_HTTP_API_TOKEN: ${UPDATE_API_TOKEN:?Configure UPDATE_API_TOKEN in .env}
-      WATCHTOWER_HTTP_API_PERIODIC_POLLS: "false"
-      DOCKER_API_VERSION: "1.44"
-    volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
+
 ```
 
 在同一目录新建 `.env`，填写以下内容，把示例值换成自己的密码与随机密钥：
@@ -58,7 +47,6 @@ services:
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=请替换为自己的强密码
 JWT_SECRET=请替换为至少32字符的随机密钥
-UPDATE_API_TOKEN=请替换为另一个随机令牌
 ```
 
 Linux 可用 `openssl rand -hex 32` 生成密钥。已有站点迁移时保留原 JWT 密钥；管理员配置用于初次创建账号，不会重置已有账号密码。
@@ -133,11 +121,11 @@ docker compose up -d --no-deps --wait --wait-timeout 300 nesthub
 
 ### 后台点击更新（默认可用）
 
-上面的 Compose 示例已经包含应用与更新服务。**只保存一个 `docker-compose.yml`，无需额外的更新配置文件。** `.env` 中的 `UPDATE_API_TOKEN` 用于应用与更新服务之间的验证，一键部署脚本会自动生成。
+SQLite 部署仅运行一个 NestHub 容器，应用内置 Docker 更新逻辑，不依赖 Watchtower。点击更新后使用当前镜像启动临时任务容器，完成拉取、替换、健康检查与失败回退，任务结束自动删除。
 
-启动后超级管理员进入 **后台 → 应用更新**，检查版本并点击更新。更新服务不会定时自动更新，不公开端口，只替换 NestHub 应用镜像；数据库和上传目录继续保留。镜像使用 `latest` 才会跟随主分支新版。
+需要给应用挂载 `/var/run/docker.sock`，配置 `container_name`、`Updates__ContainerName` 和 `Updates__Enabled=true`。示例以 root 用户运行以访问 socket；这赋予应用 Docker 管理权限，仅超级管理员可触发更新。镜像使用 `latest`，支持保留用户指定的镜像代理地址。
 
-已有部署只需保留原数据和 `.env`，替换新版 Compose 文件、补充随机更新令牌，再运行一次 `docker compose up -d`。MySQL 部署仅使用 `docker-compose.mysql.yml`，同样包含后台更新服务。
+首次切换到内置更新需要手动拉取本次新版，再运行 `docker compose up -d --remove-orphans`。保留原数据目录与 `.env`，旧 Watchtower 服务和 `UPDATE_API_TOKEN` 可移除。之后进入 **后台 → 应用更新** 操作。MySQL 部署保留数据库容器，仅替换 NestHub 应用；更新失败时恢复旧容器不等同于回滚数据库，更新前请备份数据。
 
 ## 浏览器快捷收藏
 

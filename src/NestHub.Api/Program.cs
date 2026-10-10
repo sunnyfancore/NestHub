@@ -12,6 +12,12 @@ using NestHub.Api.Infrastructure.Persistence;
 using NestHub.Api.Infrastructure.Security;
 using NestHub.Api.Services;
 
+if (args.Contains("--self-update"))
+{
+    Environment.ExitCode = await DockerSelfUpdate.RunAsync();
+    return;
+}
+
 if (args.Contains("--migrate-mysql-to-sqlite"))
 {
     var migrationConfiguration = new ConfigurationBuilder()

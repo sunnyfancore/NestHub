@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.Configuration;
 using FreeSql;
 using Microsoft.Data.Sqlite;
@@ -66,11 +67,12 @@ finally { Directory.Delete(directory, recursive: true); }
 
 var updateConfiguration = new Microsoft.Extensions.Configuration.ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
 {
-    ["Updates:Enabled"] = "true", ["Updates:ServiceUrl"] = "http://updater:8080",
-    ["Updates:Token"] = "test-updater-token", ["NESTHUB_BUILD_REVISION"] = new string('a', 40)
+    ["Updates:Enabled"] = "true", ["Updates:ContainerName"] = "nesthub",
+    ["NESTHUB_BUILD_REVISION"] = new string('a', 40)
 }).Build();
 using var updateClient = new HttpClient(new UpdateHandler());
-using var updates = new SystemUpdateService(updateConfiguration, updateClient);
+using var dockerClient = new DockerEngineClient("unused", new DockerUpdateHandler());
+using var updates = new SystemUpdateService(updateConfiguration, updateClient, dockerClient);
 Check((await updates.CheckAsync(CancellationToken.None)).HasUpdate, "New image was not detected");
 var accessor = new NestHub.Api.Infrastructure.MultiTenancy.TenantContextAccessor();
 var controller = new NestHub.Api.Controllers.SystemUpdatesController(updates, accessor);
@@ -80,18 +82,99 @@ Check(await controller.Apply(CancellationToken.None) is Microsoft.AspNetCore.Mvc
 await updates.ApplyAsync(CancellationToken.None);
 try { await updates.ApplyAsync(CancellationToken.None); throw new Exception("Duplicate update allowed"); }
 catch (InvalidOperationException) { }
+using var disabledUpdates = new SystemUpdateService(new ConfigurationBuilder().AddInMemoryCollection().Build());
+Check(!disabledUpdates.Enabled && disabledUpdates.DisabledReason!.Contains("Updates__Enabled"), "Missing update configuration reason absent");
+using var missingNameUpdates = new SystemUpdateService(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Updates:Enabled"] = "true" }).Build());
+Check(!missingNameUpdates.Enabled && missingNameUpdates.DisabledReason!.Contains("容器名称"), "Missing container name reason absent");
 Console.WriteLine("UPDATE_AUTHORIZATION_TOKEN_AND_DUPLICATE_GUARDS_OK");
+
+var updateTestDirectory = Path.Combine(Path.GetTempPath(), "nesthub-update-tests-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(updateTestDirectory);
+try
+{
+    foreach (var mode in new[] { "success", "health-failure", "pull-failure", "unchanged" })
+    {
+        var handler = new DockerUpdateHandler(mode);
+        var docker = new DockerEngineClient("unused", handler);
+        var resultFile = Path.Combine(updateTestDirectory, mode + ".json");
+        var code = await DockerSelfUpdate.RunAsync(docker, "old", resultFile, () => Task.CompletedTask);
+        var report = JsonNode.Parse(await File.ReadAllTextAsync(resultFile))!;
+        if (mode == "success")
+        {
+            Check(code == 0 && report["state"]!.GetValue<string>() == "success", "Self update failed");
+            var replacement = handler.Replacement!;
+            Check(replacement["Env"]!.AsArray().Any(e => e!.GetValue<string>() == "NESTHUB_BUILD_REVISION=" + new string('b', 40)), "New revision metadata lost");
+            Check(replacement["Env"]!.AsArray().Any(e => e!.GetValue<string>() == "Jwt__SecretKey=original-test-key"), "Application environment lost");
+            Check(replacement["HostConfig"]!["PortBindings"]!["8080/tcp"]![0]!["HostPort"]!.GetValue<string>() == "5186", "Host port lost");
+            Check(replacement["HostConfig"]!["Binds"]!.AsArray().Any(e => e!.GetValue<string>() == "original-volume:/app/AppData:rw"), "Named volume lost");
+            Check(replacement["NetworkingConfig"]!["EndpointsConfig"]!["nesthub_default"]!["Aliases"]![0]!.GetValue<string>() == "nesthub", "Network alias lost");
+            Check(handler.Calls.Contains("DELETE /containers/old"), "Old container not cleaned up");
+        }
+        else if (mode == "health-failure")
+        {
+            Check(code == 1 && handler.Calls.Contains("POST /containers/old/start"), "Failed update did not restart old container");
+            Check(handler.Calls.Any(c => c.StartsWith("POST /networks/nesthub_default/connect")), "Rollback network not restored");
+            Check(handler.Calls.Contains("DELETE /containers/replacement?force=true"), "Failed replacement not removed");
+        }
+        else
+        {
+            Check(!handler.Calls.Any(c => c.Contains("/old/stop")), "Pull failure/no new image stopped the app");
+            Check(report["state"]!.GetValue<string>() == (mode == "unchanged" ? "unchanged" : "failed"), "Incorrect update outcome");
+        }
+    }
+}
+finally { Directory.Delete(updateTestDirectory, true); }
+Console.WriteLine("SELF_UPDATE_CONFIG_PRESERVATION_PULL_FAILURE_HEALTH_ROLLBACK_OK");
+
+var structuredInspect = JsonNode.Parse("""
+{"Config":{"Image":"test:latest","Env":[]},"HostConfig":{"Mounts":[{"Type":"volume","Source":"existing","Target":"/app/AppData"}]},
+"Mounts":[{"Type":"volume","Name":"existing","Destination":"/app/AppData","RW":true}],"NetworkSettings":{"Networks":{}}}
+""")!.AsObject();
+var structuredReplacement = DockerSelfUpdate.CreateReplacement(structuredInspect, JsonNode.Parse("""{"Config":{"Env":[]}}""")!.AsObject());
+Check(structuredReplacement["HostConfig"]!["Binds"]!.AsArray().Count == 0, "Structured volume duplicated into bind mounts");
+Check(structuredReplacement["HostConfig"]!["Mounts"]![0]!["Source"]!.GetValue<string>() == "existing", "Structured volume source lost");
+
+sealed class DockerUpdateHandler(string mode = "success") : HttpMessageHandler
+{
+    public List<string> Calls { get; } = [];
+    public JsonNode? Replacement { get; private set; }
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var path = request.RequestUri!.PathAndQuery;
+        Calls.Add(request.Method + " " + path);
+        JsonNode? body = request.Content is null ? null : JsonNode.Parse(await request.Content.ReadAsStringAsync(cancellationToken));
+        string result = "";
+        if (path is "/containers/old/json" or "/containers/nesthub/json") result = """
+        {"Id":"old","Image":"sha256:old","Name":"/nesthub","State":{"Running":true},
+        "Config":{"Image":"registry.example/nesthub:latest","Env":["NESTHUB_BUILD_REVISION=old","Jwt__SecretKey=original-test-key"],"Labels":{"com.docker.compose.service":"nesthub"}},
+        "HostConfig":{"AutoRemove":false,"Binds":[],"PortBindings":{"8080/tcp":[{"HostIp":"0.0.0.0","HostPort":"5186"}]}},
+        "Mounts":[{"Type":"volume","Name":"original-volume","Destination":"/app/AppData","RW":true}],
+        "NetworkSettings":{"Networks":{"nesthub_default":{"Aliases":["nesthub"],"IPAddress":"172.18.0.2"}}}}
+        """;
+        else if (path.StartsWith("/images/create")) result = mode == "pull-failure" ? """{"error":"denied"}""" : """{"status":"complete"}""";
+        else if (path.StartsWith("/images/")) result = new JsonObject {
+            ["Id"] = mode == "unchanged" ? "sha256:old" : "sha256:new",
+            ["Config"] = new JsonObject { ["Env"] = new JsonArray("NESTHUB_BUILD_REVISION=" + new string('b', 40)), ["Healthcheck"] = new JsonObject { ["Test"] = new JsonArray("CMD", "true") } }
+        }.ToJsonString();
+        else if (path.StartsWith("/containers/create"))
+        {
+            if (body?["Cmd"]?[0]?.GetValue<string>() == "--self-update")
+            { CheckWorker(body); result = """{"Id":"worker"}"""; }
+            else { Replacement = body; result = """{"Id":"replacement"}"""; }
+        }
+        else if (path == "/containers/replacement/json") result = mode == "health-failure" ? """{"State":{"Running":false}}""" : """{"State":{"Running":true,"Health":{"Status":"healthy"}}}""";
+        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(result) };
+    }
+    private static void CheckWorker(JsonNode body)
+    {
+        if (body["HostConfig"]?["AutoRemove"]?.GetValue<bool>() != true || body["Image"]!.GetValue<string>() != "sha256:old") throw new Exception("Worker must use local app image and remove itself");
+    }
+}
 
 sealed class UpdateHandler : HttpMessageHandler
 {
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        if (request.RequestUri!.Host == "updater")
-        {
-            if (request.Headers.Authorization?.ToString() != "Bearer test-updater-token" || request.RequestUri.AbsolutePath != "/v1/update")
-                throw new Exception("Wrong update credentials or target");
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
-        }
         return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent("{\"workflow_runs\":[{\"head_sha\":\"" + new string('b', 40) + "\",\"updated_at\":\"2026-10-10T00:00:00Z\"}]}")
