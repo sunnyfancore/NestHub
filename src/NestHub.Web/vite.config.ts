@@ -21,6 +21,10 @@ export default defineConfig({
         target: 'http://localhost:5186',
         changeOrigin: true,
       },
+      '/downloads': {
+        target: 'http://localhost:5186',
+        changeOrigin: true,
+      },
     },
   },
   build: {

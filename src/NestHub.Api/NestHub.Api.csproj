@@ -10,6 +10,8 @@
     <NpmCommand Condition="'$(OS)' == 'Windows_NT'">npm.cmd</NpmCommand>
     <NpmCommand Condition="'$(OS)' != 'Windows_NT'">npm</NpmCommand>
     <SkipFrontendBuild Condition="'$(SkipFrontendBuild)' == ''">false</SkipFrontendBuild>
+    <BrowserExtensionRoot>$(MSBuildProjectDirectory)/../../extensions/nesthub/</BrowserExtensionRoot>
+    <BrowserExtensionArchive>$(FrontendWwwRoot)downloads/nesthub-extension.zip</BrowserExtensionArchive>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,7 +28,7 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
   </ItemGroup>
 
-  <Target Name="BuildFrontendAssets" AfterTargets="Build" Condition="'$(SkipFrontendBuild)' != 'true'">
+  <Target Name="BuildFrontendAssets" BeforeTargets="PrepareForBuild;ResolveProjectStaticWebAssets" Condition="'$(SkipFrontendBuild)' != 'true'">
     <Message Text="Building NestHub.Web and syncing files into wwwroot..." Importance="high" />
     <Exec WorkingDirectory="$(SpaRoot)" Command="$(NpmCommand) ci" Condition="!Exists('$(SpaRoot)node_modules')" />
     <Exec WorkingDirectory="$(SpaRoot)" Command="$(NpmCommand) run build" />
@@ -36,6 +38,29 @@
       <FrontendDistFiles Include="$(SpaDist)**\*.*" />
     </ItemGroup>
     <Copy SourceFiles="@(FrontendDistFiles)" DestinationFiles="@(FrontendDistFiles->'$(FrontendWwwRoot)%(RecursiveDir)%(Filename)%(Extension)')" />
+    <ItemGroup>
+      <Content Remove="wwwroot\**" />
+      <Content Include="wwwroot\**\*" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
   </Target>
 
+  <Target Name="BuildBrowserExtension" BeforeTargets="ResolveProjectStaticWebAssets;AssignTargetPaths" DependsOnTargets="BuildFrontendAssets">
+    <MakeDir Directories="$(FrontendWwwRoot)downloads" />
+    <ZipDirectory SourceDirectory="$(BrowserExtensionRoot)" DestinationFile="$(BrowserExtensionArchive)" Overwrite="true" />
+    <ItemGroup>
+      <Content Remove="wwwroot\downloads\nesthub-extension.zip" />
+      <Content Include="wwwroot\downloads\nesthub-extension.zip" CopyToPublishDirectory="Always" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Explicit inclusion also covers the first publish, before wwwroot exists at evaluation time. -->
+  <Target Name="PublishBrowserExtension" BeforeTargets="ComputeFilesToPublish" DependsOnTargets="BuildBrowserExtension">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="$(BrowserExtensionArchive)" />
+      <ResolvedFileToPublish Include="$(BrowserExtensionArchive)">
+        <RelativePath>wwwroot/downloads/nesthub-extension.zip</RelativePath>
+        <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 </Project>

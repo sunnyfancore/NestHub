@@ -37,13 +37,35 @@ async function copyToken() {
     return
   }
 
-  await navigator.clipboard.writeText(authStore.token)
-  ElMessage.success('当前登录令牌已复制。')
+  try {
+    await navigator.clipboard.writeText(authStore.token)
+    ElMessage.success('当前 API 令牌已复制，可粘贴到插件中。')
+  } catch {
+    ElMessage.error('无法复制，请允许浏览器访问剪贴板后重试。')
+  }
 }
 </script>
 
 <template>
   <div class="admin-page">
+    <div class="api-card">
+      <h3>浏览器快捷收藏插件</h3>
+      <p>适用于 Chrome、Edge、Brave 等 Chromium 浏览器。当前插件压缩包随本站每次发布自动更新，内含安装说明。</p>
+      <div class="plugin-actions">
+        <a class="plugin-download" href="/downloads/nesthub-extension.zip" download="nesthub-extension.zip">下载插件压缩包</a>
+        <el-button @click="copyToken">复制 API 令牌</el-button>
+      </div>
+      <ol class="plugin-guide">
+        <li>下载并解压压缩包，保留解压目录，后续浏览器会从这里加载插件。</li>
+        <li>Chrome 打开 <code>chrome://extensions</code>，Edge 打开 <code>edge://extensions</code>，开启「开发者模式」，点击「加载已解压的扩展程序」，选择包含 <code>manifest.json</code> 的目录。</li>
+        <li>将「NestHub 快捷收藏」固定到工具栏。打开要收藏的网页，点击插件图标，填写本站根地址和上方复制的 API 令牌，点击「验证并连接」并允许访问本站。</li>
+        <li>确认自动填入的标题和地址，选择分类，点击「添加到 NestHub」，等待收藏成功提示。</li>
+        <li>想用贴边浮窗，可在插件中勾选「在网页上显示贴边收藏按钮」并授权。按钮可拖动至左右边缘并记住位置，点击「收藏」打开窗口；× 在当前页隐藏，取消勾选可全局关闭。</li>
+        <li>如需快捷键，Chrome 打开 <code>chrome://extensions/shortcuts</code>，Edge 打开 <code>edge://extensions/shortcuts</code>，找到本插件手动绑定 <code>Alt+Shift+B</code>。有冲突时换用其他组合。</li>
+        <li>更新时重新下载并解压到原目录，再到扩展管理页点击「重新加载」；无需重新配置连接。</li>
+      </ol>
+      <p>API 令牌当前为有有效期的 JWT，失效后在此重新复制并替换。插件不需要邮箱或密码。暂无分类时，先在本站创建分类，再在插件中刷新。</p>
+    </div>
     <div class="api-card">
       <h3>API 调用说明</h3>
       <p>当前后台直接使用 JWT 鉴权，你可以在调试时复制当前登录令牌配合 `Authorization: Bearer ...` 头使用。</p>
@@ -92,6 +114,31 @@ async function copyToken() {
   display: grid;
   gap: 12px;
 }
+
+.plugin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.plugin-download {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 7px;
+  background: #2563eb;
+  color: white;
+  text-decoration: none;
+}
+
+.plugin-guide {
+  padding-left: 24px;
+  line-height: 1.9;
+  color: #41526b;
+}
+
+.plugin-guide li { margin: 10px 0; }
+.plugin-guide code { overflow-wrap: anywhere; }
 
 .api-item {
   display: flex;

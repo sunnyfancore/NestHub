@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NestHub 快捷收藏</title><link rel="stylesheet" href="popup.css"></head>
+<body>
+  <header><h1>NestHub 快捷收藏</h1><button id="disconnect" hidden type="button">断开连接</button></header>
+  <p id="status" role="status" aria-live="polite">正在读取当前网页…</p>
+  <label class="inline"><input id="floating" type="checkbox">在网页上显示贴边收藏按钮</label>
+  <small>开启时需授权网页访问；可拖动按钮、记住位置，× 可在当前页隐藏。</small>
+  <form id="connectionForm" hidden>
+    <label>站点地址<input id="site" type="url" placeholder="https://nav.example.com" required></label>
+    <label>API 令牌<input id="token" type="password" autocomplete="off" spellcheck="false" required></label>
+    <button type="submit">验证并连接</button>
+    <small>填写 NestHub 首页地址及 API 令牌。当前服务端使用 Bearer JWT，可在后台「API 调用说明」中复制。</small>
+  </form>
+  <form id="saveForm" hidden>
+    <p id="space"></p>
+    <label>标题<input id="title" maxlength="120" required></label>
+    <label>网页地址<input id="url" type="url" maxlength="1024" required></label>
+    <label>分类<select id="category" required></select></label>
+    <button id="refresh" type="button">刷新分类</button>
+    <label>描述<textarea id="description" maxlength="500" rows="2"></textarea></label>
+    <label>标签<input id="tags" maxlength="255" placeholder="多个标签用逗号分隔"></label>
+    <label class="inline"><input id="pinned" type="checkbox">置顶链接</label>
+    <button id="save" type="submit">添加到 NestHub</button>
+  </form>
+  <script src="popup.js" type="module"></script>
+</body></html>

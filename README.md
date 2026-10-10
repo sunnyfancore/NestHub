@@ -6,6 +6,7 @@
 
 - **多租户架构** — 数据隔离，每个租户独立空间
 - **书签管理** — 目录分类、拖拽排序、批量导入（浏览器 HTML 书签）、点击计数
+- **浏览器快捷收藏** — Chrome / Edge 等 Chromium 浏览器扩展，自动读取当前网页标题与地址，选择分类后直接保存；安装方式见 [扩展说明](extensions/nesthub/README.md)
 - **门户页面** — 5 套主题（默认 / 海洋 / 极光 / 玻璃 / 霓虹 / 纸质），亮色 / 暗色模式
 - **搜索引擎** — 可切换搜索引擎，内置搜索建议
 - **图标自动获取** — 基于 favicon.png.pub 服务自动获取网站图标
@@ -118,6 +119,12 @@ docker compose up -d
 > 需先在 `appsettings.Production.json` 中配置生产环境数据库连接。
 
 ## 配置说明
+
+### 插件发布与下载
+
+每次运行 `dotnet build` 或 `dotnet publish`，都会从 `extensions/nesthub` 自动生成 `wwwroot/downloads/nesthub-extension.zip`；即使使用 `SkipFrontendBuild=true` 或发布时使用 `--no-build`，发布流程也会重新打包插件并纳入发布目录。Docker 镜像复制发布目录时会同时带上插件。
+
+登录后台进入「API 调用说明」，即可下载插件、复制 API 令牌并查看安装、收藏、快捷键绑定及更新指引。压缩包包含插件运行文件与 README，不包含测试文件。插件版本号在 `extensions/nesthub/manifest.json` 中维护。
 
 | 配置项 | 说明 | 所在文件 |
 |--------|------|----------|

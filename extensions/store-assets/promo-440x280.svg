@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280"><rect width="440" height="280" fill="#f3f6fc"/><rect x="18" y="18" width="404" height="244" rx="20" fill="#ffffff"/><svg x="28" y="30" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="12" y1="8" x2="52" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff6269"/>
+      <stop offset="1" stop-color="#ef3f4b"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#bg)"/>
+  <circle cx="32" cy="32" r="19" fill="none" stroke="#fff" stroke-width="5"/>
+  <path fill="#fff" d="M41.6 18.9 35 39.5a3.2 3.2 0 0 1-2 2l-10.6 3.6a2.1 2.1 0 0 1-2.7-2.7L23.3 32a3.2 3.2 0 0 1 2-2l20.6-6.7a1.8 1.8 0 0 1 2.3 2.3z"/>
+  <path fill="#ff4d55" d="m31.1 33.1 6.5-8.7-8.7 6.5a3 3 0 0 0-.6 4.2 3 3 0 0 0 4.2.6z"/>
+  <circle cx="32" cy="32" r="3.8" fill="#fff"/>
+  <circle cx="48" cy="16" r="3.2" fill="#fff" opacity=".9"/>
+</svg>
+<g font-family="Microsoft YaHei, sans-serif"><text x="110" y="57" font-size="25" font-weight="700" fill="#17243a">NestHub 快捷收藏</text><text x="110" y="83" font-size="13" fill="#64748b">连接你的 NestHub 导航空间</text><text x="32" y="141" font-size="18" font-weight="700" fill="#17243a">当前网页，随手收藏</text><text x="32" y="174" font-size="14" fill="#475569">分类保存 · 可选贴边按钮 · API 令牌连接</text><rect x="32" y="207" width="146" height="31" rx="8" fill="#2563eb"/><text x="105" y="228" text-anchor="middle" font-size="13" fill="white">开源 · 自部署</text></g></svg>

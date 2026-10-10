@@ -119,7 +119,8 @@ static void SetStaticFileCacheHeaders(StaticFileResponseContext context)
 {
     var headers = context.Context.Response.Headers;
 
-    if (string.Equals(context.File.Name, "index.html", StringComparison.OrdinalIgnoreCase))
+    if (string.Equals(context.File.Name, "index.html", StringComparison.OrdinalIgnoreCase)
+        || context.Context.Request.Path.StartsWithSegments("/downloads"))
     {
         headers.CacheControl = "no-cache, no-store, must-revalidate";
         headers.Pragma = "no-cache";
