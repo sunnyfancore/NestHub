@@ -464,7 +464,7 @@ onMounted(load)
 .theme-preview--ocean {--preview-bg:#eff5fa; --preview-sidebar:#132d42; --preview-panel:#ffffff; --preview-card:#ffffff; --preview-accent:#176792; --preview-muted:#5b7287; --preview-line:#dbe6ee; }
 .theme-preview--neon {--preview-bg:#11101c; --preview-sidebar:#141220; --preview-panel:#1b192b; --preview-card:#211e33; --preview-accent:#77e0c0; --preview-muted:#afa8c7; --preview-line:#39344e; }
 .theme-preview--paper {--preview-bg:#f4f0e8; --preview-sidebar:#373229; --preview-panel:#fffcf7; --preview-card:#fffdf9; --preview-accent:#866031; --preview-muted:#786b59; --preview-line:#e5dccf; }
-.theme-preview--lime {--preview-bg:#f4f6ef; --preview-sidebar:#252e23; --preview-panel:#ffffff; --preview-card:#ffffff; --preview-accent:#4c712f; --preview-muted:#65735c; --preview-line:#dfe6d8; }
+.theme-preview--lime {--preview-bg:#f4f5ef; --preview-sidebar:#20251e; --preview-panel:#ffffff; --preview-card:#ffffff; --preview-accent:#c9f36b; --preview-muted:#65735c; --preview-line:#dfe6d8; }
 .theme-preview--blackgold {--preview-bg:#18191b; --preview-sidebar:#202123; --preview-panel:#232426; --preview-card:#242527; --preview-accent:#d4b779; --preview-muted:#b8b2a6; --preview-line:#3c3b36; }
 .theme-preview--liquid {--preview-bg:#ecf3f8; --preview-sidebar:#f6faff; --preview-panel:#f9fcff; --preview-card:#ffffff; --preview-accent:#326d9b; --preview-muted:#597086; --preview-line:#d5e2ed; }
 .theme-preview--directory {--preview-bg:#f5f8fa; --preview-sidebar:#f8fbfc; --preview-panel:#ffffff; --preview-card:#ffffff; --preview-accent:#1f6695; --preview-muted:#607585; --preview-line:#dce6eb; }

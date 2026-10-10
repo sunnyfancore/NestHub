@@ -10,7 +10,10 @@ public sealed class SiteIconService : IDisposable
 {
     private const int MaxHtmlBytes = 256 * 1024;
     private readonly MemoryCache _cache = new(new MemoryCacheOptions { SizeLimit = 1024 });
+    private readonly MemoryCache _images = new(new MemoryCacheOptions { SizeLimit = 16 * 1024 * 1024 });
     private readonly SemaphoreSlim _slots = new(6);
+    private readonly MemoryCache _deniedOrigins = new(new MemoryCacheOptions { SizeLimit = 256 });
+    private readonly SemaphoreSlim _imageSlots = new(16);
     private readonly HttpClient _client;
     private static readonly Regex Tags = new(@"<(?:link|base)\b[^>]*>", RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(200));
     private static readonly Regex Attributes = new("([\\w-]+)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))", RegexOptions.IgnoreCase, TimeSpan.FromMilliseconds(200));
@@ -84,6 +87,67 @@ public sealed class SiteIconService : IDisposable
         AbsoluteExpirationRelativeToNow = icons.Length > 0 ? TimeSpan.FromHours(12) : TimeSpan.FromMinutes(10)
     });
 
+    public sealed record IconImage(byte[] Bytes, string ContentType);
+
+    public async Task<IconImage?> LoadImageAsync(string url, CancellationToken cancellationToken)
+    {
+        if (url.Length > 2048 || !Uri.TryCreate(url, UriKind.Absolute, out var image) || !IsWebUri(image)) return null;
+        var key = image.AbsoluteUri;
+        if (_images.TryGetValue<IconImage>(key, out var cached)) return cached;
+        if (_deniedOrigins.TryGetValue(image.GetLeftPart(UriPartial.Authority), out _)) return null;
+        await _imageSlots.WaitAsync(cancellationToken);
+        IconImage? result = null;
+        try
+        {
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            deadline.CancelAfter(TimeSpan.FromSeconds(5));
+            for (var redirect = 0; redirect <= 3; redirect++)
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, image);
+                request.Headers.Accept.ParseAdd("image/*");
+                using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
+                if ((int)response.StatusCode is >= 300 and < 400)
+                {
+                    if (response.Headers.Location is not { } location || !Uri.TryCreate(image, location, out var target) || !IsWebUri(target)) break;
+                    image = target;
+                    continue;
+                }
+                // Remember protected origins so fallback paths do not repeatedly challenge them.
+                if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+                {
+                    _deniedOrigins.Set(image.GetLeftPart(UriPartial.Authority), true,
+                        new MemoryCacheEntryOptions { Size = 1, AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10) });
+                    break;
+                }
+                // Never forward a remote authentication challenge or redirect to the browser.
+                if (!response.IsSuccessStatusCode) break;
+                var type = response.Content.Headers.ContentType?.MediaType?.ToLowerInvariant();
+                if (type is not ("image/png" or "image/jpeg" or "image/gif" or "image/webp" or "image/svg+xml" or "image/x-icon" or "image/vnd.microsoft.icon" or "image/avif")) break;
+                const int limit = 512 * 1024;
+                if (response.Content.Headers.ContentLength > limit) break;
+                await using var stream = await response.Content.ReadAsStreamAsync(deadline.Token);
+                using var buffer = new MemoryStream();
+                var chunk = new byte[8192];
+                while (buffer.Length <= limit)
+                {
+                    var count = await stream.ReadAsync(chunk, deadline.Token);
+                    if (count == 0) break;
+                    buffer.Write(chunk, 0, count);
+                }
+                if (buffer.Length is > 0 and <= limit) result = new IconImage(buffer.ToArray(), type);
+                break;
+            }
+        }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or IOException) { }
+        finally { _imageSlots.Release(); }
+        _images.Set(key, result, new MemoryCacheEntryOptions
+        {
+            Size = result?.Bytes.Length ?? 1,
+            AbsoluteExpirationRelativeToNow = result is null ? TimeSpan.FromMinutes(10) : TimeSpan.FromHours(12)
+        });
+        return result;
+    }
+
     public static IReadOnlyList<string> ParseIcons(string html, Uri page)
     {
         var tags = Tags.Matches(html).Cast<Match>().Select(match => match.Value).ToArray();
@@ -152,5 +216,5 @@ public sealed class SiteIconService : IDisposable
             || bytes[0] == 198 && bytes[1] is 18 or 19);
     }
 
-    public void Dispose() { _client.Dispose(); _cache.Dispose(); _slots.Dispose(); }
+    public void Dispose() { _client.Dispose(); _cache.Dispose(); _images.Dispose(); _deniedOrigins.Dispose(); _slots.Dispose(); _imageSlots.Dispose(); }
 }

@@ -27,6 +27,8 @@ let sourcePageIcon = null;
 let targetTenantId = null;
 let savedUrl = null;
 let connecting = false;
+let saving = false;
+let categoryRequest = 0;
 function status(message, error = false) {
   $('status').textContent = message;
   $('status').classList.toggle('error', error);
@@ -38,6 +40,10 @@ function showConnection() {
   $('disconnect').hidden = true;
 }
 async function disconnect() {
+  ++categoryRequest;
+  connection = null;
+  targetTenantId = null;
+  $('save').disabled = true;
   await chrome.storage.local.remove(['connection', 'categoryCache', 'lastCategory', 'email', 'draftToken']);
   connection = null;
   targetTenantId = null;
@@ -64,6 +70,9 @@ async function api(path, body, method = body === undefined ? 'GET' : 'POST', sel
   if (!response.ok) throw new Error(data?.message || Object.values(data?.errors || {}).flat().join('；') || `请求失败（${response.status}）`);
   return data;
 }
+function validCategories(options) {
+  return Array.isArray(options) && options.every(item => item && typeof item.id === 'string' && typeof item.name === 'string' && Number.isInteger(item.level) && item.level >= 0 && item.level <= 20);
+}
 function renderCategories(portal, previous) {
   targetTenantId = portal.tenant.id;
   $('space').textContent = `保存到：${portal.tenant.name}`;
@@ -82,9 +91,13 @@ function renderCategories(portal, previous) {
   status($('category').options.length ? '确认标题和分类后即可收藏。' : '此空间暂无分类，请先在 NestHub 中创建分类，再刷新。');
 }
 async function loadCategories() {
+  const selected = connection;
+  const request = ++categoryRequest;
   $('save').disabled = true;
   try {
-    const portal = await api('portal?publicView=false');
+    const portal = await api('portal?publicView=false', undefined, 'GET', selected);
+    if (request !== categoryRequest || selected !== connection) return;
+    if (!portal?.tenant?.id || !validCategories(portal.editor?.categoryOptions)) throw new Error('站点返回的分类数据不完整，请更新网站后重试。');
     if (!portal.isAuthenticated || !portal.canEdit || !portal.editor) {
       await chrome.storage.local.remove(['categoryCache']);
       targetTenantId = null;
@@ -92,13 +105,14 @@ async function loadCategories() {
       throw new Error('当前账号无法编辑此空间。');
     }
     const { lastCategory } = await chrome.storage.local.get('lastCategory');
+    if (request !== categoryRequest || selected !== connection) return;
     renderCategories(portal, $('category').value || lastCategory);
     await chrome.storage.local.set({ categoryCache: {
-      site: connection.site, token: connection.token,
+      site: selected.site, token: selected.token,
       tenant: portal.tenant, editor: { categoryOptions: portal.editor.categoryOptions }
     } });
   } finally {
-    $('save').disabled = !connection || !targetTenantId || !$('category').options.length;
+    if (request === categoryRequest) $('save').disabled = saving || !connection || !targetTenantId || !$('category').options.length;
   }
 }
 function fail(error) {
@@ -115,11 +129,12 @@ function normalizeSite(raw) {
 async function connectWithToken(site, token) {
   const candidate = { site: site.origin, token };
   const portal = await api('portal?publicView=false', undefined, 'GET', candidate);
-  if (!portal?.isAuthenticated || !portal.canEdit || !portal.editor?.categoryOptions || !portal.tenant?.id) throw new Error('当前账号无法编辑此空间，请确认站点与令牌是否匹配。');
+  if (!portal?.isAuthenticated || !portal.canEdit || !validCategories(portal.editor?.categoryOptions) || !portal.tenant?.id) throw new Error('当前账号无法编辑此空间，请确认站点与令牌是否匹配。');
   const cache = { site: candidate.site, token, tenant: portal.tenant, editor: { categoryOptions: portal.editor.categoryOptions } };
   // Persist the validated connection before displaying success. Popup closure cannot lose it.
   await chrome.storage.local.set({ connection: candidate, site: site.origin, startupUrl: `${site.origin}/`, categoryCache: cache });
-  await chrome.storage.local.remove(['draftToken', 'lastCategory', 'email']);
+  try { await chrome.storage.local.remove(['draftToken', 'lastCategory', 'email']); } catch { /* Connection was already persisted; optional cleanup must not undo success. */ }
+  ++categoryRequest;
   connection = candidate;
   renderCategories(portal);
   $('site').value = site.origin;
@@ -160,7 +175,7 @@ $('connectionForm').addEventListener('submit', async event => {
   event.preventDefault();
   if (connecting) return;
   connecting = true;
-  const button = event.submitter;
+  const button = event.submitter || $('connectionForm').querySelector('button[type=submit]');
   button.disabled = true;
   try {
     const site = normalizeSite($('site').value);
@@ -175,8 +190,11 @@ $('connectionForm').addEventListener('submit', async event => {
 });
 $('saveForm').addEventListener('submit', async event => {
   event.preventDefault();
+  if (saving) return;
+  saving = true;
   $('save').disabled = true;
   try {
+    if (!connection?.token || !targetTenantId || !$('category').value) throw new Error('请先连接站点并选择分类。');
     const url = new URL($('url').value.trim());
     const title = $('title').value.trim();
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error('只能收藏 HTTP 或 HTTPS 网页。');
@@ -188,15 +206,15 @@ $('saveForm').addEventListener('submit', async event => {
       description: $('description').value.trim(), tags: $('tags').value.trim(), isPinned: $('pinned').checked
     });
     savedUrl = url.href;
-    await chrome.storage.local.set({ lastCategory: $('category').value });
+    try { await chrome.storage.local.set({ lastCategory: $('category').value }); } catch { /* A successful server save must never be reported as failed due to a local preference. */ }
     status('收藏成功，已添加到 NestHub。');
-  } catch (error) { fail(error); } finally { $('save').disabled = !$('category').options.length; }
+  } catch (error) { fail(error); } finally { saving = false; $('save').disabled = !connection || !targetTenantId || !$('category').options.length; }
 });
 $('refresh').addEventListener('click', async () => {
   $('refresh').disabled = true;
   try { await loadCategories(); } catch (error) { fail(error); } finally { $('refresh').disabled = false; }
 });
-$('disconnect').addEventListener('click', async () => { await disconnect(); status('已断开连接并清除令牌。'); });
+$('disconnect').addEventListener('click', async () => { try { await disconnect(); status('已断开连接并清除令牌。'); } catch (error) { fail(error); } });
 $('theme').addEventListener('change', async () => {
   const theme = $('theme').value;
   if (!themeNames.includes(theme)) return;
@@ -265,7 +283,7 @@ async function init() {
   $('openOnNewTab').checked = settings.openOnNewTab === true;
   $('startupAddress').textContent = settings.connection?.site ? `导航地址：${settings.connection.site}` : '连接导航站点后自动使用该地址。';
   $('floating').checked = settings.floatingEnabled === true;
-  $('site').value = settings.site || '';
+  $('site').value = settings.connection?.site || settings.site || '';
   $('token').value = settings.draftToken || '';
   const sourceTab = new URL(location.href).searchParams.get('sourceTab');
   const tab = sourceTab && /^\d+$/.test(sourceTab)
@@ -282,7 +300,7 @@ async function init() {
   if (connection?.token) {
     const cache = settings.categoryCache;
     if (cache?.site === connection.site && cache.token === connection.token && cache.tenant?.id
-      && Array.isArray(cache.editor?.categoryOptions)) {
+      && validCategories(cache.editor?.categoryOptions)) {
       renderCategories(cache, settings.lastCategory);
     } else {
       try { await loadCategories(); } catch (error) { showConnection(); fail(error); }

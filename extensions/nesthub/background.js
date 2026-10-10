@@ -1,6 +1,12 @@
 const scriptId = 'nesthub-floating';
 const matches = ['http://*/*', 'https://*/*'];
-async function syncFloating() {
+let floatingSync = Promise.resolve();
+function syncFloating() {
+  const task = floatingSync.catch(() => {}).then(syncFloatingNow);
+  floatingSync = task;
+  return task;
+}
+async function syncFloatingNow() {
   await chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
   const { floatingEnabled } = await chrome.storage.local.get('floatingEnabled');
   const allowed = await chrome.permissions.contains({ origins: matches });
@@ -21,19 +27,27 @@ chrome.runtime.onInstalled.addListener(() => { syncFloating().catch(console.erro
 const blankPages = new Set(['chrome://newtab/', 'chrome://new-tab-page/', 'edge://newtab/', 'about:newtab', 'about:blank']);
 const pendingWindows = new Set();
 const redirectedTabs = new Set();
-let startupInFlight = null;
+const startupFlights = new Map();
 function navigationUrl(settings) {
   const address = settings.connection?.site || settings.site || settings.startupUrl;
   if (!address) return null;
-  const url = new URL(address);
+  let url;
+  try { url = new URL(address); } catch { return null; }
   return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password ? url.href : null;
 }
 async function openStartupPage(windowId) {
-  if (startupInFlight) return startupInFlight;
-  startupInFlight = runStartupPage(windowId).finally(() => { startupInFlight = null; });
-  return startupInFlight;
+  const key = windowId ?? 'startup';
+  if (startupFlights.has(key)) return startupFlights.get(key);
+  const task = runStartupPage(windowId).finally(() => { startupFlights.delete(key); });
+  startupFlights.set(key, task);
+  return task;
 }
 async function runStartupPage(windowId) {
+  if (windowId == null && chrome.windows.getAll) {
+    const windows = await chrome.windows.getAll({windowTypes: ['normal']});
+    await Promise.all(windows.filter(window => !window.incognito).map(window => openStartupPage(window.id)));
+    return;
+  }
   const { openOnStartup, connection, site, startupUrl } = await chrome.storage.local.get(['openOnStartup', 'connection', 'site', 'startupUrl']);
   const url = navigationUrl({ connection, site, startupUrl });
   if (!openOnStartup || !url) return;
@@ -44,7 +58,7 @@ async function runStartupPage(windowId) {
   const blank = tabs.find(tab => blankPages.has(tab.pendingUrl || tab.url));
   if (blank?.id != null) {
     redirectedTabs.add(blank.id);
-    await chrome.tabs.update(blank.id, { url, active: true });
+    try { await chrome.tabs.update(blank.id, { url, active: true }); } finally { redirectedTabs.delete(blank.id); }
   } else {
     await chrome.tabs.create({ url, active: true, ...(windowId == null ? {} : { windowId }) });
   }
@@ -53,6 +67,7 @@ async function runStartupPage(windowId) {
 chrome.windows.onCreated?.addListener(window => {
   if (window.type === 'normal' && !window.incognito) openStartupPage(window.id).catch(console.error);
 });
+chrome.windows.onRemoved?.addListener(id => { pendingWindows.delete(id); });
 async function redirectNewTab(tab) {
   if (tab.id == null || tab.incognito || redirectedTabs.has(tab.id) || !blankPages.has(tab.pendingUrl || tab.url)) return;
   redirectedTabs.add(tab.id);

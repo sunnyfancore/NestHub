@@ -1,5 +1,5 @@
 /* One palette per theme: portal content and teleported controls share these tokens. */
-html[data-portal-theme]:not([data-portal-theme=default2]) {
+html[data-portal-theme] {
   --p-bg: #f3f5f7; --p-panel: #ffffff; --p-card: #ffffff;
   --p-ink: #243044; --p-muted: #647184; --p-line: #e1e6ed;
   --p-accent: #cb3d52; --p-soft: #fff0f2; --p-hover: #f9fafc;
@@ -30,10 +30,11 @@ html[data-portal-theme=paper] {
   --p-selected: #514533; --p-selected-ink: #edd4a4;
 }
 html[data-portal-theme=lime] {
-  --p-bg: #f4f6ef; --p-ink: #2b3627; --p-muted: #65735c; --p-line: #dfe6d8;
+  --p-bg: #f4f5ef; --p-ink: #20251e; --p-muted: #616c57; --p-line: #dfe6d5;
+  --p-lime-highlight: #c9f36b; --p-lime-highlight-ink: #253216;
   --p-accent: #4c712f; --p-soft: #edf4e1; --p-hover: #f3f8eb;
-  --p-sidebar: #252e23; --p-side-ink: #dfe7d8; --p-side-muted: #b7c5ab;
-  --p-selected: #d2ef93; --p-selected-ink: #304318;
+  --p-sidebar: #20251e; --p-side-ink: #dfe7d8; --p-side-muted: #b7c5ab;
+  --p-selected: #c9f36b; --p-selected-ink: #253216;
 }
 html[data-portal-theme=blackgold] {
   color-scheme: dark;
@@ -70,7 +71,7 @@ html[data-portal-theme=launchpad] {
   --p-sidebar: #f0f4ef; --p-side-ink: #455e4e; --p-side-muted: #65776c;
   --p-selected: #dfeadd; --p-selected-ink: #325d43; --p-radius: 18px;
 }
-html.dark[data-portal-theme]:not([data-portal-theme=neon]):not([data-portal-theme=blackgold]) {
+html.dark:where([data-portal-theme]:not([data-portal-theme=neon]):not([data-portal-theme=blackgold])) {
   color-scheme: dark;
   --p-bg: #171e28; --p-panel: #202a36; --p-card: #25313e;
   --p-ink: #e5edf5; --p-muted: #abb9c9; --p-line: #3b4859;
@@ -82,7 +83,7 @@ html.dark[data-portal-theme]:not([data-portal-theme=neon]):not([data-portal-them
 html.dark[data-portal-theme=default2] { --p-accent: #f6a1ac; --p-soft: #483039; --p-selected: #483039; --p-selected-ink: #ffbdc6; }
 html.dark[data-portal-theme=ocean] { --p-accent: #8ecbf0; --p-soft: #25475d; --p-selected: #25475d; --p-selected-ink: #c0e6fc; }
 html.dark[data-portal-theme=paper] { --p-bg: #211e19; --p-panel: #2b2721; --p-card: #302c25; --p-ink: #efe7da; --p-muted: #bfb29e; --p-line: #494136; --p-accent: #dfbe8d; --p-soft: #463a2a; --p-hover: #3d3429; --p-sidebar: #29251f; --p-side-ink: #efe7da; --p-side-muted: #bfb29e; --p-selected: #463a2a; --p-selected-ink: #efd6ad; }
-html.dark[data-portal-theme=lime] { --p-bg: #1c231c; --p-panel: #252e24; --p-card: #2b3629; --p-ink: #e7eddf; --p-muted: #b1bfa5; --p-line: #40513a; --p-accent: #b9dd87; --p-soft: #38482e; --p-hover: #34452e; --p-sidebar: #222b20; --p-side-ink: #e7eddf; --p-side-muted: #b1bfa5; --p-selected: #38482e; --p-selected-ink: #d2eba9; }
+html.dark[data-portal-theme=lime] { --p-bg: #1c231c; --p-panel: #252e24; --p-card: #2b3629; --p-ink: #e7eddf; --p-muted: #b1bfa5; --p-line: #40513a; --p-accent: #c9f36b; --p-soft: #38482e; --p-hover: #34452e; --p-sidebar: #222b20; --p-side-ink: #e7eddf; --p-side-muted: #b1bfa5; --p-selected: #c9f36b; --p-selected-ink: #253216; }
 html.dark[data-portal-theme=workspace] { --p-accent: #b6bdf9; --p-soft: #343d61; --p-selected: #343d61; --p-selected-ink: #e1e4ff; }
 html.dark[data-portal-theme=launchpad] { --p-accent: #b0d1b8; --p-soft: #314b3c; --p-selected: #314b3c; --p-selected-ink: #d4ecd8; }
 html[data-portal-theme]:not([data-portal-theme=default2]) {
@@ -114,3 +115,10 @@ html[data-portal-theme]:not([data-portal-theme=default2]) .el-textarea__inner { 
 html[data-portal-theme]:not([data-portal-theme=default2]) .el-button--primary { color: var(--p-panel); }
 html[data-portal-theme]:not([data-portal-theme=default2]) .el-select-dropdown__item.is-selected { color: var(--p-accent); background: var(--p-soft); }
 html[data-portal-theme]:not([data-portal-theme=default2]) .el-popper.is-light { border-color: var(--p-line); background: var(--p-panel); color: var(--p-ink); }
+
+/* Lime keeps vivid surfaces and dark readable text, rather than green text everywhere. */
+html[data-portal-theme=lime] .el-button--primary {
+  background: var(--p-lime-highlight); border-color: var(--p-lime-highlight);
+  color: var(--p-lime-highlight-ink);
+}
+html[data-portal-theme=lime] .el-button--primary:hover { background: #d7fa90; border-color: #d7fa90; }

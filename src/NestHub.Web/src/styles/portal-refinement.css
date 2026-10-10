@@ -82,3 +82,40 @@
   .portal-page.portal-page.portal-page:not(.theme-default2) .portal-card { transition: none; }
   .portal-page.portal-page.portal-page:not(.theme-default2) .portal-card:hover { transform: none; }
 }
+
+/* Preserve the original lime identity and keep wide-screen reading compact. */
+.portal-page.portal-page.portal-page.theme-lime .portal-searchbar { background: var(--p-bg); }
+.portal-page.portal-page.portal-page.theme-lime .portal-content {
+  width: 100%; max-width: 1240px; margin-inline: auto; padding: 28px 32px 90px;
+}
+.portal-page.portal-page.portal-page.theme-lime .portal-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px;
+}
+.portal-page.portal-page.portal-page.theme-lime .portal-sidebar__link.is-active::before { display: none; }
+.portal-page.portal-page.portal-page.theme-lime .portal-card:hover {
+  border-color: #87af40; background: var(--p-hover); box-shadow: 0 4px 16px #66852a12;
+}
+.portal-page.portal-page.portal-page.theme-lime .portal-child-tab.is-active {
+  background: var(--p-lime-highlight); color: var(--p-lime-highlight-ink); border-color: var(--p-lime-highlight);
+}
+.portal-page.portal-page.portal-page.theme-lime .portal-child-tab.is-active::after { display: none; }
+.portal-page.portal-page.portal-page.theme-lime .portal-view-toggle {
+  --view-toggle-accent: var(--p-lime-highlight-ink); --view-toggle-accent-strong: var(--p-lime-highlight-ink);
+}
+.portal-page.portal-page.portal-page.theme-lime .portal-view-toggle span.is-active {
+  background: var(--p-lime-highlight); color: var(--p-lime-highlight-ink);
+}
+.portal-page.portal-page.portal-page.theme-lime .portal-search-submit {
+  background: var(--p-lime-highlight); color: var(--p-lime-highlight-ink); width: 40px; height: 40px;
+  margin-right: 4px; border-radius: 10px;
+}
+@media (max-width: 1100px) {
+  .portal-page.portal-page.portal-page.theme-lime .portal-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .portal-page.portal-page.portal-page.theme-lime .portal-content { padding: 20px 16px 90px; }
+  .portal-page.portal-page.portal-page.theme-lime .portal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+}
+@media (max-width: 360px) {
+  .portal-page.portal-page.portal-page.theme-lime .portal-grid { grid-template-columns: minmax(0, 1fr); }
+}

@@ -54,7 +54,7 @@ async function setup(unauthorized = false, sourceTab = false, initialStorage = {
   const source = fs.readFileSync(path.join(__dirname, '../nesthub/popup.js'), 'utf8');
   vm.runInContext(source.replace('init().catch(fail);', 'init().catch(fail).finally(ready);'), context);
   await completed;
-  return { element, requests, storage };
+  return { element, requests, storage, context };
 }
 
 test('restores token, reads current page and saves into portal tenant/category', async () => {
@@ -181,4 +181,58 @@ test('editing the collected URL does not attach the original page icon', async (
   element('url').value = 'https://different.example/';
   await element('saveForm').handlers.submit({ preventDefault() {} });
   assert.equal(JSON.parse(requests.at(-1).options.body).iconUrl, null);
+});
+
+
+test('concurrent submit sends only one bookmark request', async () => {
+  const app = await setup();
+  let release;
+  const original = app.context.fetch;
+  app.context.fetch = async (...args) => { await new Promise(resolve => { release = resolve; }); return original(...args); };
+  const first = app.element('saveForm').handlers.submit({ preventDefault() {} });
+  await app.element('saveForm').handlers.submit({ preventDefault() {} });
+  release(); await first;
+  assert.equal(app.requests.filter(r => r.url.includes('/links?')).length, 1);
+});
+
+test('disconnect while categories refresh prevents stale response restoring the session', async () => {
+  const app = await setup();
+  let release;
+  const original = app.context.fetch;
+  app.context.fetch = async (...args) => { await new Promise(resolve => { release = resolve; }); return original(...args); };
+  const refresh = app.element('refresh').handlers.click();
+  await app.element('disconnect').handlers.click();
+  release(); await refresh;
+  assert.equal(app.storage.connection, undefined);
+  assert.equal(app.storage.categoryCache, undefined);
+  assert.equal(app.element('saveForm').hidden, true);
+  assert.equal(app.element('save').disabled, true);
+});
+
+test('successful bookmark stays successful when remembering category fails', async () => {
+  const app = await setup();
+  app.context.chrome.storage.local.set = async () => { throw new Error('storage unavailable'); };
+  await app.element('saveForm').handlers.submit({ preventDefault() {} });
+  assert.match(app.element('status').textContent, /收藏成功/);
+  await app.element('saveForm').handlers.submit({ preventDefault() {} });
+  assert.equal(app.requests.filter(r => r.url.includes('/links?')).length, 1);
+});
+
+test('401 while saving keeps the save button disabled after disconnect', async () => {
+  const app = await setup();
+  app.context.fetch = async () => ({ok: false, status: 401, json: async () => ({})});
+  await app.element('saveForm').handlers.submit({preventDefault() {}});
+  assert.equal(app.element('save').disabled, true);
+  assert.equal(app.storage.connection, undefined);
+});
+
+
+test('malformed cached category triggers fresh read instead of crashing popup', async () => {
+  const app = await setup(false, false, {categoryCache: {
+    site: 'https://nest.example', token: 'test-token', tenant: {id: 'tenant-id', name: '我的空间'},
+    editor: {categoryOptions: [null]}
+  }});
+  assert.equal(app.requests.length, 1);
+  assert.equal(app.element('saveForm').hidden, false);
+  assert.equal(app.element('category').value, 'category-id');
 });

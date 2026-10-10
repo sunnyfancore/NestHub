@@ -22,6 +22,8 @@ foreach (var ip in new[] { "8.8.8.8", "1.1.1.1", "2606:4700:4700::1111" })
     Check(SiteIconService.IsPublicAddress(IPAddress.Parse(ip)), "Public address rejected: " + ip);
 using (var discovery = new SiteIconService())
 {
+    Check(await discovery.LoadImageAsync("http://127.0.0.1/favicon.ico", CancellationToken.None) is null, "Loopback image proxy allowed");
+    Check(await discovery.LoadImageAsync("https://user:password@example.com/favicon.ico", CancellationToken.None) is null, "Image proxy accepted embedded credentials");
     Check((await discovery.DiscoverAsync("http://127.0.0.1/favicon", CancellationToken.None)).Count == 0, "Loopback discovery allowed");
 }
 Console.WriteLine("ICON_DECLARATIONS_AND_NETWORK_GUARDS_OK");

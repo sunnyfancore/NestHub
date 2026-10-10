@@ -146,3 +146,23 @@ test('collection window opens beside the click and stays inside the monitor work
   await app.send({ type: 'floating-open', anchor: { x: NaN, y: 0, side: 'left', screen } }, webpage);
   assert.equal(app.windows[2].left, undefined);
 });
+
+
+test('overlapping floating toggles do not register the same content script twice', async () => {
+  const app = setup();
+  const results = await Promise.all([
+    app.send({type: 'floating-toggle', enabled: true}, popup),
+    app.send({type: 'floating-toggle', enabled: true}, popup)
+  ]);
+  assert.ok(results.every(r => r.ok));
+  assert.equal(app.registered.length, 1);
+});
+
+test('malformed saved navigation address does not crash new-tab handling', async () => {
+  const app = setup();
+  app.storage.openOnNewTab = true;
+  app.storage.connection.site = 'not a url';
+  await app.createdTab({id: 30, url: 'chrome://newtab/'});
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(app.updatedTabs.length, 0);
+});

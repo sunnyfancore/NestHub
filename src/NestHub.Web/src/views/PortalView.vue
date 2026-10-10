@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { safeIconSource } from '@/components/portal/siteIcons'
+
 import {
   Connection,
   Edit,
@@ -1264,7 +1266,7 @@ onBeforeUnmount(() => {
                 >
                   <img
                     v-if="item.iconUrl"
-                    :src="item.iconUrl"
+                    :src="safeIconSource(item.iconUrl)"
                     class="portal-suggest__icon"
                     @error="($event.target as HTMLImageElement).style.display = 'none'"
                   />
