@@ -55,12 +55,12 @@ docker compose -f docker-compose.mysql.yml up -d --wait --wait-timeout 300
 
 不要挂载整个 `/app` 或 `wwwroot`，否则覆盖镜像里的程序，更新不生效。可把数据目录改为 `/srv/nesthub/app:/app/AppData` 等绝对路径，目录必须允许 UID `1654` 写入。`.env`、数据库、上传文件和备份不进入 Git 或 Docker 构建。
 
-## 一条脚本导出 MySQL 为 SQLite
+## 镜像内置 MySQL → SQLite 迁移
 
 只需要 Docker 和原 MySQL 连接，无需部署新应用或本机安装 .NET。
 
 ```bash
-cp mysql-migration.env.example mysql-migration.env
+touch mysql-migration.env
 chmod 600 mysql-migration.env
 ```
 
@@ -73,27 +73,22 @@ Migration__MySqlConnectionString=Server=数据库地址;Port=3306;Database=nesth
 运行：
 
 ```bash
-bash scripts/export-mysql-to-sqlite.sh
-# 指定配置文件与导出路径：
-bash scripts/export-mysql-to-sqlite.sh mysql-migration.env backups/my-navigation.db
+mkdir -p backups
+sudo chown 1654:1654 backups
+docker run --rm --add-host host.docker.internal:host-gateway \
+  --env-file mysql-migration.env \
+  -e Migration__SqlitePath=/export/nesthub-export.db \
+  --mount "type=bind,source=$PWD/backups,target=/export" \
+  ghcr.io/sunnyfancore/nesthub:latest --migrate-mysql-to-sqlite
 ```
 
 默认输出 `backups/nesthub-export.db`。导出覆盖八张表：账号和密码哈希、站点设置、分类、书签、分享链接、跳转设置、密码重置记录、SMTP 设置。保留 ID、排序、点击数、图标等字段，逐表逐字段校验。原数据库使用只读事务，不会被修改；先写临时文件，成功后才生成正式文件；输出文件已存在时拒绝覆盖。命令失败则不要切换生产站。
 
-数据库地址必须能从容器访问。宿主机 MySQL 可以使用 `host.docker.internal`（脚本配置了 host-gateway），前提是 MySQL 允许该连接；其他数据库填写可达 IP/域名。容器内 `localhost` 不是宿主机。同一 Docker 网络内的 MySQL 容器可将脚本的 `docker run` 增加 `--network 网络名`，使用 MySQL 容器名连接。配置文件包含密码，已从 Git 和镜像构建排除。
-
-Windows 可使用 PowerShell 脚本 `scripts/export-mysql-to-sqlite.ps1`，参数与结果见下面的命令：
-
-```powershell
-Copy-Item mysql-migration.env.example mysql-migration.env
-# 编辑连接信息
-./scripts/export-mysql-to-sqlite.ps1
-./scripts/export-mysql-to-sqlite.ps1 -ConfigFile mysql-migration.env -OutputFile backups/my-navigation.db
-```
+数据库地址必须能从容器访问。宿主机 MySQL 可以使用 `host.docker.internal`（命令配置了 host-gateway），前提是 MySQL 允许该连接；其他数据库填写可达 IP/域名。容器内 `localhost` 不是宿主机。同一 Docker 网络内的 MySQL 容器可将 `docker run` 增加 `--network 网络名`，使用 MySQL 容器名连接。配置文件包含密码，已从 Git 和镜像构建排除。
 
 ## 用导出的 SQLite 接管旧站
 
-1. 先备份原 MySQL 和上传文件，暂停旧 NestHub 的写入，保持 MySQL 运行，再执行导出脚本。不要删除原库。
+1. 先备份原 MySQL 和上传文件，暂停旧 NestHub 的写入，保持 MySQL 运行，再执行迁移命令。不要删除原库。
 2. 准备新部署目录的 `.env`，保留原 JWT 密钥；原管理员账号和密码会迁移，初始管理员配置不会重置已有账号。
 3. 在新应用首次启动前，把导出的文件复制为 `data/app/nesthub.db`，同时复制旧 `AppData/uploads` 到 `data/app/uploads`。不要覆盖已使用的新库。
 4. 执行 `sudo chown -R 1654:1654 data/app`，然后 `docker compose up -d --wait --wait-timeout 300`。

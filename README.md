@@ -129,7 +129,7 @@ docker compose up -d --no-deps --wait --wait-timeout 300 nesthub
 
 完整的一键部署、目录挂载、外部数据库迁移、备份恢复和版本回退说明见 [Docker 部署指南](docs/docker-deployment.md)。
 
-原 MySQL 可通过 `scripts/export-mysql-to-sqlite.sh`（Linux）或 `scripts/export-mysql-to-sqlite.ps1`（Windows）直接导出为 SQLite 文件，只需配置数据库连接，保留整站账号、分类、书签和设置。
+镜像内置 `--migrate-mysql-to-sqlite` 命令，可完整迁移原 MySQL 的账号、分类、书签和设置。
 
 ## 配置说明
 

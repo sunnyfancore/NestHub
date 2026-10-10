@@ -47,3 +47,8 @@ mysql-migration.env
 ## OS
 .DS_Store
 Thumbs.db
+
+## Personal migration helpers (local only)
+scripts/export-mysql-to-sqlite.sh
+scripts/export-mysql-to-sqlite.ps1
+mysql-migration.env.example
