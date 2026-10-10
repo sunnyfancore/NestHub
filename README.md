@@ -1,153 +1,230 @@
 # NestHub
 
-一个开源的多租户书签导航管理器，面向个人、团队和多设备场景，提供书签管理、门户导航、主题配置和后台运维能力。
+把常用网站收进自己的导航主页。NestHub 支持独立用户空间、分类书签、浏览器快捷收藏和多种中文主题，可部署在自己的服务器上。
 
-## 功能特性
+[Docker 部署与迁移指南](docs/docker-deployment.md) · [浏览器插件说明](extensions/nesthub/README.md) · [镜像构建记录](https://github.com/sunnyfancore/NestHub/actions/workflows/docker.yml)
 
-- **多租户架构** — 数据隔离，每个租户独立空间
-- **书签管理** — 目录分类、拖拽排序、批量导入（浏览器 HTML 书签）、点击计数
-- **浏览器快捷收藏** — Chrome / Edge 等 Chromium 浏览器扩展，自动读取当前网页标题与地址，选择分类后直接保存；安装方式见 [扩展说明](extensions/nesthub/README.md)
-- **门户页面** — 10 套中文主题（经典 / 海洋 / 霓虹 / 纸笺 / 青柠 / 黑金 / 液态玻璃 / 网址簿 / 效率台 / 起始页），亮色 / 暗色模式
-- **搜索引擎** — 可切换搜索引擎，内置搜索建议
-- **图标自动获取** — 识别网站声明的图标并缓存，兼容自建站点与内网常见图标路径
-- **书签分享** — 生成分享链接，支持公开访问
-- **超管后台** — 租户管理、链接管理、分类管理、主题配置、数据备份与恢复
-- **安全特性** — JWT 认证、密码重置、邮箱通知（SMTP）
-- **Docker 一键部署** — docker-compose 即可上线
-- **响应式设计** — 适配桌面端与移动端
+## Docker Compose 部署（推荐）
 
-## 技术栈
+镜像：`ghcr.io/sunnyfancore/nesthub:latest`，支持 Linux AMD64 / ARM64。默认使用 SQLite，只需要一个容器，无需安装 MySQL、Node.js 或 .NET。
 
-| 层 | 技术 |
-|---|------|
-| 后端 | ASP.NET Core 10 + FreeSql + SQLite / MySQL |
-| 前端 | Vue 3 + TypeScript + Vite + Pinia + Element Plus |
-| 认证 | JWT Bearer Token |
-| 部署 | Docker + docker-compose |
+### 1. 准备配置
 
-## 项目结构
+在服务器新建一个部署目录，例如 `/srv/nesthub`。将下面内容保存为该目录中的 `docker-compose.yml`，不需要克隆整个仓库：
 
-```
-NestHub/
-├── Dockerfile
-├── docker-compose.yml
-├── src/
-│   ├── NestHub.Api/              # 后端 API
-│   │   ├── Controllers/          # API 控制器
-│   │   ├── Contracts/            # DTO 定义
-│   │   ├── Domain/Entities/      # 实体模型
-│   │   ├── Infrastructure/       # 中间件、JWT、数据种子
-│   │   └── Services/             # 业务逻辑
-│   └── NestHub.Web/              # 前端 SPA
-│       └── src/
-│           ├── api/              # API 调用
-│           ├── components/       # 公共组件
-│           ├── layouts/          # 布局
-│           ├── router/           # 路由
-│           ├── stores/           # Pinia 状态
-│           └── views/            # 页面视图
+```yaml
+name: nesthub
+services:
+  nesthub:
+    image: ghcr.io/sunnyfancore/nesthub:latest
+    ports:
+      - "5186:8080"  # 左边是服务器访问端口
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      TZ: Asia/Shanghai
+      Database__Provider: Sqlite
+      Database__ConnectionString: "Data Source=/app/AppData/nesthub.db"
+      Database__AutoSyncStructure: "true"
+      Jwt__SecretKey: ${JWT_SECRET:?请在 .env 中填写 JWT_SECRET}
+      SuperAdmin__Email: ${ADMIN_EMAIL:-admin@example.com}
+      SuperAdmin__Password: ${ADMIN_PASSWORD:?请在 .env 中填写 ADMIN_PASSWORD}
+      SuperAdmin__DisplayName: 超级管理员
+    volumes:
+      - ./data/app:/app/AppData  # 数据库与上传文件，更新时保留
+    restart: unless-stopped
 ```
 
-## 快速开始
+在同一目录新建 `.env`，填写以下内容，把示例值换成自己的密码与随机密钥：
 
-### 前置要求
+```dotenv
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=请替换为自己的强密码
+JWT_SECRET=请替换为至少32字符的随机密钥
+```
 
-- .NET 10 SDK
-- Node.js 22.12+（Docker 使用 Node.js 24）
-- MySQL 5.7+
+Linux 可用 `openssl rand -hex 32` 生成密钥。已有站点迁移时保留原 JWT 密钥；管理员配置用于初次创建账号，不会重置已有账号密码。
 
-### 1. 克隆项目
+### 2. 创建挂载目录并启动
+
+需要 Docker Engine 和 Docker Compose v2。在上述部署目录运行：
+
+```bash
+mkdir -p data/app
+sudo chown -R 1654:1654 data/app
+docker compose up -d --wait --wait-timeout 300
+```
+
+访问 `http://服务器IP:5186`，使用 `.env` 中的邮箱和密码登录。首次启动自动创建数据库与表结构。对外使用域名时，建议通过反向代理配置 HTTPS。
+
+想让脚本自动生成配置和密码，可使用仓库内的一键部署方式（Linux，需 Git、OpenSSL）：
 
 ```bash
 git clone https://github.com/sunnyfancore/NestHub.git
 cd NestHub
-```
-
-### 2. 配置数据库
-
-复制配置模板并修改：
-
-```bash
-cp src/NestHub.Api/appsettings.json src/NestHub.Api/appsettings.Development.json
-```
-
-编辑 `appsettings.Development.json`，填入你的 MySQL 连接信息：
-
-```json
-{
-  "Database": {
-    "ConnectionString": "Server=localhost;Port=3306;Database=nesthub;User ID=root;Password=your_password;Charset=utf8mb4;SslMode=None;",
-    "AutoSyncStructure": true
-  }
-}
-```
-
-> `AutoSyncStructure: true` 会自动创建表结构，无需手动执行 SQL。
-
-### 3. 启动后端
-
-```bash
-dotnet run --project src/NestHub.Api
-```
-
-首次启动会自动完成：
-- 数据库表结构同步
-- 超级管理员账号创建
-
-访问 `http://localhost:5186` 即可打开。
-
-### 4. 前端开发（可选）
-
-```bash
-cd src/NestHub.Web
-npm install
-npm run dev
-```
-
-Vite 开发服务器地址 `http://localhost:5173`，已配置 API 代理。
-
-### 5. Docker 一键部署（推荐）
-
-推送 GitHub 后自动构建前端、后端和插件，并发布 AMD64 / ARM64 镜像：`ghcr.io/sunnyfancore/nesthub:latest`。
-
-Linux 服务器安装 Docker Compose v2 和 OpenSSL 后，在仓库目录运行：
-
-```bash
 bash scripts/deploy.sh
 ```
 
-自动生成密码、创建数据目录并启动应用，默认使用 SQLite，无需单独数据库容器。访问 `http://服务器IP:5186`；MySQL 版使用 `docker-compose.mysql.yml`。
+### 3. 目录挂载说明
 
-后续只更新应用：
+`./data/app` 指 **Compose 文件所在目录** 下的 `data/app`，不是容器内部目录。整个目录需要保留。
+
+```text
+/srv/nesthub/
+├── docker-compose.yml
+├── .env                       # 管理员配置与 JWT 密钥
+├── data/
+│   └── app/
+│       ├── nesthub.db          # SQLite 数据库
+│       ├── nesthub.db-wal      # 运行时可能存在，备份时一并保留
+│       ├── nesthub.db-shm      # 运行时可能存在
+│       └── uploads/           # 上传的图片、Logo 等
+└── backups/                   # 可自行创建，用于备份
+```
+
+| 宿主机位置 | 容器位置 | 用途 |
+| --- | --- | --- |
+| `./data/app` | `/app/AppData` | SQLite 数据库与上传文件，必须持久化 |
+| `./data/mysql` | `/var/lib/mysql` | 仅 MySQL 部署使用 |
+| `.env` | 不挂载，由 Compose 读取 | 密钥、密码等配置 |
+| `./backups` | 默认不挂载 | 自己保存的备份文件 |
+
+也可以改用绝对路径，例如将 `volumes` 改成：
+
+```yaml
+    volumes:
+      - /srv/nesthub-data:/app/AppData
+```
+
+这时应创建 `/srv/nesthub-data`，并赋予 UID `1654` 写入权限。NAS 也可以使用自己的共享目录路径。不要挂载整个 `/app` 或 `/app/wwwroot`，否则会覆盖镜像中的程序，导致更新无效。
+
+SQLite 适合个人和小团队的单实例部署；大量并发写入可选择 MySQL。MySQL 使用仓库中的独立配置 [docker-compose.mysql.yml](docker-compose.mysql.yml)，具体启动、外部数据库连接和迁移方法见 [部署指南](docs/docker-deployment.md)。切换数据库类型不会自动搬迁原数据。
+
+## 更新与备份
+
+### 手动更新镜像
+
+在部署目录运行，数据库和上传文件继续保留在挂载目录中：
 
 ```bash
 docker compose pull nesthub
 docker compose up -d --no-deps --wait --wait-timeout 300 nesthub
 ```
 
-`data/app` 持久化 SQLite 数据库及上传文件；MySQL 版额外挂载 `data/mysql`。`.env` 保存连接配置和密钥；不要挂载整个 `/app`。更新前备份数据。
+更新前备份 `.env` 和整个 `data/app`。SQLite 文件备份应先停止应用，复制完整目录后再启动，避免只复制正在写入的 `nesthub.db`。MySQL 备份与恢复、版本固定和回退见 [完整指南](docs/docker-deployment.md)。后台书签导出适合搬运书签，不等于整站备份。
 
-完整的一键部署、目录挂载、外部数据库迁移、备份恢复和版本回退说明见 [Docker 部署指南](docs/docker-deployment.md)。
+### 后台点击更新（可选）
 
-镜像内置 `--migrate-mysql-to-sqlite` 命令，可完整迁移原 MySQL 的账号、分类、书签和设置。
+将仓库中的 [docker-compose.update.yml](docker-compose.update.yml) 保存到部署目录，在 `.env` 中额外填写随机令牌：
 
-## 配置说明
+```dotenv
+UPDATE_API_TOKEN=请替换为自己的随机令牌
+```
 
-### 插件发布与下载
+启用一次：
 
-每次运行 `dotnet build` 或 `dotnet publish`，都会从 `extensions/nesthub` 自动生成 `wwwroot/downloads/nesthub-extension.zip`；即使使用 `SkipFrontendBuild=true` 或发布时使用 `--no-build`，发布流程也会重新打包插件并纳入发布目录。Docker 镜像复制发布目录时会同时带上插件。
+```bash
+docker compose -f docker-compose.yml -f docker-compose.update.yml up -d
+```
 
-登录后台进入「API 调用说明」，即可下载插件、复制 API 令牌并查看安装、收藏、快捷键绑定及更新指引。压缩包包含插件运行文件与 README，不包含测试文件。插件版本号在 `extensions/nesthub/manifest.json` 中维护。
+之后超级管理员可在 **后台 → 应用更新** 检查并触发更新。更新时容器会短暂重启，数据挂载目录保留。该方式通过附加的更新服务访问 Docker socket，更新服务无需对外开放端口。
 
-| 配置项 | 说明 | 所在文件 |
-|--------|------|----------|
-| `Database:Provider` | `MySql` 或 `Sqlite`；未配置时兼容原 MySQL | `appsettings.{env}.json` |
-| `Database:ConnectionString` | MySQL 连接字符串或 SQLite 文件连接 | `appsettings.{env}.json` |
-| `SuperAdmin:Email` | 超管初始邮箱 | `appsettings.{env}.json` |
-| `SuperAdmin:Password` | 超管初始密码 | `appsettings.{env}.json` |
-| `Jwt:SecretKey` | JWT 签名密钥（至少32字符） | `appsettings.{env}.json` |
-| `Jwt:ExpireHours` | Token 过期时间（小时） | `appsettings.{env}.json` |
-| `Cors:AllowedOrigins` | 允许的跨域来源 | `appsettings.{env}.json` |
+启用后，后续 Compose 操作都应带上两个配置文件；例如手动更新：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.update.yml pull nesthub
+docker compose -f docker-compose.yml -f docker-compose.update.yml up -d --no-deps --wait --wait-timeout 300 nesthub
+```
+
+MySQL 部署把第一个文件换为 `docker-compose.mysql.yml`。镜像使用 `latest` 才会跟随主分支最新版本。
+
+## 浏览器快捷收藏
+
+支持 Chrome、Edge、Brave 等 Chromium 浏览器。登录后台进入 **获取 API**，下载插件压缩包并查看安装指引。
+
+1. 解压压缩包，在浏览器扩展管理页开启“开发者模式”。
+2. 点击“加载已解压的扩展程序”，选择包含 `manifest.json` 的目录。
+3. 在插件中填写 NestHub 站点地址，使用 API 令牌连接；也可按插件提示读取同一浏览器中已登录站点的令牌。
+4. 打开任意网页，通过插件或贴边收藏按钮选择分类并保存。
+
+插件提供分类缓存、强制刷新、主题切换、可拖动的贴边按钮，以及可选的浏览器启动时打开导航主页。`Alt+Shift+B` 若未生效，可在浏览器扩展快捷键设置中重新绑定。远程站点请使用 HTTPS。
+
+每次构建发布网站和 Docker 镜像，都会自动打包最新插件供后台下载。**已安装的手动版插件需要自行下载新版并重新加载**；Chrome 商店发布是独立流程。详细操作见 [插件说明](extensions/nesthub/README.md)。
+
+## 功能与主题
+
+| 功能 | 说明 |
+| --- | --- |
+| 独立空间 | 多租户数据隔离，支持个人导航与公共展示 |
+| 书签管理 | 分类、拖拽排序、置顶、标签、浏览器 HTML 导入 |
+| 搜索导航 | 切换搜索引擎、搜索建议，支持单个字符查询 |
+| 网站图标 | 自动识别网站图标并缓存，支持手动调整 |
+| 分享与导出 | 分享链接、书签 JSON 与浏览器 HTML 导出 |
+| 管理后台 | 用户与租户、分类、链接、主题、SMTP 和应用更新 |
+| 设备适配 | 桌面与移动端布局，亮色与暗色模式 |
+
+网站与插件提供 10 套中文主题：**经典、海洋、霓虹、纸笺、青柠、黑金、液态玻璃、网址簿、效率台、起始页**。既有色彩和光影风格，也有适合密集网址、工作分类和简洁主页的布局。
+
+## 源码开发
+
+仅源码开发需要安装 **.NET 10 SDK** 和 **Node.js 24**（Vite 最低支持 Node.js 22.12）。使用 SQLite 开发时无需 MySQL。
+
+复制 `src/NestHub.Api/appsettings.json` 为 `src/NestHub.Api/appsettings.Development.json`，修改以下配置，保留模板中其他字段：
+
+```json
+{
+  "Database": {
+    "Provider": "Sqlite",
+    "ConnectionString": "Data Source=AppData/nesthub.db",
+    "AutoSyncStructure": true
+  },
+  "SuperAdmin": {
+    "Email": "admin@example.com",
+    "Password": "请替换为自己的强密码",
+    "DisplayName": "超级管理员"
+  },
+  "Jwt": {
+    "Issuer": "NestHub.Api",
+    "Audience": "NestHub.Web",
+    "SecretKey": "请替换为至少32字符的随机密钥",
+    "ExpireHours": 720
+  }
+}
+```
+
+本地 SQLite 相对路径以 API 内容目录为准。开发配置不应提交到仓库。
+
+在项目根目录启动后端（会构建前端）：
+
+```bash
+dotnet run --project src/NestHub.Api
+```
+
+访问 `http://localhost:5186`。需要前端热更新时，另开终端运行：
+
+```bash
+cd src/NestHub.Web
+npm ci
+npm run dev
+```
+
+前端开发地址为 `http://localhost:5173`，已配置后端代理。
+
+技术栈：ASP.NET Core 10、FreeSql、SQLite / MySQL、Vue 3、TypeScript、Vite、Pinia、Element Plus，使用 JWT 认证。
+
+## 构建与发布
+
+推送 `main` 后，GitHub Actions 自动构建网站、后端与插件，验证 SQLite、MySQL、迁移和数据持久化，再发布 AMD64 / ARM64 镜像到 GHCR。主分支发布 `latest` 与提交版本标签；`v*` 标签用于版本发布。构建记录见 [Docker 工作流](https://github.com/sunnyfancore/NestHub/actions/workflows/docker.yml)。
+
+| 目录 / 文件 | 内容 |
+| --- | --- |
+| `src/NestHub.Api` | 后端接口、数据库与业务服务 |
+| `src/NestHub.Web` | 网站与管理后台 |
+| `extensions/nesthub` | 浏览器插件 |
+| `docker-compose.yml` | 默认 SQLite 部署 |
+| `docker-compose.mysql.yml` | MySQL 部署 |
+| `docker-compose.update.yml` | 可选后台更新服务 |
+| `docs/docker-deployment.md` | 部署、挂载、迁移、备份与恢复 |
 
 ## License
 
