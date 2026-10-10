@@ -404,7 +404,7 @@ async function onSearchInput() {
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
   searchSuggestionIndex.value = -1
 
-  if (keyword.length < 2) {
+  if (!keyword) {
     searchSuggestions.value = []
     searchSuggestionsVisible.value = false
     return
@@ -463,8 +463,8 @@ function closeSearchSuggestions() {
 async function runSearch() {
   const keyword = searchKeyword.value.trim()
   closeSearchSuggestions()
-  if (keyword.length < 2) {
-    ElMessage.warning('请输入至少两个字符。')
+  if (!keyword) {
+    ElMessage.warning('请输入关键词。')
     return
   }
 
