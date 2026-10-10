@@ -4,6 +4,7 @@ using FreeSql;
 using Microsoft.Data.Sqlite;
 using NestHub.Api.Domain.Entities;
 using NestHub.Api.Services;
+using NestHub.Api.Infrastructure.MultiTenancy;
 
 static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
 
@@ -20,7 +21,11 @@ foreach (var ip in new[] { "127.0.0.1", "10.0.0.2", "172.31.1.1", "192.168.1.1",
 foreach (var ip in new[] { "8.8.8.8", "1.1.1.1", "2606:4700:4700::1111" })
     Check(SiteIconService.IsPublicAddress(IPAddress.Parse(ip)), "Public address rejected: " + ip);
 using (var discovery = new SiteIconService())
+{
     Check((await discovery.DiscoverAsync("http://127.0.0.1/favicon", CancellationToken.None)).Count == 0, "Loopback discovery allowed");
+    Check(await discovery.LoadImageAsync("http://127.0.0.1/favicon.ico", CancellationToken.None) is null, "Loopback image proxy allowed");
+    Check(await discovery.LoadImageAsync("https://user:password@example.com/favicon.ico", CancellationToken.None) is null, "Image proxy accepted embedded credentials");
+}
 Console.WriteLine("ICON_DECLARATIONS_AND_NETWORK_GUARDS_OK");
 
 var directory = Path.Combine(Path.GetTempPath(), "nesthub-test-" + Guid.NewGuid().ToString("N"));
@@ -37,6 +42,10 @@ try
     var now = new DateTime(2026, 10, 10, 10, 20, 30, 123).AddTicks(4560);
     await source.Insert(new Tenant { Id = id, Name = "迁移租户", Email = "test@example.com", PasswordHash = "original-password-hash", IsSuperAdmin = true, CreatedAt = now, UpdatedAt = now }).ExecuteAffrowsAsync();
     await source.Insert(new SiteSetting { Id = Guid.NewGuid(), TenantId = id, Title = "原导航", ThemeName = "liquid", CreatedAt = now, UpdatedAt = now }).ExecuteAffrowsAsync();
+    var siteService = new SiteSettingService(source);
+    await siteService.UpdateThemeAsync("blackgold", new TenantContext(id, id, "迁移租户", "test@example.com", "迁移租户"));
+    var themeSetting = await source.Select<SiteSetting>().Where(item => item.TenantId == id).ToOneAsync();
+    Check(themeSetting.Title == "原导航" && themeSetting.ThemeName == "blackgold" && themeSetting.MobileThemeName == "blackgold", "Theme-only update lost settings or mobile theme");
     await source.Insert(new Folder { Id = folder, TenantId = id, Name = "中文分类", CreatedAt = now, UpdatedAt = now }).ExecuteAffrowsAsync();
     await source.Insert(new Bookmark { Id = bookmark, TenantId = id, FolderId = folder, Title = "自建站", Url = "https://example.com", IconUrl = "https://example.com/api/branding/icon", CreatedAt = now, UpdatedAt = now, IsPinned = true, ClickCount = 17 }).ExecuteAffrowsAsync();
     await source.Insert(new ShareLink { Id = Guid.NewGuid(), TenantId = id, CreatedAt = now, UpdatedAt = now }).ExecuteAffrowsAsync();

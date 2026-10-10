@@ -88,9 +88,9 @@ onBeforeUnmount(() => { disposed = true; if (timer) clearTimeout(timer) })
     </section>
     <section v-if="!info?.updateEnabled" class="setup-card">
       <h3>首次启用后台更新</h3>
-      <p>在服务器的 .env 中填写 UPDATE_API_TOKEN，然后启用一次更新服务。之后即可直接在这里更新。</p>
-      <pre>docker compose -f docker-compose.yml -f docker-compose.update.yml up -d</pre>
-      <p>MySQL 部署请将命令中的 docker-compose.yml 替换为 docker-compose.mysql.yml。</p>
+      <p>新版 Compose 已内置更新服务，只需一个部署文件。旧部署请保留数据目录与 .env，替换新版配置，并在 .env 中补充随机 UPDATE_API_TOKEN。</p>
+      <pre>docker compose up -d</pre>
+      <p>MySQL 部署使用 docker compose -f docker-compose.mysql.yml up -d。完成一次配置后，后续直接点击上方更新按钮。</p>
     </section>
   </div>
 </template>

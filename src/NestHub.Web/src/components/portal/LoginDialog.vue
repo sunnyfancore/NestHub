@@ -84,12 +84,12 @@ function goResetPassword() {
 h3 {
   margin: 0;
   font-size: 20px;
-  color: #1a1a2e;
+  color: var(--p-ink, #1a1a2e);
 }
 
 p {
   margin: 6px 0 0;
-  color: #7a8797;
+  color: var(--p-muted, #7a8797);
   font-size: 14px;
 }
 
@@ -174,14 +174,14 @@ p {
 
   :global(.login-dialog .el-form-item__label) {
     padding-bottom: 7px;
-    color: #475569;
+    color: var(--p-muted, #475569);
     font-weight: 700;
   }
 
   :global(.login-dialog .el-input__wrapper) {
     min-height: 46px;
     border-radius: 13px;
-    box-shadow: 0 0 0 1px #e5eaf1 inset;
+    box-shadow: 0 0 0 1px var(--p-line, #e5eaf1) inset;
   }
 
   :global(.login-dialog .el-input__inner) {

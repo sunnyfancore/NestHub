@@ -8,6 +8,16 @@ namespace NestHub.Api.Controllers;
 [Route("api/site-icons")]
 public sealed class SiteIconsController(SiteIconService icons) : ControllerBase
 {
+    [HttpGet("image")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Image([FromQuery] string url, CancellationToken cancellationToken)
+    {
+        var image = await icons.LoadImageAsync(url, cancellationToken);
+        Response.Headers.CacheControl = "private, max-age=600";
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+        Response.Headers.ContentSecurityPolicy = "default-src 'none'; sandbox";
+        return image is null ? NotFound() : File(image.Bytes, image.ContentType);
+    }
     [HttpGet]
     [AllowAnonymous]
     public async Task<IActionResult> Get([FromQuery] string url, CancellationToken cancellationToken)

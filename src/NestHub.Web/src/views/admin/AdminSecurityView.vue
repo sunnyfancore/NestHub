@@ -88,7 +88,7 @@ onMounted(load)
   <div class="admin-page" v-loading="loading">
     <div class="form-card">
       <h3 class="card-title">
-        <i class="fa fa-envelope"></i>
+        <i class="fa fa-envelope" aria-hidden="true"></i>
         邮件服务 (SMTP)
       </h3>
       <p class="card-desc">配置 SMTP 邮件服务后，用户可以通过邮箱找回密码。</p>
@@ -129,7 +129,7 @@ onMounted(load)
 
     <div class="form-card">
       <h3 class="card-title">
-        <i class="fa fa-paper-plane"></i>
+        <i class="fa fa-paper-plane" aria-hidden="true"></i>
         发送测试邮件
       </h3>
       <p class="card-desc">输入邮箱地址以测试 SMTP 邮件发送是否正常。</p>

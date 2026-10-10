@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NestHub 快捷收藏</title><link rel="stylesheet" href="popup.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NestHub 快捷收藏</title><link rel="stylesheet" href="popup.css"><link rel="stylesheet" href="themes.css"></head>
 <body>
   <header>
     <img class="brand-icon" src="icons/icon-48.png" alt="">
@@ -11,7 +11,7 @@
   <form id="connectionForm" hidden>
     <p class="connection-heading">连接你的导航空间</p>
     <p class="connection-description">填写站点地址与 API 令牌，开始收藏。</p>
-    <label for="site">站点地址</label><input id="site" type="url" placeholder="https://nav.example.com" required>
+    <label for="site">导航站点地址</label><input id="site" type="text" inputmode="url" placeholder="https://nav.example.com" required>
     <button id="connectFromSite" type="button" class="settings-save login-connect">使用网站登录状态连接</button>
     <small>读取此地址下已登录的 NestHub 页面，无需复制令牌。</small>
     <label for="token">API 令牌</label><input id="token" type="password" placeholder="粘贴从 NestHub 后台复制的令牌" autocomplete="off" spellcheck="false" required>
@@ -34,7 +34,7 @@
   </form>
   <details class="settings">
     <summary>插件设置</summary>
-    <label for="theme">插件主题</label>
+    <label for="theme">导航与插件主题</label>
     <select id="theme">
       <option value="default2">经典 · 简洁导航</option>
       <option value="ocean">海洋 · 蔚蓝清爽</option>
@@ -49,10 +49,11 @@
     </select>
     <small id="themeDescription" class="theme-description" aria-live="polite"></small>
     <label class="inline"><input id="openOnStartup" type="checkbox">启动浏览器时打开导航</label>
-    <label for="startupUrl">导航地址</label>
-    <input id="startupUrl" type="url" placeholder="https://nav.example.com" autocomplete="off">
+    <label class="inline"><input id="openOnNewTab" type="checkbox">新标签页也打开导航</label>
+    <small id="startupAddress">自动使用已连接的导航地址，无需重复填写。</small>
     <button id="saveStartup" type="button" class="settings-save">保存启动设置</button>
-    <small>默认使用连接的站点地址；也可填写其他导航页。每次启动浏览器时打开一次。</small>
+    <button id="openNavigation" type="button" class="settings-save">立即打开导航</button>
+    <small>复用空白新标签页，不额外多开一页；首次开启需授权读取标签页地址。</small>
     <label class="inline"><input id="floating" type="checkbox">在网页上显示贴边收藏按钮</label>
     <small>开启时需授权网页访问；拖动可调整位置，取消勾选即可关闭。</small>
   </details>

@@ -67,7 +67,7 @@ async function submit() {
 
       <template v-if="error">
         <div class="reset-error">
-          <i class="fa fa-exclamation-circle" style="font-size: 48px; color: #ff4d4f;"></i>
+          <i class="fa fa-exclamation-circle" style="font-size: 48px; color: #ff4d4f;" aria-hidden="true"></i>
           <p>{{ error }}</p>
         </div>
       </template>
@@ -87,7 +87,7 @@ async function submit() {
       </template>
       <template v-else>
         <div class="reset-success">
-          <i class="fa fa-check-circle" style="font-size: 48px; color: #52c41a;"></i>
+          <i class="fa fa-check-circle" style="font-size: 48px; color: #52c41a;" aria-hidden="true"></i>
           <p>密码重置成功！请使用新密码登录。</p>
         </div>
       </template>

@@ -71,6 +71,19 @@ public sealed class SiteController : ControllerBase
         }
     }
 
+    public sealed record ThemeRequest(string ThemeName);
+
+    [HttpPatch("theme")]
+    public async Task<IActionResult> UpdateTheme([FromBody] ThemeRequest request)
+    {
+        var tenantContext = _tenantContextAccessor.Current;
+        if (tenantContext is null) return Unauthorized();
+        var themes = new[] { "default2", "ocean", "neon", "paper", "lime", "blackgold", "liquid", "directory", "workspace", "launchpad" };
+        if (!themes.Contains(request.ThemeName)) return BadRequest(new { message = "请选择有效的主题。" });
+        await _siteSettingService.UpdateThemeAsync(request.ThemeName, tenantContext);
+        return Ok(new { themeName = request.ThemeName, tenantId = tenantContext.TenantId });
+    }
+
     [HttpPost("upload-logo")]
     [RequestSizeLimit(5_000_000)]
     public async Task<IActionResult> UploadLogo([FromForm] IFormFile file, [FromQuery] Guid? targetTenantId = null)

@@ -52,27 +52,27 @@ function dateStr() {
 <template>
   <div class="admin-page">
     <div class="backup-card">
-      <div class="backup-card__icon"><i class="fa fa-bookmark"></i></div>
+      <div class="backup-card__icon"><i class="fa fa-bookmark" aria-hidden="true"></i></div>
       <h3>导出书签 (HTML)</h3>
       <p>导出为 Chrome 书签管理器兼容的 Netscape HTML 格式，可直接导入 Chrome / Edge / Firefox 等浏览器。</p>
       <el-button type="primary" :loading="loadingHtml" @click="handleExportHtml">
-        <i class="fa fa-chrome" style="margin-right: 6px;"></i>
+        <i class="fa fa-chrome" style="margin-right: 6px;" aria-hidden="true"></i>
         导出书签 HTML
       </el-button>
     </div>
 
     <div class="backup-card">
-      <div class="backup-card__icon"><i class="fa fa-download"></i></div>
+      <div class="backup-card__icon"><i class="fa fa-download" aria-hidden="true"></i></div>
       <h3>导出完整数据 (JSON)</h3>
       <p>导出当前租户的站点设置、分类和链接为 JSON 文件，用于手动备份或数据迁移。</p>
       <el-button :loading="loadingJson" @click="handleExportJson">
-        <i class="fa fa-file-code-o" style="margin-right: 6px;"></i>
+        <i class="fa fa-file-code-o" style="margin-right: 6px;" aria-hidden="true"></i>
         导出 JSON 备份
       </el-button>
     </div>
 
     <div class="backup-note">
-      <i class="fa fa-info-circle"></i>
+      <i class="fa fa-info-circle" aria-hidden="true"></i>
       <span>书签 HTML 格式与 Chrome 书签管理器完全兼容，支持分类层级和图标信息。</span>
     </div>
   </div>

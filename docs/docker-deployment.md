@@ -12,7 +12,7 @@ cd NestHub
 bash scripts/deploy.sh
 ```
 
-默认使用 SQLite，只启动一个应用容器。脚本生成 `.env` 和随机密码，设置挂载目录权限并启动应用。访问 `http://服务器IP:5186`，初始邮箱 `admin@example.com`，密码首次显示并保存在 `.env`。设置目录权限时可能提示 sudo 密码。
+默认使用 SQLite，同时启动应用与后台更新服务，无需数据库容器。脚本生成 `.env` 和随机密码，设置挂载目录权限并启动应用。访问 `http://服务器IP:5186`，初始邮箱 `admin@example.com`，密码首次显示并保存在 `.env`。设置目录权限时可能提示 sudo 密码。
 
 手动部署：
 
@@ -98,19 +98,19 @@ docker run --rm --add-host host.docker.internal:host-gateway \
 
 ## 更新与固定版本
 
-### 后台一键更新（可选）
+### 后台一键更新（默认包含）
 
-首次在 `.env` 中添加 `UPDATE_API_TOKEN`（例如 `openssl rand -hex 32`），然后执行一次：
+只使用一个 Compose 文件部署，应用与更新服务已经配置在同一个文件中。`.env` 需要填写随机 `UPDATE_API_TOKEN`（例如 `openssl rand -hex 32`）；一键部署脚本会自动生成。
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.update.yml up -d
+docker compose up -d --wait --wait-timeout 300
 ```
 
-MySQL 版把第一个文件替换为 `docker-compose.mysql.yml`。之后超级管理员进入 **后台 → 应用更新**，检查版本并点击更新即可，无需每次登录服务器拉镜像。应用会短暂重启，页面自动等待新版恢复；镜像必须使用 `latest` 标签才能跟随最新主分支。
+MySQL 版只需 `docker compose -f docker-compose.mysql.yml up -d --wait --wait-timeout 300`。无需叠加 `docker-compose.update.yml`。之后超级管理员进入 **后台 → 应用更新**，检查版本并点击更新即可。
 
-更新由独立 Watchtower 服务执行，Docker socket 只挂载到更新服务，主应用没有直接操作 Docker 的权限。服务不公开端口，使用随机令牌验证，只更新带 NestHub 更新标签的应用容器，不更新数据库。此服务具有 Docker 管理权限，部署者应保管好服务器与令牌。旧镜像保留，可用于手动回退；数据升级前仍需备份。
+旧部署升级：保留原挂载目录与 `.env`，替换为新的 Compose 文件，补充 `UPDATE_API_TOKEN`，执行上述启动命令一次。之后更新都在后台操作。
 
-启用后如需调整 Compose 配置，继续同时使用这两个文件；只运行基础 Compose 会关闭主应用的后台更新配置。数据文件、配置和图片继续沿用原挂载路径。
+更新服务与应用位于同一个 Compose 项目，不对外开放端口，通过随机令牌验证请求。Docker socket 只挂载到更新服务；只替换应用镜像，不更新 MySQL，也不会定时自动更新。应用更新时短暂重启，数据继续使用原挂载目录。镜像使用 `latest` 才会跟随主分支最新版，更新前请备份数据。
 
 ### 手动更新
 

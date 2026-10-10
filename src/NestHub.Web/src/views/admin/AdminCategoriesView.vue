@@ -250,14 +250,14 @@ onBeforeUnmount(destroySortables)
       >
         <div class="cat-tree__row">
           <button class="cat-tree__drag" type="button" title="拖拽排序">
-            <i class="fa fa-grip-vertical"></i>
+            <i class="fa fa-grip-vertical" aria-hidden="true"></i>
           </button>
           <button v-if="node.children.length" class="cat-tree__toggle" type="button" @click="toggleExpand(node)">
-            <i class="fa" :class="isExpanded(node.item.id) ? 'fa-caret-down' : 'fa-caret-right'"></i>
+            <i class="fa" :class="isExpanded(node.item.id) ? 'fa-caret-down' : 'fa-caret-right'" aria-hidden="true"></i>
           </button>
           <span v-else class="cat-tree__toggle-placeholder"></span>
           <i v-if="node.item.icon" :class="['fa', node.item.icon, 'cat-tree__icon']"></i>
-          <i v-else class="fa fa-folder cat-tree__icon"></i>
+          <i v-else class="fa fa-folder cat-tree__icon" aria-hidden="true"></i>
           <span class="cat-tree__name">{{ node.item.name }}</span>
           <span class="cat-tree__count">{{ node.item.linkCount }} 链接</span>
           <div class="cat-tree__actions">
@@ -287,11 +287,11 @@ onBeforeUnmount(destroySortables)
             >
               <div class="cat-tree__row cat-tree__row--child">
                 <button class="cat-tree__drag" type="button" title="拖拽排序">
-                  <i class="fa fa-grip-vertical"></i>
+                  <i class="fa fa-grip-vertical" aria-hidden="true"></i>
                 </button>
                 <span class="cat-tree__indent"></span>
                 <i v-if="child.icon" :class="['fa', child.icon, 'cat-tree__icon']"></i>
-                <i v-else class="fa fa-file-o cat-tree__icon"></i>
+                <i v-else class="fa fa-file-o cat-tree__icon" aria-hidden="true"></i>
                 <span class="cat-tree__name">{{ child.name }}</span>
                 <span class="cat-tree__count">{{ child.linkCount }} 链接</span>
                 <div class="cat-tree__actions">

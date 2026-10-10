@@ -13,17 +13,23 @@ import {
   OfficeBuilding,
   Lock,
   Grid,
+  Compass,
+  User,
+  Menu,
 } from '@element-plus/icons-vue'
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChangePasswordDialog from '@/components/portal/ChangePasswordDialog.vue'
 import { useAuthStore } from '@/stores/auth'
+import '@/styles/admin.css'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const sidebarOpen = ref(false)
 const changePasswordVisible = ref(false)
+onMounted(() => { document.documentElement.dataset.adminWorkspace = 'true' })
+onBeforeUnmount(() => { delete document.documentElement.dataset.adminWorkspace })
 
 const allSections = [
   {
@@ -106,9 +112,9 @@ function logout() {
     <aside class="admin-sidebar" :class="{ 'is-open': sidebarOpen }">
       <div class="admin-brand">
         <div class="admin-brand__icon">
-          <i class="fa fa-compass"></i>
+          <el-icon :size="22"><Compass /></el-icon>
         </div>
-        <h1>后台管理</h1>
+        <div><h1>NestHub</h1><span class="admin-brand__caption">导航管理工作台</span></div>
       </div>
 
       <div class="admin-nav">
@@ -120,6 +126,7 @@ function logout() {
             :to="item.to"
             class="admin-nav__item"
             :class="{ 'is-active': route.path === item.to }"
+            @click="sidebarOpen = false"
           >
             <el-icon><component :is="item.icon" /></el-icon>
             <span>{{ item.label }}</span>
@@ -131,10 +138,10 @@ function logout() {
     <main class="admin-main">
       <header class="admin-topbar">
         <div class="admin-topbar__left">
-          <button class="admin-hamburger" type="button" @click="sidebarOpen = !sidebarOpen">
-            <i class="fa fa-bars"></i>
+          <button class="admin-hamburger" type="button" aria-label="切换侧栏菜单" :aria-expanded="sidebarOpen" @click="sidebarOpen = !sidebarOpen">
+            <el-icon><Menu /></el-icon>
           </button>
-          <span class="admin-topbar__title">{{ currentTitle }}</span>
+          <div class="admin-heading"><span class="admin-heading__eyebrow">管理工作台 / {{ authStore.tenant?.name || '我的空间' }}</span><span class="admin-topbar__title">{{ currentTitle }}</span></div>
         </div>
 
         <div class="admin-topbar__right">
@@ -144,7 +151,7 @@ function logout() {
           </el-button>
           <el-dropdown trigger="click" @command="handleUserCommand">
             <div class="admin-avatar">
-              <i class="fa fa-user-circle"></i>
+              <el-icon :size="18"><User /></el-icon>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
@@ -155,10 +162,10 @@ function logout() {
                   </div>
                 </el-dropdown-item>
                 <el-dropdown-item divided command="password">
-                  <i class="fa fa-key"></i>修改密码
+                  <i class="fa fa-key" aria-hidden="true"></i>修改密码
                 </el-dropdown-item>
                 <el-dropdown-item command="logout">
-                  <i class="fa fa-sign-out"></i>退出登录
+                  <i class="fa fa-sign-out" aria-hidden="true"></i>退出登录
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>

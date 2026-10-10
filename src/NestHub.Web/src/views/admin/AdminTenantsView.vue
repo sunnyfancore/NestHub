@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { createTenant, getTenants, resetTenantPassword, toggleTenantActive, updateTenant } from '@/api/super'
 import type { AdminTenant } from '@/types/models'
 
 const loading = ref(false)
 const tenants = ref<AdminTenant[]>([])
+const keyword = ref('')
+const filteredTenants = computed(() => {
+  const query = keyword.value.trim().toLocaleLowerCase()
+  return tenants.value.filter(tenant => !query || `${tenant.name} ${tenant.email || ''} ${tenant.displayName || ''}`.toLocaleLowerCase().includes(query))
+})
+const activeCount = computed(() => tenants.value.filter(tenant => tenant.isActive).length)
+const linkCount = computed(() => tenants.value.reduce((count, tenant) => count + tenant.linkCount, 0))
 
 // ── Create tenant dialog ──
 const createDialogVisible = ref(false)
@@ -138,25 +145,33 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="admin-page">
+  <div class="admin-page tenant-page">
+    <div class="tenant-overview">
+      <div class="tenant-stat"><span>租户总数</span><strong>{{ tenants.length }}</strong><small>独立的导航空间</small></div>
+      <div class="tenant-stat"><span>启用中</span><strong>{{ activeCount }}</strong><small>可正常访问的空间</small></div>
+      <div class="tenant-stat"><span>收藏链接</span><strong>{{ linkCount }}</strong><small>所有租户的链接总数</small></div>
+    </div>
+    <section class="tenant-directory">
+    <div class="tenant-directory__heading"><div><h2>租户列表</h2><p>管理导航空间、访问状态与登录账号。</p></div><span>{{ filteredTenants.length }} 个空间</span></div>
     <div class="admin-toolbar">
       <div class="admin-toolbar__left">
+        <el-input v-model="keyword" clearable placeholder="搜索名称或邮箱" aria-label="搜索租户" style="width: 240px" />
         <el-button type="primary" @click="openCreate">
-          <i class="fa fa-plus"></i>
+          <i class="fa fa-plus" aria-hidden="true"></i>
           创建租户
         </el-button>
       </div>
       <el-button @click="load">
-        <i class="fa fa-refresh"></i>
+        <i class="fa fa-refresh" aria-hidden="true"></i>
         刷新
       </el-button>
     </div>
 
     <el-table
       v-loading="loading"
-      :data="tenants"
+      :data="filteredTenants"
       row-key="id"
-      height="100%"
+      :max-height="560"
     >
       <el-table-column prop="name" label="租户名称" min-width="140" show-overflow-tooltip />
       <el-table-column prop="email" label="邮箱" min-width="180" show-overflow-tooltip>
@@ -183,10 +198,10 @@ onMounted(load)
           {{ formatDate(row.createdAt) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="240" fixed="right">
+      <el-table-column label="操作" width="280" fixed="right">
         <template #default="{ row }">
           <el-button text type="primary" size="small" @click="openEdit(row)">
-            <i class="fa fa-edit"></i>
+            <i class="fa fa-edit" aria-hidden="true"></i>
             编辑
           </el-button>
           <el-button
@@ -196,7 +211,7 @@ onMounted(load)
             size="small"
             @click="handleToggleActive(row)"
           >
-            <i class="fa" :class="row.isActive ? 'fa-ban' : 'fa-check'"></i>
+            <i class="fa" :class="row.isActive ? 'fa-ban' : 'fa-check'" aria-hidden="true"></i>
             {{ row.isActive ? '停用' : '启用' }}
           </el-button>
           <el-button
@@ -206,12 +221,13 @@ onMounted(load)
             size="small"
             @click="openResetPassword(row)"
           >
-            <i class="fa fa-key"></i>
+            <i class="fa fa-key" aria-hidden="true"></i>
             重置密码
           </el-button>
         </template>
       </el-table-column>
     </el-table>
+    </section>
 
     <!-- Create tenant dialog -->
     <el-dialog v-model="createDialogVisible" title="创建租户" width="480" :close-on-click-modal="false">
@@ -279,14 +295,14 @@ onMounted(load)
 .admin-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 108px);
+  height: auto;
   gap: 16px;
-  overflow: hidden;
+  overflow: visible;
   min-width: 0;
 }
 
 .admin-page .el-table {
-  flex: 1;
+  flex: none;
   min-height: 0;
 }
 
@@ -315,7 +331,7 @@ onMounted(load)
 
 @media (max-width: 760px) {
   .admin-page {
-    height: calc(100vh - 72px);
+    height: auto;
   }
 }
 </style>

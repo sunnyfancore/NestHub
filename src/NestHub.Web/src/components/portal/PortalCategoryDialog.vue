@@ -139,7 +139,7 @@ async function handleSubmit() {
                 <span v-else class="icon-field__placeholder">选择图标</span>
               </div>
               <button v-if="form.icon" type="button" class="icon-field__clear" @click="clearIcon">
-                <i class="fa fa-times"></i>
+                <i class="fa fa-times" aria-hidden="true"></i>
               </button>
             </div>
 

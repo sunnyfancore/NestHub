@@ -96,7 +96,7 @@ function handleClose() {
         </template>
         <template v-else>
           <div class="email-success">
-            <i class="fa fa-check-circle" style="font-size: 40px; color: #52c41a;"></i>
+            <i class="fa fa-check-circle" style="font-size: 40px; color: #52c41a;" aria-hidden="true"></i>
             <p>验证邮件已发送到 <strong>{{ userEmail }}</strong>，请在 30 分钟内点击邮件中的链接重置密码。</p>
             <p class="email-sub">如果没有收到，请检查垃圾邮件文件夹。</p>
           </div>

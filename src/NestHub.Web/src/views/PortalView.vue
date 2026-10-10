@@ -23,8 +23,10 @@ import LoginDialog from '@/components/portal/LoginDialog.vue'
 import PortalCategoryDialog from '@/components/portal/PortalCategoryDialog.vue'
 import PortalLinkDialog from '@/components/portal/PortalLinkDialog.vue'
 import PortalSiteIcon from '@/components/portal/PortalSiteIcon.vue'
+import { safeIconSource } from '@/components/portal/siteIcons'
 import SiteSettingsDialog from '@/components/portal/SiteSettingsDialog.vue'
 import { useAuthStore } from '@/stores/auth'
+import { resolveTheme } from '@/themes'
 import type {
   PortalCategory,
   PortalLink,
@@ -61,14 +63,18 @@ const searchSuggestions = ref<PortalSearchResult[]>([])
 
 const DARK_KEY = 'nesthub.dark'
 const isDark = ref(localStorage.getItem(DARK_KEY) === 'true')
+const viewportWidth = ref(window.innerWidth)
 
 const activeTheme = computed(() => {
   const preview = route.query.preview as string
-  if (preview) return preview
-  const isMobile = window.innerWidth < 768
-  if (isMobile && portal.value?.site.mobileThemeName) return portal.value.site.mobileThemeName
-  return portal.value?.site.themeName || 'default2'
+  if (preview) return resolveTheme(preview)
+  const isMobile = viewportWidth.value < 768
+  if (isMobile && portal.value?.site.mobileThemeName) return resolveTheme(portal.value.site.mobileThemeName)
+  return resolveTheme(portal.value?.site.themeName)
 })
+
+watch(activeTheme, theme => { document.documentElement.dataset.portalTheme = theme }, { immediate: true })
+function handleViewportResize() { viewportWidth.value = window.innerWidth }
 
 function applyDarkMode(dark: boolean) {
   document.documentElement.classList.toggle('dark', dark)
@@ -1044,7 +1050,17 @@ function setupSectionObserver() {
   updateActiveSection()
 }
 
+function handleExtensionTheme(event: Event) {
+  const { themeName, tenantId } = (event as CustomEvent).detail || {}
+  if (!portal.value || portal.value.tenant.id !== tenantId || !['default2', 'ocean', 'neon', 'paper', 'lime', 'blackgold', 'liquid', 'directory', 'workspace', 'launchpad'].includes(themeName)) return
+  portal.value.site.themeName = themeName
+  portal.value.site.mobileThemeName = themeName
+  localStorage.removeItem(CACHE_KEY)
+}
+
 onMounted(async () => {
+  window.addEventListener('resize', handleViewportResize)
+  window.addEventListener('nesthub-theme-updated', handleExtensionTheme)
   if (!authStore.isAuthenticated && isPublicView.value) {
     isPublicView.value = false
     localStorage.removeItem(VIEW_KEY)
@@ -1071,6 +1087,9 @@ function handleGlobalClick(e: MouseEvent) {
 }
 
 onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleViewportResize)
+  delete document.documentElement.dataset.portalTheme
+  window.removeEventListener('nesthub-theme-updated', handleExtensionTheme)
   destroySortables()
   if (sectionObserver) {
     sectionObserver.disconnect()
@@ -1115,7 +1134,7 @@ onBeforeUnmount(() => {
           aria-label="关闭导航"
           @click="mobileSidebarOpen = false"
         >
-          <i class="fa fa-times"></i>
+          <i class="fa fa-times" aria-hidden="true"></i>
         </button>
       </div>
 
@@ -1133,18 +1152,18 @@ onBeforeUnmount(() => {
           >
             <span v-if="portal?.canEdit" class="portal-sidebar__drag">
               <i v-if="category.icon" :class="['fa', category.icon, 'portal-sidebar__link-icon']"></i>
-              <i v-else class="fa fa-grip-vertical portal-sidebar__grip"></i>
+              <i v-else class="fa fa-grip-vertical portal-sidebar__grip" aria-hidden="true"></i>
             </span>
             <template v-else>
               <i v-if="category.icon" :class="['fa', category.icon, 'portal-sidebar__link-icon']"></i>
-              <i v-else class="fa fa-folder portal-sidebar__link-icon"></i>
+              <i v-else class="fa fa-folder portal-sidebar__link-icon" aria-hidden="true"></i>
             </template>
             <span class="portal-sidebar__link-text">{{ category.name }}</span>
             <i
               v-if="category.children.length"
               class="fa portal-sidebar__link-arrow"
               :class="expandedMenu[category.id] ? 'fa-angle-down' : 'fa-angle-right'"
-            ></i>
+             aria-hidden="true"></i>
           </a>
 
           <transition name="sidebar-slide">
@@ -1166,11 +1185,11 @@ onBeforeUnmount(() => {
                 >
                   <span v-if="portal?.canEdit" class="portal-sidebar__child-drag">
                     <i v-if="child.icon" :class="['fa', child.icon, 'portal-sidebar__child-icon']"></i>
-                    <i v-else class="fa fa-grip-vertical portal-sidebar__grip"></i>
+                    <i v-else class="fa fa-grip-vertical portal-sidebar__grip" aria-hidden="true"></i>
                   </span>
                   <template v-else>
                     <i v-if="child.icon" :class="['fa', child.icon, 'portal-sidebar__child-icon']"></i>
-                    <i v-else class="fa fa-folder-o portal-sidebar__child-icon"></i>
+                    <i v-else class="fa fa-folder-o portal-sidebar__child-icon" aria-hidden="true"></i>
                   </template>
                   <span>{{ child.name }}</span>
                 </a>
@@ -1190,13 +1209,13 @@ onBeforeUnmount(() => {
           aria-label="打开导航"
           @click="mobileSidebarOpen = true"
         >
-          <i class="fa fa-bars"></i>
+          <i class="fa fa-bars" aria-hidden="true"></i>
         </button>
         <div class="portal-searchbar__inner">
           <div class="portal-search-shell">
             <button class="portal-search-engine-btn" type="button" @click="toggleSearchEngineMenu">
               {{ currentSearchEngineLabel }}
-              <i class="fa" :class="searchEngineMenuVisible ? 'fa-caret-up' : 'fa-caret-down'"></i>
+              <i class="fa" :class="searchEngineMenuVisible ? 'fa-caret-up' : 'fa-caret-down'" aria-hidden="true"></i>
             </button>
             <input
               v-model="searchKeyword"
@@ -1213,7 +1232,7 @@ onBeforeUnmount(() => {
               aria-label="搜索"
               @click="runSearch"
             >
-              <i class="fa fa-search"></i>
+              <i class="fa fa-search" aria-hidden="true"></i>
             </button>
 
             <transition name="portal-engine-pop">
@@ -1246,11 +1265,11 @@ onBeforeUnmount(() => {
                 >
                   <img
                     v-if="item.iconUrl"
-                    :src="item.iconUrl"
+                    :src="safeIconSource(item.iconUrl)"
                     class="portal-suggest__icon"
                     @error="($event.target as HTMLImageElement).style.display = 'none'"
                   />
-                  <i v-else class="fa fa-link portal-suggest__icon-fallback"></i>
+                  <i v-else class="fa fa-link portal-suggest__icon-fallback" aria-hidden="true"></i>
                   <span class="portal-suggest__title">{{ item.title }}</span>
                   <span class="portal-suggest__category">{{ item.categoryName }}</span>
                 </button>
@@ -1277,14 +1296,6 @@ onBeforeUnmount(() => {
       </header>
 
       <div ref="rootSectionContainerRef" class="portal-content">
-        <header v-if="activeTheme === 'lime' && portal" class="lime-intro">
-          <div>
-            <span class="lime-intro__eyebrow">你的日常，从这里开始</span>
-            <h1>{{ portal.site.subtitle || '让好内容，有处安放。' }}</h1>
-            <p>{{ portal.site.description || '收藏灵感，连接工具，把喜欢的内容放在一起。' }}</p>
-          </div>
-          <span class="lime-intro__mark" aria-hidden="true">↗</span>
-        </header>
         <section
           v-for="category in portal?.categories || []"
           :id="anchorId(category.id)"
@@ -3805,13 +3816,13 @@ html.dark .theme-default2 .portal-bottom-dock :deep(.el-button:hover) {
 
   .portal-right-rail :deep(.portal-mobile-view-switch) {
     display: inline-flex !important;
-    color: #ff4d55 !important;
+    color: var(--p-accent);
   }
 
   .portal-right-rail :deep(.portal-mobile-tools-toggle) {
     display: inline-flex !important;
-    color: #ff4d55 !important;
-    background: #fff !important;
+    color: var(--p-accent);
+    background: var(--p-panel);
     box-shadow: 0 10px 22px rgba(255, 77, 85, 0.18) !important;
   }
 
@@ -5000,3 +5011,4 @@ html.dark .theme-paper .portal-context-menu__divider { background: #3a3220; }
 <style scoped src="../styles/portal-lime.css"></style>
 
 <style scoped src="../styles/portal-classics.css"></style>
+<style scoped src="../styles/portal-refinement.css"></style>

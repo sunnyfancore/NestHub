@@ -32,28 +32,28 @@ onMounted(load)
 
     <section class="stats-grid">
       <article class="stat-card stat-card--blue">
-        <div class="stat-card__icon"><i class="fa fa-cloud"></i></div>
+        <div class="stat-card__icon"><i class="fa fa-cloud" aria-hidden="true"></i></div>
         <div class="stat-card__body">
           <span>当前租户</span>
           <strong>{{ appInfo?.tenantName || '--' }}</strong>
         </div>
       </article>
       <article class="stat-card stat-card--green">
-        <div class="stat-card__icon"><i class="fa fa-folder"></i></div>
+        <div class="stat-card__icon"><i class="fa fa-folder" aria-hidden="true"></i></div>
         <div class="stat-card__body">
           <span>分类数量</span>
           <strong>{{ appInfo?.categoryCount ?? 0 }}</strong>
         </div>
       </article>
       <article class="stat-card stat-card--orange">
-        <div class="stat-card__icon"><i class="fa fa-link"></i></div>
+        <div class="stat-card__icon"><i class="fa fa-link" aria-hidden="true"></i></div>
         <div class="stat-card__body">
           <span>链接数量</span>
           <strong>{{ appInfo?.linkCount ?? 0 }}</strong>
         </div>
       </article>
       <article class="stat-card stat-card--purple">
-        <div class="stat-card__icon"><i class="fa fa-code-fork"></i></div>
+        <div class="stat-card__icon"><i class="fa fa-code-fork" aria-hidden="true"></i></div>
         <div class="stat-card__body">
           <span>应用版本</span>
           <strong>{{ appInfo?.appVersion || '--' }}</strong>
@@ -64,7 +64,7 @@ onMounted(load)
     <section class="tips-grid">
       <div class="tip-card">
         <div class="tip-card__head">
-          <i class="fa fa-lightbulb-o"></i>
+          <i class="fa fa-lightbulb-o" aria-hidden="true"></i>
           <h4>快速上手</h4>
         </div>
         <ul>
@@ -76,7 +76,7 @@ onMounted(load)
       </div>
       <div class="tip-card">
         <div class="tip-card__head">
-          <i class="fa fa-shield"></i>
+          <i class="fa fa-shield" aria-hidden="true"></i>
           <h4>数据管理</h4>
         </div>
         <ul>

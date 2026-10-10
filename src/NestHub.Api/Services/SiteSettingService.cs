@@ -127,6 +127,26 @@ public sealed class SiteSettingService
             .ExecuteAffrowsAsync();
     }
 
+    public async Task UpdateThemeAsync(string theme, TenantContext tenantContext)
+    {
+        var setting = await _orm.Select<SiteSetting>().DisableGlobalFilter("TenantFilter")
+            .Where(item => item.TenantId == tenantContext.TenantId)
+            .OrderByDescending(item => item.UpdatedAt).OrderByDescending(item => item.CreatedAt).ToOneAsync();
+        if (setting is null)
+        {
+            await _orm.Insert(new SiteSetting
+            {
+                Id = Guid.NewGuid(), TenantId = tenantContext.TenantId, Title = tenantContext.TenantName,
+                ThemeName = theme, MobileThemeName = theme, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
+            }).ExecuteAffrowsAsync();
+            return;
+        }
+        await _orm.Update<SiteSetting>().DisableGlobalFilter("TenantFilter")
+            .Where(item => item.Id == setting.Id && item.TenantId == tenantContext.TenantId)
+            .Set(item => item.ThemeName, theme).Set(item => item.MobileThemeName, theme)
+            .Set(item => item.UpdatedAt, DateTime.UtcNow).ExecuteAffrowsAsync();
+    }
+
     public async Task UpdateLogoUrlAsync(TenantContext tenantContext, string logoUrl)
     {
         var siteSetting = await _orm.Select<SiteSetting>()

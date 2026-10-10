@@ -45,6 +45,7 @@ jobs:
             echo "MYSQL_PASSWORD=$(openssl rand -hex 24)"
             echo "MYSQL_ROOT_PASSWORD=$(openssl rand -hex 24)"
             echo "JWT_SECRET=$(openssl rand -hex 32)"
+            echo "UPDATE_API_TOKEN=$(openssl rand -hex 32)"
           } > .env
           mkdir -p data/app
           sudo chown 1654:1654 data/app
@@ -80,11 +81,10 @@ jobs:
           printf '%s\n' 'services:' '  nesthub:' '    environment:' '      Database__ConnectionString: "Data Source=/app/AppData/migrated.db"' > /tmp/migrated.yml
           docker compose -f docker-compose.yml -f /tmp/migrated.yml up -d --wait --wait-timeout 300
           python3 scripts/check-api.py --snapshot /tmp/mysql-api.json
-      - name: Optional updater starts and requires its token
+      - name: Built-in updater requires its token
         shell: bash
         run: |
-          echo "UPDATE_API_TOKEN=$(openssl rand -hex 32)" >> .env
-          docker compose -f docker-compose.yml -f /tmp/migrated.yml -f docker-compose.update.yml up -d --wait --wait-timeout 300
+          docker compose -f docker-compose.yml -f /tmp/migrated.yml up -d --wait --wait-timeout 300
           docker compose exec -T nesthub sh -c 'for attempt in 1 2 3 4 5; do code=$(curl -s -o /dev/null -w "%{http_code}" http://updater:8080/v1/update); if [ "$code" = 401 ]; then exit 0; fi; sleep 2; done; exit 1'
       - name: Failure diagnostics
         if: failure()
@@ -92,9 +92,8 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          docker compose down
-          docker compose -f docker-compose.mysql.yml down
-          UPDATE_API_TOKEN=cleanup-token docker compose -f docker-compose.yml -f docker-compose.update.yml down
+          UPDATE_API_TOKEN=cleanup-token docker compose down
+          UPDATE_API_TOKEN=cleanup-token docker compose -f docker-compose.mysql.yml down
 
   publish:
     if: github.event_name != 'pull_request'

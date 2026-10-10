@@ -4,6 +4,7 @@ import { onMounted, ref } from 'vue'
 import { getAdminThemes } from '@/api/admin'
 import { getSiteSettings, updateSiteSettings } from '@/api/site'
 import type { AdminThemeOption, SaveSiteSettingsRequest } from '@/types/models'
+import { themeOptions, resolveTheme } from '@/themes'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -28,8 +29,11 @@ async function load() {
   loading.value = true
 
   try {
-    themes.value = await getAdminThemes()
+    const available = await getAdminThemes()
+    themes.value = themeOptions.map(option => ({ ...available.find(theme => theme.name === option.name)!, ...option })).filter(theme => theme.version)
     form.value = await getSiteSettings()
+    form.value.themeName = resolveTheme(form.value.themeName)
+    form.value.mobileThemeName = resolveTheme(form.value.mobileThemeName)
   } catch (error: any) {
     ElMessage.error(error?.response?.data?.message || '获取主题信息失败。')
   } finally {
@@ -454,4 +458,16 @@ onMounted(load)
 .theme-preview--launchpad { --preview-bg:#f8f7f4; --preview-sidebar:#283c32; --preview-panel:#ffffff; --preview-card:#ffffff; --preview-accent:#537862; --preview-muted:#537862; --preview-line:#53786255; }
 .theme-preview--blackgold { --preview-bg:#141413; --preview-sidebar:#f0e9da; --preview-panel:#22211e; --preview-card:#22211e; --preview-accent:#d5b87c; --preview-muted:#d5b87c; --preview-line:#d5b87c55; }
 .theme-preview--liquid { --preview-bg:#edf5fa; --preview-sidebar:#294458; --preview-panel:#ffffffaa; --preview-card:#ffffffaa; --preview-accent:#5086b3; --preview-muted:#5086b3; --preview-line:#5086b355; }
+
+/* Preview palettes mirror the portal surfaces. */
+.theme-preview--default2 {--preview-bg:#f3f5f7; --preview-sidebar:#ffffff; --preview-panel:#ffffff; --preview-card:#f9fafc; --preview-accent:#cb3d52; --preview-muted:#647184; --preview-line:#e1e6ed; }
+.theme-preview--ocean {--preview-bg:#eff5fa; --preview-sidebar:#132d42; --preview-panel:#ffffff; --preview-card:#ffffff; --preview-accent:#176792; --preview-muted:#5b7287; --preview-line:#dbe6ee; }
+.theme-preview--neon {--preview-bg:#11101c; --preview-sidebar:#141220; --preview-panel:#1b192b; --preview-card:#211e33; --preview-accent:#77e0c0; --preview-muted:#afa8c7; --preview-line:#39344e; }
+.theme-preview--paper {--preview-bg:#f4f0e8; --preview-sidebar:#373229; --preview-panel:#fffcf7; --preview-card:#fffdf9; --preview-accent:#866031; --preview-muted:#786b59; --preview-line:#e5dccf; }
+.theme-preview--lime {--preview-bg:#f4f6ef; --preview-sidebar:#252e23; --preview-panel:#ffffff; --preview-card:#ffffff; --preview-accent:#4c712f; --preview-muted:#65735c; --preview-line:#dfe6d8; }
+.theme-preview--blackgold {--preview-bg:#18191b; --preview-sidebar:#202123; --preview-panel:#232426; --preview-card:#242527; --preview-accent:#d4b779; --preview-muted:#b8b2a6; --preview-line:#3c3b36; }
+.theme-preview--liquid {--preview-bg:#ecf3f8; --preview-sidebar:#f6faff; --preview-panel:#f9fcff; --preview-card:#ffffff; --preview-accent:#326d9b; --preview-muted:#597086; --preview-line:#d5e2ed; }
+.theme-preview--directory {--preview-bg:#f5f8fa; --preview-sidebar:#f8fbfc; --preview-panel:#ffffff; --preview-card:#ffffff; --preview-accent:#1f6695; --preview-muted:#607585; --preview-line:#dce6eb; }
+.theme-preview--workspace {--preview-bg:#f2f5f9; --preview-sidebar:#202a3c; --preview-panel:#ffffff; --preview-card:#ffffff; --preview-accent:#4f5eb7; --preview-muted:#64738a; --preview-line:#dfe5ee; }
+.theme-preview--launchpad {--preview-bg:#f7f8f5; --preview-sidebar:#f0f4ef; --preview-panel:#ffffff; --preview-card:#ffffff; --preview-accent:#3f6c51; --preview-muted:#65776c; --preview-line:#dfe7df; }
 </style>

@@ -26,6 +26,7 @@ let sourcePageUrl = '';
 let sourcePageIcon = null;
 let targetTenantId = null;
 let savedUrl = null;
+let connecting = false;
 function status(message, error = false) {
   $('status').textContent = message;
   $('status').classList.toggle('error', error);
@@ -37,17 +38,18 @@ function showConnection() {
   $('disconnect').hidden = true;
 }
 async function disconnect() {
-  await chrome.storage.local.remove(['connection', 'categoryCache', 'lastCategory', 'email']);
+  await chrome.storage.local.remove(['connection', 'categoryCache', 'lastCategory', 'email', 'draftToken']);
   connection = null;
   targetTenantId = null;
   savedUrl = null;
   $('token').value = '';
   showConnection();
 }
-async function api(path, body) {
-  const response = await fetch(`${connection.site}/api/${path}`, {
-    method: body === undefined ? 'GET' : 'POST',
-    headers: { 'Content-Type': 'application/json', ...(connection.token ? { Authorization: `Bearer ${connection.token}` } : {}) },
+async function api(path, body, method = body === undefined ? 'GET' : 'POST', selectedConnection = connection) {
+  if (!selectedConnection?.site) throw new Error('请先连接导航站点。');
+  const response = await fetch(`${selectedConnection.site}/api/${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', ...(selectedConnection.token ? { Authorization: `Bearer ${selectedConnection.token}` } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     signal: AbortSignal.timeout(15000),
     credentials: 'omit',
@@ -55,9 +57,10 @@ async function api(path, body) {
   });
   const data = await response.json().catch(() => null);
   if (response.status === 401) {
-    await disconnect();
+    if (selectedConnection === connection) await disconnect();
     throw new Error('API 令牌无效或已过期，请更换令牌。');
   }
+  if (response.status === 404 && path === 'site/theme') throw new Error('当前网站版本尚不支持主题同步，请更新网站后重试。');
   if (!response.ok) throw new Error(data?.message || Object.values(data?.errors || {}).flat().join('；') || `请求失败（${response.status}）`);
   return data;
 }
@@ -99,29 +102,40 @@ async function loadCategories() {
   }
 }
 function fail(error) {
-  status(error.message === 'Failed to fetch' ? '无法连接站点，请检查地址、网络及服务是否已启动。' : error.message, true);
+  const message = error.name === 'TimeoutError' ? '连接超时，请检查站点是否可访问，然后重试。' : error.message === 'Failed to fetch' ? '无法连接站点，请检查地址、网络及服务是否已启动。' : error.message;
+  status(message, true);
 }
 function normalizeSite(raw) {
-  const site = new URL(raw.trim());
-  if (!['http:', 'https:'].includes(site.protocol) || site.username || site.password || site.search || site.hash || site.pathname !== '/') throw new Error('请填写站点根地址，例如 https://nav.example.com（不含路径）。');
+  const value = raw.trim();
+  const site = new URL(/^[a-z][a-z\d+.-]*:\/\//i.test(value) ? value : `https://${value}`);
+  if (!['http:', 'https:'].includes(site.protocol) || site.username || site.password) throw new Error('请填写导航地址，例如 https://nav.example.com。');
   if (site.protocol === 'http:' && !['localhost', '127.0.0.1', '[::1]'].includes(site.hostname)) throw new Error('远程站点请使用 HTTPS，避免令牌明文传输。');
   return site;
 }
 async function connectWithToken(site, token) {
-  connection = { site: site.origin, token };
-  targetTenantId = null;
-  $('category').replaceChildren();
-  await chrome.storage.local.remove(['categoryCache', 'lastCategory', 'email']);
-  await loadCategories();
-  await chrome.storage.local.set({ connection, site: site.origin });
-  if (!$('startupUrl').value) $('startupUrl').value = site.origin;
+  const candidate = { site: site.origin, token };
+  const portal = await api('portal?publicView=false', undefined, 'GET', candidate);
+  if (!portal?.isAuthenticated || !portal.canEdit || !portal.editor?.categoryOptions || !portal.tenant?.id) throw new Error('当前账号无法编辑此空间，请确认站点与令牌是否匹配。');
+  const cache = { site: candidate.site, token, tenant: portal.tenant, editor: { categoryOptions: portal.editor.categoryOptions } };
+  // Persist the validated connection before displaying success. Popup closure cannot lose it.
+  await chrome.storage.local.set({ connection: candidate, site: site.origin, startupUrl: `${site.origin}/`, categoryCache: cache });
+  await chrome.storage.local.remove(['draftToken', 'lastCategory', 'email']);
+  connection = candidate;
+  renderCategories(portal);
+  $('site').value = site.origin;
+  $('startupAddress').textContent = `导航地址：${site.origin}`;
   $('token').value = '';
+  status('连接成功，可以直接收藏当前网页。');
 }
 $('connectFromSite').addEventListener('click', async () => {
+  if (connecting) return;
+  connecting = true;
   $('connectFromSite').disabled = true;
   try {
     const site = normalizeSite($('site').value);
-    if (!await chrome.permissions.request({ origins: [`${site.origin}/*`] })) throw new Error('需要允许访问此 NestHub 站点才能连接。');
+    const permission = chrome.permissions.request({ origins: [`${site.origin}/*`] });
+    await chrome.storage.local.set({ site: site.origin });
+    if (!await permission) throw new Error('需要允许访问此 NestHub 站点才能连接。');
     const tabs = await chrome.tabs.query({ url: `${site.origin}/*` });
     let token = null;
     for (const tab of tabs.filter(tab => tab.id != null).sort((a, b) => Number(b.active) - Number(a.active))) {
@@ -140,20 +154,24 @@ $('connectFromSite').addEventListener('click', async () => {
       throw new Error('请先在打开的 NestHub 网站登录，再回来点击此按钮。');
     }
     await connectWithToken(site, token);
-  } catch (error) { fail(error); } finally { $('connectFromSite').disabled = false; }
+  } catch (error) { fail(error); } finally { connecting = false; $('connectFromSite').disabled = false; }
 });
 $('connectionForm').addEventListener('submit', async event => {
   event.preventDefault();
+  if (connecting) return;
+  connecting = true;
   const button = event.submitter;
   button.disabled = true;
   try {
     const site = normalizeSite($('site').value);
-    const granted = await chrome.permissions.request({ origins: [`${site.origin}/*`] });
-    if (!granted) throw new Error('需要允许访问此 NestHub 站点才能连接。');
     const token = $('token').value.trim().replace(/^Bearer\s+/i, '');
     if (!token || /\s/.test(token)) throw new Error('请填写有效的 API 令牌。');
+    const permission = chrome.permissions.request({ origins: [`${site.origin}/*`] });
+    await chrome.storage.local.set({ site: site.origin, draftToken: token });
+    const granted = await permission;
+    if (!granted) throw new Error('需要允许访问此 NestHub 站点才能连接。');
     await connectWithToken(site, token);
-  } catch (error) { fail(error); } finally { button.disabled = false; }
+  } catch (error) { fail(error); } finally { connecting = false; button.disabled = false; }
 });
 $('saveForm').addEventListener('submit', async event => {
   event.preventDefault();
@@ -183,27 +201,44 @@ $('theme').addEventListener('change', async () => {
   const theme = $('theme').value;
   if (!themeNames.includes(theme)) return;
   applyTheme(theme);
+  $('theme').disabled = true;
   try {
+    if (connection?.token) await api('site/theme', { themeName: theme }, 'PATCH');
     await chrome.storage.local.set({ theme });
-    await chrome.runtime.sendMessage({ type: 'theme-sync' });
-  } catch (error) { fail(error); }
+    const result = await chrome.runtime.sendMessage({ type: 'theme-sync', tenantId: targetTenantId });
+    if (!result?.ok) throw new Error(result?.error || '主题已保存，刷新导航页面后生效。');
+    status(connection?.token ? '主题已同步到导航页面与插件。' : '插件主题已保存，连接站点后可同步导航主题。');
+  } catch (error) {
+    const { theme: previous } = await chrome.storage.local.get('theme');
+    const restored = themeNames.includes(previous) ? previous : 'default2';
+    applyTheme(restored); $('theme').value = restored;
+    fail(error);
+  } finally { $('theme').disabled = false; }
 });
 $('saveStartup').addEventListener('click', async () => {
   const enabled = $('openOnStartup').checked;
+  const newTabEnabled = $('openOnNewTab').checked;
   $('saveStartup').disabled = true;
   try {
-    const raw = $('startupUrl').value.trim() || connection?.site || $('site').value.trim();
+    const raw = connection?.site || $('site').value.trim();
     let url = '';
     if (raw) {
-      const parsed = new URL(raw);
+      const parsed = normalizeSite(raw);
       if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error('请填写不含账号密码的 HTTP 或 HTTPS 导航地址。');
       url = parsed.href;
     }
-    if (enabled && !url) throw new Error('请先填写导航地址。');
-    await chrome.storage.local.set({ openOnStartup: enabled, startupUrl: url });
-    $('startupUrl').value = url;
-    status(enabled ? '已保存，下次启动浏览器时打开导航。' : '已关闭启动时自动打开导航。');
+    if ((enabled || newTabEnabled) && !url) throw new Error('请先连接导航站点。');
+    if ((enabled || newTabEnabled) && !await chrome.permissions.request({ permissions: ['tabs'] })) throw new Error('需要标签页权限才能复用新标签页，请允许后再保存。');
+    await chrome.storage.local.set({ openOnStartup: enabled, openOnNewTab: newTabEnabled, startupUrl: url });
+    $('startupAddress').textContent = url ? `导航地址：${url}` : '连接导航站点后自动使用该地址。';
+    status(newTabEnabled ? '已保存，新标签页将直接打开导航。' : enabled ? '已保存，下次启动浏览器时在空白标签页打开导航。' : '已关闭自动打开导航。');
   } catch (error) { fail(error); } finally { $('saveStartup').disabled = false; }
+});
+$('openNavigation').addEventListener('click', async () => {
+  try {
+    const site = normalizeSite(connection?.site || $('site').value);
+    await chrome.tabs.create({ url: site.href, active: true });
+  } catch (error) { fail(error); }
 });
 $('floating').addEventListener('change', async () => {
   const enabled = $('floating').checked;
@@ -221,19 +256,21 @@ $('floating').addEventListener('change', async () => {
 async function init() {
   // Keep the access token unavailable to content scripts.
   await chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
-  const settings = await chrome.storage.local.get(['connection', 'site', 'floatingEnabled', 'categoryCache', 'lastCategory', 'theme', 'openOnStartup', 'startupUrl']);
+  const settings = await chrome.storage.local.get(['connection', 'site', 'floatingEnabled', 'categoryCache', 'lastCategory', 'theme', 'openOnStartup', 'openOnNewTab', 'draftToken']);
   const savedTheme = ({ coral: 'default2', nord: 'ocean', glass: 'liquid', midnight: 'blackgold' })[settings.theme] || settings.theme;
   const theme = themeNames.includes(savedTheme) ? savedTheme : 'default2';
   applyTheme(theme);
   $('theme').value = theme;
   $('openOnStartup').checked = settings.openOnStartup === true;
-  $('startupUrl').value = settings.startupUrl || settings.connection?.site || settings.site || '';
+  $('openOnNewTab').checked = settings.openOnNewTab === true;
+  $('startupAddress').textContent = settings.connection?.site ? `导航地址：${settings.connection.site}` : '连接导航站点后自动使用该地址。';
   $('floating').checked = settings.floatingEnabled === true;
   $('site').value = settings.site || '';
+  $('token').value = settings.draftToken || '';
   const sourceTab = new URL(location.href).searchParams.get('sourceTab');
   const tab = sourceTab && /^\d+$/.test(sourceTab)
-    ? await chrome.tabs.get(Number(sourceTab))
-    : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+    ? await chrome.tabs.get(Number(sourceTab)).catch(() => null)
+    : (await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []))[0];
   if (tab?.url && /^https?:\/\//i.test(tab.url)) {
     sourcePageUrl = new URL(tab.url).href;
     sourcePageIcon = tab.favIconUrl && /^https?:\/\//i.test(tab.favIconUrl) && tab.favIconUrl.length <= 1024

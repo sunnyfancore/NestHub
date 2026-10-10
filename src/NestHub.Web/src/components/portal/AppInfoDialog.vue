@@ -91,15 +91,15 @@ onMounted(() => {
   gap: 16px;
   padding: 14px 16px;
   border-radius: 14px;
-  background: #f8f9fb;
-  border: 1px solid #e8ecf0;
+  background: var(--p-card, #f8f9fb);
+  border: 1px solid var(--p-line, #e8ecf0);
 }
 
 .app-info-item span {
-  color: #7b8798;
+  color: var(--p-muted, #7b8798);
 }
 
 .app-info-item strong {
-  color: #182333;
+  color: var(--p-ink, #182333);
 }
 </style>

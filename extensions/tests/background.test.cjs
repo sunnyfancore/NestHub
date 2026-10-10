@@ -3,12 +3,15 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
-function setup() {
+function setup(initialTabs = [{ id: 7, url: 'https://example.com/' }]) {
   const storage = { connection: { token: 'secret' } };
   const registered = [], windows = [], injected = [], removed = [];
   let listener;
   let startup;
   const openedTabs = [];
+  const updatedTabs = [];
+  let createdTab;
+  let updatedTab;
   const event = { addListener() {} };
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../nesthub/background.js'), 'utf8'), {
     console, URL,
@@ -33,7 +36,14 @@ function setup() {
       },
       tabs: {
         create: async options => openedTabs.push(options),
-        query: async () => [{ id: 7, url: 'https://example.com/' }],
+        query: async () => initialTabs,
+        update: async (id, options) => {
+          updatedTabs.push({ id, ...options });
+          const tab = initialTabs.find(tab => tab.id === id);
+          if (tab) { tab.url = options.url; delete tab.pendingUrl; }
+        },
+        onCreated: { addListener: handler => { createdTab = handler; } },
+        onUpdated: { addListener: handler => { updatedTab = handler; } },
         sendMessage: async (...args) => removed.push(args)
       },
       windows: { create: async options => windows.push(options) }
@@ -42,7 +52,7 @@ function setup() {
   const send = (message, sender) => new Promise(resolve => {
     if (listener(message, sender, resolve) === false) resolve(null);
   });
-  return { storage, registered, windows, injected, removed, send, openedTabs, startup };
+  return { storage, registered, windows, injected, removed, send, openedTabs, updatedTabs, startup, createdTab, updatedTab };
 }
 const popup = { url: 'chrome-extension://test/popup.html' };
 const webpage = { tab: { id: 7 }, frameId: 0, url: 'https://example.com/' };
@@ -63,6 +73,33 @@ test('opt-in registers floating button, opens original tab collection window and
   assert.equal(app.registered.length, 0);
   assert.equal(app.removed.length, 1);
   assert.equal((await app.send({ type: 'floating-open' }, webpage)).ok, false);
+});
+
+test('startup reuses the blank tab and simultaneous events do not open duplicate pages', async () => {
+  const app = setup([{ id: 1, windowId: 1, url: 'chrome://newtab/' }]);
+  app.storage.connection.site = 'https://nav.example';
+  app.storage.startupUrl = 'https://obsolete.example/';
+  app.storage.openOnStartup = true;
+  app.startup(); app.startup();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(app.openedTabs.length, 0);
+  assert.equal(app.updatedTabs.length, 1);
+  assert.equal(app.updatedTabs[0].url, 'https://nav.example/');
+});
+
+test('new-tab navigation updates only blank tabs and is opt-in', async () => {
+  const app = setup();
+  app.storage.connection.site = 'https://nav.example';
+  app.createdTab({ id: 2, url: 'chrome://newtab/' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(app.updatedTabs.length, 0);
+  app.storage.openOnNewTab = true;
+  app.createdTab({ id: 3, url: 'chrome://newtab/' });
+  app.createdTab({ id: 4, url: 'https://work.example/' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(app.updatedTabs.length, 1);
+  assert.equal(app.updatedTabs[0].id, 3);
+  assert.equal(app.openedTabs.length, 0);
 });
 
 test('startup navigation is opt-in, uses the saved address, and avoids an existing matching tab', async () => {

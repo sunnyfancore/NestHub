@@ -129,19 +129,43 @@ test('expired token when saving with cache clears cached categories too', async 
   assert.equal(app.storage.connection, undefined);
   assert.equal(app.element('connectionForm').hidden, false);
 });
-test('theme and startup settings persist and unsafe startup URLs are rejected', async () => {
+test('theme updates the website using PATCH and startup reuses the connected address', async () => {
   const app = await setup();
   app.element('theme').value = 'blackgold';
   await app.element('theme').handlers.change();
   assert.equal(app.storage.theme, 'blackgold');
+  assert.equal(app.requests.at(-1).url, 'https://nest.example/api/site/theme');
+  assert.equal(app.requests.at(-1).options.method, 'PATCH');
+  assert.equal(JSON.parse(app.requests.at(-1).options.body).themeName, 'blackgold');
   app.element('openOnStartup').checked = true;
-  app.element('startupUrl').value = 'https://nav.example/home';
   await app.element('saveStartup').handlers.click();
-  assert.equal(app.storage.startupUrl, 'https://nav.example/home');
+  assert.equal(app.storage.startupUrl, 'https://nest.example/');
   assert.equal(app.storage.openOnStartup, true);
-  app.element('startupUrl').value = 'javascript:alert(1)';
+  await app.element('disconnect').handlers.click();
+  app.element('site').value = 'javascript://alert(1)';
   await app.element('saveStartup').handlers.click();
-  assert.equal(app.storage.startupUrl, 'https://nav.example/home');
+  assert.equal(app.storage.startupUrl, 'https://nest.example/');
+});
+
+test('failed candidate validation keeps an existing usable connection and cache', async () => {
+  const app = await setup(true, false, { categoryCache });
+  app.element('site').value = 'https://other.example/admin';
+  app.element('token').value = 'wrong-token';
+  await app.element('connectionForm').handlers.submit({ preventDefault() {}, submitter: {} });
+  assert.equal(app.storage.connection.site, 'https://nest.example');
+  assert.equal(app.storage.categoryCache.tenant.id, 'cached-tenant');
+  assert.equal(app.storage.draftToken, 'wrong-token');
+  assert.equal(app.requests.at(-1).url, 'https://other.example/api/portal?publicView=false');
+});
+
+test('a new connection replaces stale startup URLs and accepts a hostname', async () => {
+  const app = await setup(false, false, { startupUrl: 'https://old.example/' });
+  app.element('site').value = 'new.example/admin';
+  app.element('token').value = 'new-token';
+  await app.element('connectionForm').handlers.submit({ preventDefault() {}, submitter: {} });
+  assert.equal(app.storage.connection.site, 'https://new.example');
+  assert.equal(app.storage.startupUrl, 'https://new.example/');
+  assert.equal(app.storage.draftToken, undefined);
 });
 test('explicit website connection validates the imported login token with the selected site', async () => {
   const app = await setup();

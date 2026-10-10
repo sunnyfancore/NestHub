@@ -59,7 +59,7 @@ async function submit() {
       </template>
       <template v-else>
         <div class="reset-success">
-          <i class="fa fa-check-circle" style="font-size: 48px; color: #52c41a;"></i>
+          <i class="fa fa-check-circle" style="font-size: 48px; color: #52c41a;" aria-hidden="true"></i>
           <p>重置邮件已发送到 <strong>{{ email }}</strong>，请在 30 分钟内点击邮件中的链接重置密码。</p>
           <p style="color: #999; font-size: 13px;">如果没有收到，请检查垃圾邮件文件夹。</p>
         </div>

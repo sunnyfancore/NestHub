@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { PortalSite, SaveSiteSettingsRequest } from '@/types/models'
+import { themeOptions, resolveTheme } from '@/themes'
 
 const props = defineProps<{
   modelValue: boolean
@@ -48,8 +49,8 @@ watch(
       logoUrl: props.site.logoUrl ?? '',
       searchPlaceholder: props.site.searchPlaceholder,
       footerText: props.site.footerText,
-      themeName: props.site.themeName,
-      mobileThemeName: props.site.mobileThemeName,
+      themeName: resolveTheme(props.site.themeName),
+      mobileThemeName: resolveTheme(props.site.mobileThemeName),
       logoMode: props.site.logoMode ?? 'compact',
       showBottomDock: props.site.showBottomDock ?? true,
     }
@@ -117,11 +118,19 @@ async function handleSubmit() {
           </el-form-item>
         </el-col>
         <el-col :span="12">
-          <el-form-item label="主题名称">
-            <el-input v-model="form.themeName" maxlength="40" />
+          <el-form-item label="桌面主题">
+            <el-select v-model="form.themeName" style="width: 100%">
+              <el-option v-for="theme in themeOptions" :key="theme.name" :label="theme.title" :value="theme.name" />
+            </el-select>
           </el-form-item>
         </el-col>
       </el-row>
+
+      <el-form-item label="手机主题">
+        <el-select v-model="form.mobileThemeName" style="width: 100%">
+          <el-option v-for="theme in themeOptions" :key="theme.name" :label="theme.title" :value="theme.name" />
+        </el-select>
+      </el-form-item>
 
       <el-form-item label="页脚文案">
         <el-input v-model="form.footerText" maxlength="255" show-word-limit />

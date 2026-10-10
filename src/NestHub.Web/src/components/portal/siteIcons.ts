@@ -4,6 +4,17 @@ const discoveries = new Map<string, Promise<string[]>>()
 const waiting: Array<() => void> = []
 let active = 0
 
+// Fetch remote icons through NestHub so HTTP authentication cannot open browser dialogs.
+export function safeIconSource(source: string): string {
+  if (/^data:image\/(?:png|jpeg|gif|webp|svg\+xml|x-icon|avif)[;,]/i.test(source)) return source
+  try {
+    const icon = new URL(source, window.location.href)
+    if (!['http:', 'https:'].includes(icon.protocol) || icon.username || icon.password) return ''
+    if (icon.origin === window.location.origin) return icon.href
+    return `${import.meta.env.VITE_API_BASE_URL || '/api'}/site-icons/image?url=${encodeURIComponent(icon.href)}`
+  } catch { return '' }
+}
+
 function pump() {
   while (active < 4 && waiting.length) waiting.shift()?.()
 }
