@@ -7,6 +7,22 @@
     <div class="brand"><div class="brand-name">NestHub</div><h1>快捷收藏</h1></div>
     <button id="disconnect" hidden type="button">断开连接</button>
   </header>
+  <section class="theme-picker" aria-label="导航与插件主题">
+    <div class="theme-picker__heading">主题</div>
+    <div id="theme" class="theme-grid" role="group" aria-label="选择主题">
+      <button id="theme-default2" type="button" class="theme-choice" aria-pressed="false" style="--swatch:#ff535e"><span class="theme-swatch" aria-hidden="true"></span>经典</button>
+      <button id="theme-ocean" type="button" class="theme-choice" aria-pressed="false" style="--swatch:#247cad"><span class="theme-swatch" aria-hidden="true"></span>海洋</button>
+      <button id="theme-neon" type="button" class="theme-choice" aria-pressed="false" style="--swatch:#70e8c4"><span class="theme-swatch" aria-hidden="true"></span>霓虹</button>
+      <button id="theme-paper" type="button" class="theme-choice" aria-pressed="false" style="--swatch:#957044"><span class="theme-swatch" aria-hidden="true"></span>纸笺</button>
+      <button id="theme-lime" type="button" class="theme-choice" aria-pressed="false" style="--swatch:#c0e96c"><span class="theme-swatch" aria-hidden="true"></span>青柠</button>
+      <button id="theme-blackgold" type="button" class="theme-choice" aria-pressed="false" style="--swatch:#d5b87c"><span class="theme-swatch" aria-hidden="true"></span>曜金</button>
+      <button id="theme-liquid" type="button" class="theme-choice" aria-pressed="false" style="--swatch:#83bdd9"><span class="theme-swatch" aria-hidden="true"></span>流光</button>
+      <button id="theme-directory" type="button" class="theme-choice" aria-pressed="false" style="--swatch:#2563a6"><span class="theme-swatch" aria-hidden="true"></span>网址簿</button>
+      <button id="theme-workspace" type="button" class="theme-choice" aria-pressed="false" style="--swatch:#5265d8"><span class="theme-swatch" aria-hidden="true"></span>效率台</button>
+      <button id="theme-launchpad" type="button" class="theme-choice" aria-pressed="false" style="--swatch:#537862"><span class="theme-swatch" aria-hidden="true"></span>起始页</button>
+    </div>
+    <small id="themeDescription" class="theme-description" aria-live="polite"></small>
+  </section>
   <p id="status" role="status" aria-live="polite">正在读取当前网页…</p>
   <form id="connectionForm" hidden>
     <p class="connection-heading">连接你的导航空间</p>
@@ -34,20 +50,6 @@
   </form>
   <details class="settings">
     <summary>插件设置</summary>
-    <label for="theme">导航与插件主题</label>
-    <select id="theme">
-      <option value="default2">经典 · 简洁导航</option>
-      <option value="ocean">海洋 · 蔚蓝清爽</option>
-      <option value="neon">霓虹 · 未来科技</option>
-      <option value="paper">纸笺 · 温润书卷</option>
-      <option value="lime">青柠 · 清新</option>
-      <option value="directory">网址簿 · 经典目录</option>
-      <option value="workspace">效率台 · 侧栏工作台</option>
-      <option value="launchpad">起始页 · 极简导航</option>
-      <option value="blackgold">曜金 · 高级黑金</option>
-      <option value="liquid">流光 · 液态玻璃</option>
-    </select>
-    <small id="themeDescription" class="theme-description" aria-live="polite"></small>
     <label class="inline"><input id="openOnStartup" type="checkbox">启动浏览器时打开导航</label>
     <label class="inline"><input id="openOnNewTab" type="checkbox">新标签页也打开导航</label>
     <small id="startupAddress">自动使用已连接的导航地址，无需重复填写。</small>

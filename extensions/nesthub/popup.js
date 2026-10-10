@@ -19,6 +19,7 @@ const themeDescriptions = {
 };
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
+  for (const name of themeNames) $('theme-' + name).setAttribute('aria-pressed', String(name === theme));
   $('themeDescription').textContent = themeDescriptions[theme];
 }
 let connection = null;
@@ -215,7 +216,7 @@ $('refresh').addEventListener('click', async () => {
   try { await loadCategories(); } catch (error) { fail(error); } finally { $('refresh').disabled = false; }
 });
 $('disconnect').addEventListener('click', async () => { try { await disconnect(); status('已断开连接并清除令牌。'); } catch (error) { fail(error); } });
-$('theme').addEventListener('change', async () => {
+async function changeTheme() {
   const theme = $('theme').value;
   if (!themeNames.includes(theme)) return;
   applyTheme(theme);
@@ -232,7 +233,15 @@ $('theme').addEventListener('change', async () => {
     applyTheme(restored); $('theme').value = restored;
     fail(error);
   } finally { $('theme').disabled = false; }
-});
+}
+$('theme').addEventListener('change', changeTheme);
+for (const name of themeNames) {
+  $('theme-' + name).addEventListener('click', () => {
+    if ($('theme').disabled || document.documentElement.dataset.theme === name) return;
+    $('theme').value = name;
+    return changeTheme();
+  });
+}
 $('saveStartup').addEventListener('click', async () => {
   const enabled = $('openOnStartup').checked;
   const newTabEnabled = $('openOnNewTab').checked;

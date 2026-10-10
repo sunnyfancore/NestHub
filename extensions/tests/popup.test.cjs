@@ -12,6 +12,7 @@ async function setup(unauthorized = false, sourceTab = false, initialStorage = {
     if (!elements.has(id)) elements.set(id, {
       value: '', options: [], handlers: {}, checked: false,
       classList: { toggle() {} },
+      setAttribute(name, value) { this[name] = value; },
       addEventListener(name, handler) { this.handlers[name] = handler; },
       replaceChildren() { this.options = []; this.value = ''; },
       append(option) { this.options.push(option); if (!this.value) this.value = option.value; }
@@ -235,4 +236,13 @@ test('malformed cached category triggers fresh read instead of crashing popup', 
   assert.equal(app.requests.length, 1);
   assert.equal(app.element('saveForm').hidden, false);
   assert.equal(app.element('category').value, 'category-id');
+});
+
+test('top theme choices select directly and reflect the active theme', async () => {
+  const { element, storage } = await setup();
+  assert.equal(element('theme-default2')['aria-pressed'], 'true');
+  await element('theme-lime').handlers.click();
+  assert.equal(storage.theme, 'lime');
+  assert.equal(element('theme-lime')['aria-pressed'], 'true');
+  assert.equal(element('theme-default2')['aria-pressed'], 'false');
 });

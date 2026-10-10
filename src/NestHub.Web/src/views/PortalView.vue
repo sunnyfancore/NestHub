@@ -50,6 +50,8 @@ const VIEW_KEY = 'nesthub.public-view'
 const isPublicView = ref(localStorage.getItem(VIEW_KEY) === 'true')
 const searchLoading = ref(false)
 const portal = ref<PortalResponse | null>(null)
+const logoFailed = ref(false)
+watch(() => [portal.value?.tenant.id, portal.value?.site.logoUrl], () => { logoFailed.value = false })
 const searchKeyword = ref('')
 const searchResults = ref<PortalSearchResult[]>([])
 const searchDialogVisible = ref(false)
@@ -1116,14 +1118,14 @@ onBeforeUnmount(() => {
       <div class="portal-sidebar__logo" :class="{ 'is-full': portal?.site.logoMode === 'full' }">
         <template v-if="portal">
           <template v-if="portal.site.logoMode === 'full'">
-            <img v-if="portal.site.logoUrl" :src="portal.site.logoUrl" :alt="portal.site.title" class="portal-sidebar__logo-img-full" />
+            <img v-if="portal.site.logoUrl && !logoFailed" :src="portal.site.logoUrl" :alt="portal.site.title" class="portal-sidebar__logo-img-full" @error="logoFailed = true" />
             <div v-else class="portal-sidebar__logo-full-fallback">
               <span class="portal-sidebar__logo-letter-full">{{ portal.site.logoText || 'N' }}</span>
               <span class="portal-sidebar__logo-title-full">{{ portal.site.title || 'NestHub' }}</span>
             </div>
           </template>
           <template v-else>
-            <img v-if="portal.site.logoUrl" :src="portal.site.logoUrl" :alt="portal.site.title" class="portal-sidebar__logo-img" />
+            <img v-if="portal.site.logoUrl && !logoFailed" :src="portal.site.logoUrl" :alt="portal.site.title" class="portal-sidebar__logo-img" @error="logoFailed = true" />
             <span v-else class="portal-sidebar__logo-letter">{{ portal.site.logoText || 'N' }}</span>
             <span class="portal-sidebar__logo-title">{{ portal.site.title || 'NestHub' }}</span>
           </template>
