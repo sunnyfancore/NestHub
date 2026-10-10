@@ -15,7 +15,15 @@ public static class WebApplicationExtensions
         var dbOptions = scope.ServiceProvider.GetRequiredService<IOptions<DatabaseOptions>>().Value;
         var orm = scope.ServiceProvider.GetRequiredService<IFreeSql>();
 
-        await EnsureDatabaseCreatedAsync(dbOptions.ConnectionString);
+        if (dbOptions.Provider.Trim().Equals("Sqlite", StringComparison.OrdinalIgnoreCase))
+        {
+            // WAL allows readers while a writer commits; the SQLite file lives in AppData.
+            await orm.Ado.ExecuteNonQueryAsync("PRAGMA journal_mode=WAL;");
+        }
+        else
+        {
+            await EnsureDatabaseCreatedAsync(dbOptions.ConnectionString);
+        }
 
         if (dbOptions.AutoSyncStructure)
         {

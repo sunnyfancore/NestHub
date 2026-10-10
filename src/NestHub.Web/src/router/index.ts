@@ -101,6 +101,11 @@ const router = createRouter({
           component: () => import('@/views/admin/AdminSecurityView.vue'),
         },
         {
+          path: 'updates',
+          name: 'admin-updates',
+          component: () => import('@/views/admin/AdminUpdatesView.vue'),
+        },
+        {
           path: 'public-categories',
           name: 'admin-public-categories',
           component: () => import('@/views/admin/AdminCategoriesView.vue'),

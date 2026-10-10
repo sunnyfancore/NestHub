@@ -30,7 +30,7 @@ async function setup(unauthorized = false, sourceTab = false, initialStorage = {
         remove: async keys => keys.forEach(key => delete storage[key])
       } },
       tabs: {
-        query: async query => query.url ? [{ id: 9, url: 'https://nest.example/' }] : [{ title: 'Example', url: 'https://example.com/' }],
+        query: async query => query.url ? [{ id: 9, url: 'https://nest.example/' }] : [{ title: 'Example', url: 'https://example.com/', favIconUrl: 'https://example.com/branding/icon.png' }],
         get: async id => { assert.equal(id, 7); return { title: 'Source page', url: 'https://source.example/' }; }
       },
       permissions: { request: async () => true },
@@ -68,6 +68,7 @@ test('restores token, reads current page and saves into portal tenant/category',
   assert.equal(request.options.headers.Authorization, 'Bearer test-token');
   assert.equal(JSON.parse(request.options.body).categoryId, 'category-id');
   assert.equal(storage.lastCategory, 'category-id');
+  assert.equal(JSON.parse(request.options.body).iconUrl, 'https://example.com/branding/icon.png');
   assert.match(element('status').textContent, /收藏成功/);
   await element('saveForm').handlers.submit({ preventDefault() {} });
   assert.equal(requests.length, 2, 'same popup must not submit saved URL twice');
@@ -149,4 +150,11 @@ test('explicit website connection validates the imported login token with the se
   assert.equal(app.storage.connection.token, 'website-token');
   assert.equal(app.requests.at(-1).options.headers.Authorization, 'Bearer website-token');
   assert.equal(app.element('token').value, '');
+});
+
+test('editing the collected URL does not attach the original page icon', async () => {
+  const { element, requests } = await setup();
+  element('url').value = 'https://different.example/';
+  await element('saveForm').handlers.submit({ preventDefault() {} });
+  assert.equal(JSON.parse(requests.at(-1).options.body).iconUrl, null);
 });

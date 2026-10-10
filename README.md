@@ -9,7 +9,7 @@
 - **浏览器快捷收藏** — Chrome / Edge 等 Chromium 浏览器扩展，自动读取当前网页标题与地址，选择分类后直接保存；安装方式见 [扩展说明](extensions/nesthub/README.md)
 - **门户页面** — 10 套中文主题（经典 / 海洋 / 霓虹 / 纸笺 / 青柠 / 黑金 / 液态玻璃 / 网址簿 / 效率台 / 起始页），亮色 / 暗色模式
 - **搜索引擎** — 可切换搜索引擎，内置搜索建议
-- **图标自动获取** — 基于 favicon.png.pub 服务自动获取网站图标
+- **图标自动获取** — 识别网站声明的图标并缓存，兼容自建站点与内网常见图标路径
 - **书签分享** — 生成分享链接，支持公开访问
 - **超管后台** — 租户管理、链接管理、分类管理、主题配置、数据备份与恢复
 - **安全特性** — JWT 认证、密码重置、邮箱通知（SMTP）
@@ -20,7 +20,7 @@
 
 | 层 | 技术 |
 |---|------|
-| 后端 | ASP.NET Core 10 + FreeSql + MySQL |
+| 后端 | ASP.NET Core 10 + FreeSql + SQLite / MySQL |
 | 前端 | Vue 3 + TypeScript + Vite + Pinia + Element Plus |
 | 认证 | JWT Bearer Token |
 | 部署 | Docker + docker-compose |
@@ -116,7 +116,7 @@ Linux 服务器安装 Docker Compose v2 和 OpenSSL 后，在仓库目录运行�
 bash scripts/deploy.sh
 ```
 
-自动生成密码、创建数据目录并启动应用和 MySQL，默认访问 `http://服务器IP:5186`。首次镜像发布后，如拉取提示没有权限，需要将 GitHub Packages 中的 `nesthub` 镜像设为公开。
+自动生成密码、创建数据目录并启动应用，默认使用 SQLite，无需单独数据库容器。访问 `http://服务器IP:5186`；MySQL 版使用 `docker-compose.mysql.yml`。
 
 后续只更新应用：
 
@@ -125,9 +125,11 @@ docker compose pull nesthub
 docker compose up -d --no-deps --wait --wait-timeout 300 nesthub
 ```
 
-`data/mysql` 持久化数据库，`data/app` 持久化上传文件，`.env` 保存连接配置和密钥；不要挂载整个 `/app`。更新前备份数据。
+`data/app` 持久化 SQLite 数据库及上传文件；MySQL 版额外挂载 `data/mysql`。`.env` 保存连接配置和密钥；不要挂载整个 `/app`。更新前备份数据。
 
 完整的一键部署、目录挂载、外部数据库迁移、备份恢复和版本回退说明见 [Docker 部署指南](docs/docker-deployment.md)。
+
+原 MySQL 可通过 `scripts/export-mysql-to-sqlite.sh`（Linux）或 `scripts/export-mysql-to-sqlite.ps1`（Windows）直接导出为 SQLite 文件，只需配置数据库连接，保留整站账号、分类、书签和设置。
 
 ## 配置说明
 
@@ -139,7 +141,8 @@ docker compose up -d --no-deps --wait --wait-timeout 300 nesthub
 
 | 配置项 | 说明 | 所在文件 |
 |--------|------|----------|
-| `Database:ConnectionString` | MySQL 连接字符串 | `appsettings.{env}.json` |
+| `Database:Provider` | `MySql` 或 `Sqlite`；未配置时兼容原 MySQL | `appsettings.{env}.json` |
+| `Database:ConnectionString` | MySQL 连接字符串或 SQLite 文件连接 | `appsettings.{env}.json` |
 | `SuperAdmin:Email` | 超管初始邮箱 | `appsettings.{env}.json` |
 | `SuperAdmin:Password` | 超管初始密码 | `appsettings.{env}.json` |
 | `Jwt:SecretKey` | JWT 签名密钥（至少32字符） | `appsettings.{env}.json` |

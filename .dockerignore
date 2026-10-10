@@ -12,6 +12,7 @@ db
 backups
 .env
 .env.*
+mysql-migration.env
 **/appsettings.Development.json
 **/appsettings.Production.json
 extensions/store-assets

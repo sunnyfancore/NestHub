@@ -1,12 +1,10 @@
-# Docker 部署与更新
+# Docker 部署、更新与数据库迁移
 
-镜像地址：`ghcr.io/sunnyfancore/nesthub`，支持 Linux AMD64 和 ARM64。
+镜像：`ghcr.io/sunnyfancore/nesthub`，支持 Linux AMD64 / ARM64，可公开拉取。推送 `main` 后自动构建网站、后端和插件，测试 SQLite、MySQL、数据迁移及持久化后发布镜像。
 
-推送 `main` 后，GitHub Actions 自动构建前端、后端和最新插件压缩包，启动应用和 MySQL 做检查，再发布镜像。首次发布完成前不能拉取镜像。
+## SQLite 一键部署
 
-## 一键部署（Linux 服务器）
-
-安装 Docker Engine、Docker Compose v2（支持 `--wait`）、Git 和 OpenSSL，然后运行：
+Linux 服务器安装 Docker Engine、Docker Compose v2、Git、OpenSSL 后运行：
 
 ```bash
 git clone https://github.com/sunnyfancore/NestHub.git
@@ -14,108 +12,185 @@ cd NestHub
 bash scripts/deploy.sh
 ```
 
-脚本自动生成 `.env` 和独立随机密码，创建持久化目录，拉取镜像并等待服务就绪。访问 `http://服务器IP:5186`，初始管理员为 `admin@example.com`，密码首次执行时显示并保存在 `.env`。登录后可以修改邮箱和密码。
+默认使用 SQLite，只启动一个应用容器。脚本生成 `.env` 和随机密码，设置挂载目录权限并启动应用。访问 `http://服务器IP:5186`，初始邮箱 `admin@example.com`，密码首次显示并保存在 `.env`。设置目录权限时可能提示 sudo 密码。
 
-再次运行脚本会保留 `.env` 和数据，并拉取更新。脚本需要当前用户能访问 Docker；设置上传目录权限时可能提示 sudo 密码。
-
-如果第一次拉取出现 `denied`，在 GitHub 仓库右侧 **Packages → nesthub → Package settings → Change visibility → Public** 将镜像设为公开。GitHub 新建包可能默认私有；公开仓库不代表镜像自动公开。也可以用有 `read:packages` 权限的 GitHub 令牌登录 `ghcr.io` 拉取私有镜像。
-
-## 手动 Compose 部署
-
-只需要 `docker-compose.yml` 和 `.env`，运行镜像无需安装 .NET 或 Node.js，也无需复制 `publish` 目录。
+手动部署：
 
 ```bash
 cp .env.example .env
-# 编辑 .env，替换所有 replace-with-... 示例，JWT_SECRET 至少 32 字符
-mkdir -p data/app data/mysql backups
+# 编辑 .env，替换示例密码，JWT_SECRET 至少 32 字符
+mkdir -p data/app backups
 sudo chown -R 1654:1654 data/app
 docker compose pull
 docker compose up -d --wait --wait-timeout 300
 ```
 
-数据库密码建议使用 `openssl rand -hex 24` 生成，避免连接字符串中的分号、引号以及 Compose 插值字符。更换端口修改 `.env` 中的 `NESTHUB_PORT`；通过反向代理访问时可设置 `NESTHUB_BIND_ADDRESS=127.0.0.1`。
+SQLite 适合个人、小团队的单实例部署，不要让多个实例共享同一个数据库文件；大量并发写入建议继续使用 MySQL。端口通过 `.env` 的 `NESTHUB_PORT` 修改；仅通过本机反向代理访问可设置 `NESTHUB_BIND_ADDRESS=127.0.0.1`。
 
-## 挂载目录
+## MySQL 部署
 
-所有相对路径均相对于 `docker-compose.yml` 所在目录：
+使用独立配置，不要与默认 SQLite Compose 同时启动同一项目：
 
-| 宿主机 | 容器 | 保存内容 |
+```bash
+cp .env.example .env
+# 编辑 .env，替换全部示例密码；数据库密码可用 openssl rand -hex 24 生成
+mkdir -p data/app data/mysql backups
+sudo chown -R 1654:1654 data/app
+docker compose -f docker-compose.mysql.yml pull
+docker compose -f docker-compose.mysql.yml up -d --wait --wait-timeout 300
+```
+
+管理 MySQL 版本时都要加 `-f docker-compose.mysql.yml`。原配置未指定 `Database:Provider` 时仍使用 MySQL，不会自动迁移数据。
+
+## 目录挂载
+
+相对路径以 Compose 文件所在目录为准。
+
+| 宿主机 | 容器 | 内容 |
 | --- | --- | --- |
-| `./data/mysql` | MySQL 的 `/var/lib/mysql` | 账号、分类、书签、站点设置、SMTP 设置等数据库数据 |
-| `./data/app` | NestHub 的 `/app/AppData` | 上传文件，网站 Logo 位于 `uploads/logos` |
-| `./.env` | 由 Compose 读取，不挂载 | 数据库密码、JWT 密钥、管理员初始设置、镜像和端口 |
-| `./backups` | 不自动挂载 | 自己保存的数据库导出与上传文件备份 |
+| `./data/app` | `/app/AppData` | SQLite 的 `nesthub.db`、WAL/SHM 文件和上传目录 `uploads/` |
+| `./data/mysql` | MySQL `/var/lib/mysql` | 仅 MySQL 版使用的数据库数据 |
+| `./.env` | Compose 读取，不挂载 | JWT 密钥、密码、端口、镜像等 |
+| `./backups` | 不自动挂载 | 导出的数据库及文件备份 |
 
-不要再挂载 `./publish:/app` 或整个 `/app`，否则会覆盖镜像中的程序、主题和插件，导致更新不生效。也不要挂载整个 `wwwroot`；前端和插件已经在镜像里。
+不要挂载整个 `/app` 或 `wwwroot`，否则覆盖镜像里的程序，更新不生效。可把数据目录改为 `/srv/nesthub/app:/app/AppData` 等绝对路径，目录必须允许 UID `1654` 写入。`.env`、数据库、上传文件和备份不进入 Git 或 Docker 构建。
 
-自定义数据盘可把 Compose 的卷源改成绝对路径，例如 `/srv/nesthub/app:/app/AppData` 和 `/srv/nesthub/mysql:/var/lib/mysql`。上传目录需允许 UID `1654` 写入；MySQL 的目录由官方镜像初始化管理。`.env` 和数据目录已被 Git 与 Docker 构建上下文排除。
+## 一条脚本导出 MySQL 为 SQLite
 
-## 更新
+只需要 Docker 和原 MySQL 连接，无需部署新应用或本机安装 .NET。
 
-先备份，然后在部署目录运行：
+```bash
+cp mysql-migration.env.example mysql-migration.env
+chmod 600 mysql-migration.env
+```
+
+在 `mysql-migration.env` 中填写这一行（不用额外引号）：
+
+```dotenv
+Migration__MySqlConnectionString=Server=数据库地址;Port=3306;Database=nesthub;User ID=用户名;Password=密码;Charset=utf8mb4;SslMode=None;
+```
+
+运行：
+
+```bash
+bash scripts/export-mysql-to-sqlite.sh
+# 指定配置文件与导出路径：
+bash scripts/export-mysql-to-sqlite.sh mysql-migration.env backups/my-navigation.db
+```
+
+默认输出 `backups/nesthub-export.db`。导出覆盖八张表：账号和密码哈希、站点设置、分类、书签、分享链接、跳转设置、密码重置记录、SMTP 设置。保留 ID、排序、点击数、图标等字段，逐表逐字段校验。原数据库使用只读事务，不会被修改；先写临时文件，成功后才生成正式文件；输出文件已存在时拒绝覆盖。命令失败则不要切换生产站。
+
+数据库地址必须能从容器访问。宿主机 MySQL 可以使用 `host.docker.internal`（脚本配置了 host-gateway），前提是 MySQL 允许该连接；其他数据库填写可达 IP/域名。容器内 `localhost` 不是宿主机。同一 Docker 网络内的 MySQL 容器可将脚本的 `docker run` 增加 `--network 网络名`，使用 MySQL 容器名连接。配置文件包含密码，已从 Git 和镜像构建排除。
+
+Windows 可使用 PowerShell 脚本 `scripts/export-mysql-to-sqlite.ps1`，参数与结果见下面的命令：
+
+```powershell
+Copy-Item mysql-migration.env.example mysql-migration.env
+# 编辑连接信息
+./scripts/export-mysql-to-sqlite.ps1
+./scripts/export-mysql-to-sqlite.ps1 -ConfigFile mysql-migration.env -OutputFile backups/my-navigation.db
+```
+
+## 用导出的 SQLite 接管旧站
+
+1. 先备份原 MySQL 和上传文件，暂停旧 NestHub 的写入，保持 MySQL 运行，再执行导出脚本。不要删除原库。
+2. 准备新部署目录的 `.env`，保留原 JWT 密钥；原管理员账号和密码会迁移，初始管理员配置不会重置已有账号。
+3. 在新应用首次启动前，把导出的文件复制为 `data/app/nesthub.db`，同时复制旧 `AppData/uploads` 到 `data/app/uploads`。不要覆盖已使用的新库。
+4. 执行 `sudo chown -R 1654:1654 data/app`，然后 `docker compose up -d --wait --wait-timeout 300`。
+5. 用原账号登录，核对用户、分类、书签、公共导航、分享链接、Logo 和设置，再切换域名或反向代理。
+
+上传图片不在数据库中，必须另行复制。MySQL 的 SQL 文件不能直接导入 SQLite；旧后台 JSON 导出也不是整站恢复文件。切换后的 SQLite 修改不会自动回写原 MySQL，保留旧库和备份以便回退。
+
+## 更新与固定版本
+
+### 后台一键更新（可选）
+
+首次在 `.env` 中添加 `UPDATE_API_TOKEN`（例如 `openssl rand -hex 32`），然后执行一次：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.update.yml up -d
+```
+
+MySQL 版把第一个文件替换为 `docker-compose.mysql.yml`。之后超级管理员进入 **后台 → 应用更新**，检查版本并点击更新即可，无需每次登录服务器拉镜像。应用会短暂重启，页面自动等待新版恢复；镜像必须使用 `latest` 标签才能跟随最新主分支。
+
+更新由独立 Watchtower 服务执行，Docker socket 只挂载到更新服务，主应用没有直接操作 Docker 的权限。服务不公开端口，使用随机令牌验证，只更新带 NestHub 更新标签的应用容器，不更新数据库。此服务具有 Docker 管理权限，部署者应保管好服务器与令牌。旧镜像保留，可用于手动回退；数据升级前仍需备份。
+
+启用后如需调整 Compose 配置，继续同时使用这两个文件；只运行基础 Compose 会关闭主应用的后台更新配置。数据文件、配置和图片继续沿用原挂载路径。
+
+### 手动更新
+
+先备份，再执行：
 
 ```bash
 docker compose pull nesthub
 docker compose up -d --no-deps --wait --wait-timeout 300 nesthub
 ```
 
-这会更新程序和插件，保留数据库及上传文件，不升级 MySQL。服务重建时有短暂中断。后端自动同步表结构，因此升级前应备份数据；旧镜像不保证兼容升级后的数据库结构。
+MySQL 版两条命令都加 `-f docker-compose.mysql.yml`。数据库和上传文件保留，MySQL 容器不更新。重建时有短暂中断；程序自动同步表结构，旧版本不保证兼容更新后的结构。
 
-如果需要同步 Compose 配置或脚本，也可以 `git pull --ff-only` 后重新运行部署脚本。保留本地 `.env`，数据库已有数据时，修改 `.env` 的 MySQL 密码不会自动修改数据库用户密码。管理员邮箱/密码配置也只在首次初始化时生效；JWT 密钥变更会使现有登录令牌失效。
+- `latest`：最近一次 `main` 成功构建。
+- `sha-xxxxxxx`：固定 Git 提交。
+- `1.3.1` / `1.3`：推送 `v1.3.1` 等 Git 标签后生成。
 
-## 镜像标签与回退
+修改 `.env` 的 `NESTHUB_IMAGE` 可固定版本，再执行更新命令。标签构建不覆盖 `latest`。MySQL 已有数据时，修改环境密码不会自动修改数据库密码；JWT 密钥变更会使旧令牌失效。
 
-- `latest`：最近一次 `main` 构建成功的镜像。
-- `sha-xxxxxxx`：按 Git 提交固定的镜像，适合可重复部署。
-- `1.3.0`、`1.3`：推送 `v1.3.0` 这样的 Git 标签后自动生成版本镜像。
+## 备份和恢复
 
-在 `.env` 中把 `NESTHUB_IMAGE` 改为目标版本，再执行更新命令。`latest` 只随 `main` 更新，历史标签重新构建不会覆盖它。
-
-## 备份与恢复
-
-在 Linux 部署目录运行，保留 `.env`，停止应用以避免备份过程中的写入：
+SQLite：停止应用后备份整个 AppData，包括数据库、WAL 和上传文件。
 
 ```bash
 mkdir -p backups
 docker compose stop nesthub
-docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysqldump -u nesthub --single-transaction --no-tablespaces nesthub' > backups/nesthub.sql
 tar -czf backups/app-data.tar.gz -C data app
 docker compose start nesthub
 ```
 
-恢复到配置好相同密码的部署环境中：
+恢复时先停止应用，保留现有 `data/app` 的副本，将备份解压到 `data`，恢复 UID `1654` 权限后启动。不要在应用运行时只复制 `nesthub.db`，可能遗漏 WAL 中的新数据。
+
+MySQL：
 
 ```bash
-docker compose up -d --wait mysql
-docker compose stop nesthub
-docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u nesthub nesthub' < backups/nesthub.sql
-tar -xzf backups/app-data.tar.gz -C data
-sudo chown -R 1654:1654 data/app
-docker compose up -d --wait --wait-timeout 300 nesthub
+mkdir -p backups
+docker compose -f docker-compose.mysql.yml stop nesthub
+docker compose -f docker-compose.mysql.yml exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysqldump -u nesthub --single-transaction --no-tablespaces nesthub' > backups/nesthub.sql
+tar -czf backups/app-data.tar.gz -C data app
+docker compose -f docker-compose.mysql.yml start nesthub
 ```
 
-备份命令失败时不要继续恢复；数据库目录不能在 MySQL 运行时直接复制作为可靠备份。不要删除 `data` 目录。
-
-## 原有部署迁移
-
-原 Compose 使用外部 MySQL，新 Compose 默认新增内置 MySQL，不能直接把空数据库当作原站点。迁移前先从原数据库导出 SQL，再导入新 MySQL，并把旧 `publish/AppData` 中的上传文件复制到新 `data/app`，最后检查用户、分类、书签和 Logo。
-
-继续使用外部 MySQL时：移除 Compose 的 `mysql` 服务及 `nesthub.depends_on`，将 `Database__ConnectionString` 改为自己的外部数据库连接。容器中的 `localhost` 指向容器自身，不能用它连接宿主机数据库。保留原 JWT 密钥可避免现有令牌因签名变化失效。
-
-## 构建和排查
-
-本地从源码构建（无需手动发布）：
+恢复时应用保持停止、MySQL 启动，运行：
 
 ```bash
-docker build -t nesthub:local .
-# .env 设置 NESTHUB_IMAGE=nesthub:local
-docker compose up -d --wait --wait-timeout 300
+docker compose -f docker-compose.mysql.yml exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysql -u nesthub nesthub' < backups/nesthub.sql
 ```
+
+再恢复上传文件。保留 `.env`；不要在 MySQL 运行时直接复制其数据库目录作为可靠备份。
+
+## 外部数据库与源码配置
+
+继续使用外部 MySQL：在 MySQL Compose 中删除 `mysql` 服务和 `depends_on`，将 `Database__ConnectionString` 改为原连接地址。不要把内置空数据库当作原库。
+
+源码使用 SQLite：
+
+```json
+{
+  "Database": {
+    "Provider": "Sqlite",
+    "ConnectionString": "Data Source=AppData/nesthub.db",
+    "AutoSyncStructure": true
+  }
+}
+```
+
+相对路径以应用内容根目录为准，父目录自动创建。SQLite 使用 WAL 和 30 秒锁等待。MySQL 使用 `Provider: MySql` 和原连接字符串。
+
+## 排查
 
 ```bash
 docker compose ps
-docker compose logs --tail=100 nesthub mysql
+docker compose logs --tail=100 nesthub
 curl -f http://localhost:5186/health
 ```
 
-自动构建状态见仓库 **Actions → Docker image**。工作流使用 GitHub 自带 `GITHUB_TOKEN` 写入 GHCR，无需配置 Docker Hub 账号。若提示写包权限不足，检查 Actions 是否启用、组织包策略及现有包的仓库访问权限。
+源码构建：`docker build -t nesthub:local .`，把 `.env` 的 `NESTHUB_IMAGE` 改为 `nesthub:local` 后启动。无需手动生成 publish 目录。
+
+自动构建见 **Actions → Docker image**，使用 GitHub 自带 `GITHUB_TOKEN`，无需 Docker Hub 账号。Fork 后镜像拉取报 denied 时，可将 GitHub Packages 的镜像包设为 Public 或登录 GHCR 拉取私有镜像。

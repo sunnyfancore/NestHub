@@ -22,6 +22,8 @@ function applyTheme(theme) {
   $('themeDescription').textContent = themeDescriptions[theme];
 }
 let connection = null;
+let sourcePageUrl = '';
+let sourcePageIcon = null;
 let targetTenantId = null;
 let savedUrl = null;
 function status(message, error = false) {
@@ -164,6 +166,7 @@ $('saveForm').addEventListener('submit', async event => {
     if (savedUrl === url.href) throw new Error('本次已保存此地址。');
     await api(`links?targetTenantId=${encodeURIComponent(targetTenantId)}`, {
       categoryId: $('category').value, title, url: url.href,
+      iconUrl: url.href === sourcePageUrl ? sourcePageIcon : null,
       description: $('description').value.trim(), tags: $('tags').value.trim(), isPinned: $('pinned').checked
     });
     savedUrl = url.href;
@@ -232,6 +235,9 @@ async function init() {
     ? await chrome.tabs.get(Number(sourceTab))
     : (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
   if (tab?.url && /^https?:\/\//i.test(tab.url)) {
+    sourcePageUrl = new URL(tab.url).href;
+    sourcePageIcon = tab.favIconUrl && /^https?:\/\//i.test(tab.favIconUrl) && tab.favIconUrl.length <= 1024
+      ? tab.favIconUrl : null;
     $('url').value = tab.url;
     $('title').value = (tab.title || tab.url).slice(0, 120);
   }

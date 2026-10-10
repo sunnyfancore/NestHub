@@ -12,6 +12,18 @@ using NestHub.Api.Infrastructure.Persistence;
 using NestHub.Api.Infrastructure.Security;
 using NestHub.Api.Services;
 
+if (args.Contains("--migrate-mysql-to-sqlite"))
+{
+    var migrationConfiguration = new ConfigurationBuilder()
+        .SetBasePath(Directory.GetCurrentDirectory())
+        .AddJsonFile("appsettings.json", optional: true)
+        .AddJsonFile("appsettings.Production.json", optional: true)
+        .AddEnvironmentVariables()
+        .Build();
+    Environment.ExitCode = await DatabaseMigrationService.RunAsync(migrationConfiguration);
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<DatabaseOptions>(builder.Configuration.GetSection(DatabaseOptions.SectionName));
@@ -37,6 +49,8 @@ builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddScoped<NavigationLinkService>();
 builder.Services.AddScoped<PortalService>();
+builder.Services.AddSingleton<SiteIconService>();
+builder.Services.AddSingleton<SystemUpdateService>();
 builder.Services.AddScoped<ProfileService>();
 builder.Services.AddScoped<ShareService>();
 builder.Services.AddScoped<SiteSettingService>();

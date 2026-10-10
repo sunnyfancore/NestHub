@@ -1,5 +1,6 @@
 using FreeSql;
 using Microsoft.Extensions.Options;
+using Microsoft.Data.Sqlite;
 using NestHub.Api.Domain.Entities;
 using NestHub.Api.Domain.Interfaces;
 using NestHub.Api.Infrastructure.Configuration;
@@ -16,8 +17,28 @@ public static class ServiceCollectionExtensions
             var dbOptions = sp.GetRequiredService<IOptions<DatabaseOptions>>().Value;
             var tenantContextAccessor = sp.GetRequiredService<TenantContextAccessor>();
 
+            var provider = dbOptions.Provider.Trim().ToLowerInvariant();
+            var dataType = provider switch
+            {
+                "mysql" => DataType.MySql,
+                "sqlite" => DataType.Sqlite,
+                _ => throw new InvalidOperationException("Database:Provider must be MySql or Sqlite.")
+            };
+            var connectionString = dbOptions.ConnectionString;
+            if (dataType == DataType.Sqlite)
+            {
+                var connection = new SqliteConnectionStringBuilder(connectionString);
+                if (string.IsNullOrWhiteSpace(connection.DataSource) || connection.DataSource == ":memory:")
+                    throw new InvalidOperationException("SQLite requires a persistent Data Source file.");
+                var root = sp.GetRequiredService<IWebHostEnvironment>().ContentRootPath;
+                connection.DataSource = Path.GetFullPath(connection.DataSource, root);
+                Directory.CreateDirectory(Path.GetDirectoryName(connection.DataSource)!);
+                connection.DefaultTimeout = 30;
+                connectionString = connection.ConnectionString;
+            }
+
             var orm = new FreeSqlBuilder()
-                .UseConnectionString(DataType.MySql, dbOptions.ConnectionString)
+                .UseConnectionString(dataType, connectionString)
                 .UseAutoSyncStructure(dbOptions.AutoSyncStructure)
                 .Build();
 

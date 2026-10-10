@@ -42,6 +42,7 @@ backups/
 .env
 .env.*
 !.env.example
+mysql-migration.env
 
 ## OS
 .DS_Store

@@ -15,6 +15,7 @@ TZ=Asia/Shanghai
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=$admin_password
 JWT_SECRET=$(openssl rand -hex 32)
+UPDATE_API_TOKEN=$(openssl rand -hex 32)
 MYSQL_PASSWORD=$(openssl rand -hex 24)
 MYSQL_ROOT_PASSWORD=$(openssl rand -hex 24)
 EOF
@@ -25,7 +26,7 @@ fi
 if grep -q 'replace-with-' .env; then
   echo '请先替换 .env 中的示例密码。'; exit 1
 fi
-mkdir -p data/app data/mysql backups
+mkdir -p data/app backups
 # The image runs as the .NET app user (UID 1654).
 if [ "$(id -u)" = 0 ]; then
   chown -R 1654:1654 data/app

@@ -59,6 +59,7 @@ const allSections = [
       { label: '公共链接', to: '/admin/public-links', icon: Link },
       { label: '公共站点', to: '/admin/public-site', icon: Setting },
       { label: '安全设置', to: '/admin/security', icon: Lock },
+      { label: '应用更新', to: '/admin/updates', icon: Download },
     ],
   },
 ]

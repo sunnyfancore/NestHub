@@ -24,6 +24,8 @@ ENV ASPNETCORE_URLS=http://+:8080 \
 COPY --from=build /out/ ./
 RUN mkdir -p /app/AppData && chown -R app:app /app/AppData
 USER app
+ARG APP_REVISION=local
+ENV NESTHUB_BUILD_REVISION=$APP_REVISION
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=5 \
     CMD curl --fail --silent http://127.0.0.1:8080/health || exit 1

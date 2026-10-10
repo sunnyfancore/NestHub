@@ -22,6 +22,7 @@ import AppInfoDialog from '@/components/portal/AppInfoDialog.vue'
 import LoginDialog from '@/components/portal/LoginDialog.vue'
 import PortalCategoryDialog from '@/components/portal/PortalCategoryDialog.vue'
 import PortalLinkDialog from '@/components/portal/PortalLinkDialog.vue'
+import PortalSiteIcon from '@/components/portal/PortalSiteIcon.vue'
 import SiteSettingsDialog from '@/components/portal/SiteSettingsDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 import type {
@@ -642,53 +643,6 @@ function anchorId(categoryId: string) {
 
 function childAnchorId(categoryId: string) {
   return `child-${categoryId}`
-}
-
-function iconCandidates(link: PortalLink) {
-  const candidates: string[] = []
-  if (link.iconUrl) {
-    candidates.push(link.iconUrl)
-  }
-  try {
-    const u = new URL(link.url)
-    const host = u.port ? `${u.hostname}:${u.port}` : u.hostname
-    const domain = u.hostname
-    const base64 = btoa(host)
-    const origin = `${u.protocol}//${u.host}`
-    candidates.push(
-      `https://t0.gstatic.cn/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&size=32&url=${encodeURIComponent(origin)}`,
-      `https://favicon.im/${encodeURIComponent(domain)}?larger=true`,
-      `https://icons.duckduckgo.com/ip3/${domain}.ico`,
-      `https://favicon.png.pub/v1/${base64}`,
-      `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=64`,
-    )
-  } catch {
-    // ignore invalid urls and fall through to the fallback letter
-  }
-  return candidates
-}
-
-function resolveIcon(link: PortalLink) {
-  return iconCandidates(link)[0] || ''
-}
-
-function handleIconError(event: Event, link: PortalLink) {
-  const img = event.target as HTMLImageElement
-  if (!img) return
-  const candidates = iconCandidates(link)
-  const currentIndex = Number(img.dataset.iconIndex || '0')
-  const nextIcon = candidates[currentIndex + 1]
-  if (nextIcon) {
-    img.dataset.iconIndex = String(currentIndex + 1)
-    img.src = nextIcon
-    return
-  }
-
-  const span = img.parentElement
-  if (!span) return
-  const cardEl = span.closest('.portal-card') as HTMLElement | null
-  const title = cardEl?.querySelector('.portal-card__copy strong')?.textContent?.trim() || '?'
-  span.innerHTML = `<span class="portal-card__fallback">${title.charAt(0).toUpperCase()}</span>`
 }
 
 function openContextMenu(link: PortalLink, event: MouseEvent) {
@@ -1379,7 +1333,7 @@ onBeforeUnmount(() => {
               <button class="portal-card__main" type="button">
                 <span class="portal-card__icon">
                   <i v-if="link.fontIcon" :class="['fa', link.fontIcon]"></i>
-                  <img v-else :src="resolveIcon(link)" :alt="link.title" data-icon-index="0" @error="handleIconError($event, link)" />
+                  <PortalSiteIcon v-else :url="link.url" :icon-url="link.iconUrl" :title="link.title" />
                 </span>
 
                 <div class="portal-card__copy">
@@ -1441,7 +1395,7 @@ onBeforeUnmount(() => {
                   <button class="portal-card__main" type="button">
                     <span class="portal-card__icon">
                       <i v-if="link.fontIcon" :class="['fa', link.fontIcon]"></i>
-                      <img v-else :src="resolveIcon(link)" :alt="link.title" data-icon-index="0" @error="handleIconError($event, link)" />
+                      <PortalSiteIcon v-else :url="link.url" :icon-url="link.iconUrl" :title="link.title" />
                     </span>
 
                     <div class="portal-card__copy">
