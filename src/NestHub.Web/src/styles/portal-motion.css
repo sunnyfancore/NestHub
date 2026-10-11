@@ -1,5 +1,31 @@
 /* Only transform/opacity animate. Decorations never intercept interaction. */
-.theme-ambient { position: fixed; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; contain: strict; }
+.theme-particles { position:fixed;inset:0;z-index:1;overflow:hidden;pointer-events:none;contain:strict;color:var(--p-accent); }
+.theme-particles__trail { position:absolute;top:-30px;animation:theme-particle-fall var(--particle-time) var(--particle-delay) linear infinite; }
+.theme-particles__glyph { display:block;font-size:var(--particle-size);line-height:1;animation:theme-particle-twinkle 3.8s var(--particle-delay) ease-in-out infinite; }
+.theme-ocean .theme-particles,.theme-liquid .theme-particles { color:var(--p-accent); }
+.theme-ocean .theme-particles__trail,.theme-liquid .theme-particles__trail { top:auto;bottom:-30px;animation-name:theme-particle-rise; }
+.theme-neon .theme-particles__glyph,.theme-blackgold .theme-particles__glyph { text-shadow:0 0 6px currentColor; }
+.theme-paper .theme-particles__glyph,.theme-directory .theme-particles__glyph { font-size:calc(var(--particle-size) * 1.6); }
+.portal-page:is(.theme-default2,.theme-neon,.theme-blackgold,.theme-launchpad) .theme-particles__trail:nth-child(6n)::after {
+  content:'';position:absolute;left:50%;bottom:60%;width:1px;height:38px;
+  background:linear-gradient(transparent,currentColor);transform:rotate(-25deg);transform-origin:bottom;
+  animation:theme-meteor-glimmer 5s var(--particle-delay) ease-in-out infinite;
+}
+.portal-page:is(.theme-ocean,.theme-liquid) .theme-particles__glyph { animation:theme-bubble-sway 4s var(--particle-delay) ease-in-out infinite; }
+.theme-lime .theme-particles__glyph { animation:theme-petal-turn 7s var(--particle-delay) ease-in-out infinite; }
+@keyframes theme-meteor-glimmer { 0%,65%,100%{opacity:0;transform:rotate(-25deg) scaleY(.3)} 75%,85%{opacity:.7;transform:rotate(-25deg) scaleY(1)} }
+@keyframes theme-bubble-sway { 0%,100%{transform:translateX(-6px) scale(.85);opacity:.65} 50%{transform:translateX(6px) scale(1.1);opacity:1} }
+@keyframes theme-petal-turn { 0%,100%{transform:rotate(-35deg) scale(.85);opacity:.65} 50%{transform:rotate(35deg) scale(1.05);opacity:1} }
+@keyframes theme-particle-fall { 0%{transform:translate3d(0,-30px,0) rotate(0);opacity:0} 12%,80%{opacity:.38} 100%{transform:translate3d(var(--particle-drift),calc(100dvh + 60px),0) rotate(100deg);opacity:0} }
+@keyframes theme-particle-rise { 0%{transform:translate3d(0,30px,0);opacity:0} 12%,80%{opacity:.38} 100%{transform:translate3d(var(--particle-drift),calc(-100dvh - 60px),0);opacity:0} }
+@keyframes theme-particle-twinkle { 0%,100%{opacity:.55;transform:scale(.8)} 50%{opacity:1;transform:scale(1.1)} }
+@media(max-width:760px){.theme-particles__trail:nth-child(n+7){display:none}}
+.portal-page.motion-paused :is(.theme-particles__trail,.theme-particles__glyph){animation-play-state:paused!important}
+.portal-page.motion-paused .theme-particles__trail::after{animation-play-state:paused!important}
+@media(prefers-reduced-motion:reduce){.theme-particles{display:none}.theme-particles__trail,.theme-particles__glyph{animation:none}}
+@media(prefers-reduced-motion:reduce){.theme-particles__trail::after{animation:none}}
+.portal-main { isolation: isolate; }
+.theme-ambient { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; contain: strict; }
 .theme-ambient span { position: absolute; width: 36vw; height: 36vw; min-width: 240px; min-height: 240px; right: -12vw; top: -12vw; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb,var(--p-accent) 12%,transparent), transparent 68%); animation: theme-light-drift 22s ease-in-out infinite alternate; }
 .theme-ambient span + span { top: auto; right: auto; left: -12vw; bottom: -12vw; animation-delay: -11s; animation-direction: alternate-reverse; }
 .theme-ocean .theme-ambient span { width: min(55vw, 760px); height: min(55vw, 760px); background: radial-gradient(ellipse, #46b9df20, transparent 65%); animation-name: theme-ocean-tide; animation-duration: 26s; }
@@ -15,25 +41,19 @@
 .theme-neon .theme-ambient span { max-width: none; }
 .theme-liquid .theme-ambient span + span { animation-delay: -12s; }
 .theme-paper .theme-ambient span + span { animation-delay: -16s; }
-/* Visible, theme-specific decoration stays in the margins, above backgrounds. */
-.theme-default2 .theme-ambient span { width:220px;height:220px;min-width:0;min-height:0;right:3vw;top:20vh;border-radius:24px;border:1px solid color-mix(in srgb,var(--p-accent) 18%,transparent);background:linear-gradient(135deg,color-mix(in srgb,var(--p-accent) 7%,transparent),transparent);animation:theme-grid-orbit 24s ease-in-out infinite alternate; }
-.theme-default2 .theme-ambient span + span { left:18vw;bottom:8vh;top:auto;right:auto;width:100px;height:100px;animation-delay:-12s; }
-.theme-ocean .theme-ambient span { background:radial-gradient(ellipse,#46b9df40,transparent 68%); }
-.theme-neon .theme-ambient span { background:linear-gradient(transparent,#77e0c030,transparent); }
-.theme-paper .theme-ambient span { width:160px;height:220px;min-width:0;min-height:0;right:3vw;top:22vh;border-radius:8px;border:1px solid #b8925030;background:linear-gradient(120deg,#dfbe8d20,transparent);animation:theme-paper-float 22s ease-in-out infinite alternate; }
-.theme-paper .theme-ambient span + span { left:19vw;top:auto;bottom:8vh;right:auto;animation-delay:-11s; }
-.theme-blackgold .theme-ambient span { background:radial-gradient(ellipse,#e1c88e42,transparent 68%); }
-.theme-liquid .theme-ambient span { background:radial-gradient(ellipse,#75c9e948,transparent 68%); }
-.theme-liquid .theme-ambient span + span { background:radial-gradient(ellipse,#b8a1ec38,transparent 68%); }
-.theme-lime .theme-ambient span { width:120px;height:180px;min-width:0;min-height:0;right:2vw;top:28vh;border-radius:80% 0 80% 0;border:1px solid #87af4040;background:linear-gradient(135deg,#c9f36b30,transparent);animation:theme-paper-float 18s ease-in-out infinite alternate; }
-.theme-lime .theme-ambient span + span { left:18vw;top:auto;bottom:8vh;right:auto;width:70px;height:110px;animation-delay:-9s; }
-.theme-directory .theme-ambient span,.theme-workspace .theme-ambient span { width:180px;height:180px;min-width:0;min-height:0;right:2vw;top:24vh;border-radius:50%;background:none;border:1px dashed color-mix(in srgb,var(--p-accent) 25%,transparent);animation:theme-compass-turn 60s linear infinite; }
-.theme-directory .theme-ambient span + span,.theme-workspace .theme-ambient span + span { display:none; }
-.theme-workspace .theme-ambient span { border-radius:22px;border-style:solid;animation:theme-grid-orbit 26s ease-in-out infinite alternate; }
-.theme-launchpad .theme-ambient span { background:radial-gradient(ellipse,color-mix(in srgb,var(--p-accent) 23%,transparent),transparent 68%); }
-@keyframes theme-grid-orbit { from { transform:translate3d(0,0,0) rotate(-8deg);opacity:.5; } to { transform:translate3d(-20px,35px,0) rotate(8deg);opacity:1; } }
-@keyframes theme-paper-float { from { transform:translate3d(0,0,0) rotate(-7deg);opacity:.5; } to { transform:translate3d(-15px,28px,0) rotate(7deg);opacity:1; } }
-@keyframes theme-compass-turn { from { transform:rotate(0); } to { transform:rotate(360deg); } }
+/* Soft light moves behind surfaces; no outlined shapes over content. */
+.theme-default2 .theme-ambient span { width:420px;height:420px;right:-130px;top:16vh;border:0;border-radius:50%;background:radial-gradient(ellipse,color-mix(in srgb,var(--p-accent) 18%,transparent),transparent 65%);animation:theme-soft-flow 10s ease-in-out infinite alternate; }
+.theme-default2 .theme-ambient span + span { left:12vw;bottom:-160px;top:auto;right:auto;animation-delay:-5s; }
+.theme-ocean .theme-ambient span { background:radial-gradient(ellipse,#46b9df48,transparent 68%);animation-duration:12s; }
+.theme-neon .theme-ambient span { background:linear-gradient(transparent,#77e0c030,transparent);animation-duration:14s;animation-delay:-3s; }
+.theme-paper .theme-ambient span { border:0;border-radius:50%;background:radial-gradient(ellipse,#dfbe8d48,transparent 68%);animation:theme-soft-flow 14s ease-in-out infinite alternate; }
+.theme-blackgold .theme-ambient span { background:radial-gradient(ellipse,#e1c88e48,transparent 68%);animation-duration:14s; }
+.theme-liquid .theme-ambient span { background:radial-gradient(ellipse,#75c9e950,transparent 68%);animation-duration:12s; }
+.theme-liquid .theme-ambient span + span { background:radial-gradient(ellipse,#b8a1ec40,transparent 68%);animation-delay:-6s; }
+.theme-lime .theme-ambient span { border:0;border-radius:50%;background:radial-gradient(ellipse,#c9f36b48,transparent 68%);animation:theme-soft-flow 12s ease-in-out infinite alternate; }
+.theme-directory .theme-ambient span,.theme-workspace .theme-ambient span { border:0;border-radius:50%;background:radial-gradient(ellipse,color-mix(in srgb,var(--p-accent) 20%,transparent),transparent 68%);animation:theme-soft-flow 14s ease-in-out infinite alternate; }
+.theme-launchpad .theme-ambient span { background:radial-gradient(ellipse,color-mix(in srgb,var(--p-accent) 25%,transparent),transparent 68%);animation:theme-soft-flow 12s ease-in-out infinite alternate; }
+@keyframes theme-soft-flow { from { transform:translate3d(0,-20px,0) scale(.85);opacity:.45; } to { transform:translate3d(-80px,75px,0) scale(1.15);opacity:1; } }
 .portal-page :is(.portal-sidebar__link,.portal-sidebar__child-link,.portal-search-shell) { transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease; }
 .portal-page .portal-card:focus-within { outline: 2px solid var(--p-accent); outline-offset: 3px; }
 .portal-page:is(.theme-default2,.theme-ocean,.theme-neon,.theme-paper,.theme-blackgold,.theme-liquid,.theme-directory,.theme-workspace,.theme-launchpad) .portal-card { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease; }

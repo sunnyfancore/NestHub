@@ -46,6 +46,7 @@ const authStore = useAuthStore()
 
 const loading = ref(false)
 const motionPaused = ref(document.hidden)
+const particleGlyph = computed(() => ({ default2: '✦', ocean: '○', neon: '✧', paper: '·', lime: '❋', blackgold: '✧', liquid: '◦', directory: '·', workspace: '+', launchpad: '✦' }[activeTheme.value] || '✦'))
 function handleMotionVisibility() { motionPaused.value = document.hidden }
 const portalError = ref('')
 const saving = ref(false)
@@ -1127,7 +1128,15 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="portal-page" :class="['theme-' + activeTheme, { 'motion-paused': motionPaused }]" v-loading="loading">
-    <div v-if="activeTheme !== 'sakura'" class="theme-ambient" aria-hidden="true"><span></span><span></span></div>
+    <div v-if="activeTheme !== 'sakura'" class="theme-particles" aria-hidden="true">
+      <span v-for="particle in 12" :key="particle" class="theme-particles__trail" :style="{
+        left: `${(particle * 37) % 100}%`,
+        '--particle-time': `${12 + (particle % 5) * 2}s`,
+        '--particle-delay': `${-particle * 2.3}s`,
+        '--particle-size': `${9 + (particle % 4) * 3}px`,
+        '--particle-drift': `${(particle % 2 ? 1 : -1) * (30 + particle * 4)}px`,
+      }"><span class="theme-particles__glyph">{{ particleGlyph }}</span></span>
+    </div>
     <div v-if="activeTheme === 'sakura'" class="sakura-starfall" aria-hidden="true">
       <span v-for="star in 18" :key="star" class="sakura-starfall__trail" :style="{
         left: `${(star * 37) % 100}%`,
@@ -1233,6 +1242,8 @@ onBeforeUnmount(() => {
     </aside>
 
     <main ref="mainScrollRef" class="portal-main">
+    <div v-if="activeTheme !== 'sakura'" class="theme-ambient" aria-hidden="true"><span></span><span></span></div>
+
       <header class="portal-searchbar">
         <button
           class="portal-hamburger"
