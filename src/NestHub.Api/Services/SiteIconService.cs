@@ -99,6 +99,9 @@ public sealed class SiteIconService : IDisposable
         IconImage? result = null;
         try
         {
+            // Another request may have populated the cache while this one queued.
+            if (_images.TryGetValue<IconImage>(key, out cached)) return cached;
+            if (_deniedOrigins.TryGetValue(image.GetLeftPart(UriPartial.Authority), out _)) return null;
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             deadline.CancelAfter(TimeSpan.FromSeconds(5));
             for (var redirect = 0; redirect <= 3; redirect++)

@@ -64,11 +64,12 @@
 .portal-page.portal-page.portal-page:not(.theme-default2).theme-directory .portal-card:hover { transform: none; box-shadow: none; }
 .portal-page.portal-page.portal-page:not(.theme-default2).theme-directory .portal-card__icon { background: transparent; }
 .portal-page.portal-page.portal-page:not(.theme-default2).theme-directory .portal-card__icon img { width: 18px; height: 18px; }
-.portal-page.portal-page.portal-page:not(.theme-default2).theme-launchpad .portal-searchbar { background: transparent; }
+.portal-page.portal-page.portal-page:not(.theme-default2).theme-launchpad .portal-searchbar { background: var(--p-bg); }
 .portal-page.portal-page.portal-page:not(.theme-default2).theme-launchpad .portal-search-shell { border-radius: 28px; }
 .portal-page.portal-page.portal-page:not(.theme-default2).theme-launchpad .portal-card { border-radius: 18px; }
 .portal-page.portal-page.portal-page:not(.theme-default2).theme-liquid .portal-main { background: radial-gradient(ellipse at 95% 0,color-mix(in srgb,var(--p-accent) 8%,transparent),transparent 45%),radial-gradient(ellipse at 5% 80%,#9374d30a,transparent 50%),var(--p-bg); }
-.portal-page.portal-page.portal-page:not(.theme-default2).theme-liquid :is(.portal-section,.portal-searchbar,.portal-sidebar) { backdrop-filter: blur(18px); box-shadow: var(--p-shadow); }
+.portal-page.portal-page.portal-page:not(.theme-default2).theme-liquid :is(.portal-section,.portal-sidebar) { backdrop-filter: blur(18px); box-shadow: var(--p-shadow); }
+.portal-page.portal-page.portal-page:not(.theme-default2).theme-liquid .portal-searchbar { background: var(--p-panel); backdrop-filter: none; -webkit-backdrop-filter: none; }
 .portal-page.portal-page.portal-page:not(.theme-default2).theme-liquid .portal-card { border-radius: 14px; }
 .portal-page.portal-page.portal-page:not(.theme-default2).theme-paper .portal-section__title h2 { font-family: Georgia,'Noto Serif SC','Microsoft YaHei',serif; }
 @media (max-width: 767px) {
@@ -103,7 +104,14 @@
   --view-toggle-accent: var(--p-lime-highlight-ink); --view-toggle-accent-strong: var(--p-lime-highlight-ink);
 }
 .portal-page.portal-page.portal-page.theme-lime .portal-view-toggle span.is-active {
-  background: var(--p-lime-highlight); color: var(--p-lime-highlight-ink);
+  background: var(--p-soft); color: var(--p-ink);
+}
+.portal-page.portal-page.portal-page.theme-lime .portal-view-toggle {
+  padding: 4px; gap: 3px;
+}
+.portal-page.portal-page.portal-page.theme-lime .portal-view-toggle span {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 5px 10px; border-radius: 999px; line-height: 1.35;
 }
 .portal-page.portal-page.portal-page.theme-lime .portal-search-submit {
   background: var(--p-lime-highlight); color: var(--p-lime-highlight-ink); width: 40px; height: 40px;

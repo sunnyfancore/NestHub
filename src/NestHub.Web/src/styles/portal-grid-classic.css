@@ -6,7 +6,8 @@
   background-size:120px 120px,120px 120px,24px 24px,24px 24px;
 }
 html.dark .portal-page.portal-page.theme-default2 { --grid-line:rgba(226,232,244,.035); --grid-major:rgba(226,232,244,.055); }
-.portal-page.portal-page.theme-default2 :is(.portal-main,.portal-searchbar,.portal-footer) { background:transparent; }
+.portal-page.portal-page.theme-default2 .portal-main { background:transparent; }
+.portal-page.portal-page.theme-default2 :is(.portal-searchbar,.portal-footer) { background:var(--p-bg); }
 .portal-page.portal-page.theme-default2 .portal-sidebar { background:var(--p-panel); border:1px solid var(--p-line); box-shadow:0 4px 18px #12192d04; }
 .portal-page.portal-page.theme-default2 :is(.portal-sidebar__logo-letter,.portal-sidebar__logo-letter-full) { background:var(--p-ink); color:var(--p-panel); box-shadow:none; }
 .portal-page.portal-page.theme-default2 :is(.portal-sidebar__logo-title,.portal-sidebar__logo-title-full,.portal-card__copy strong,.portal-section__title h2,.portal-search-field) { color:var(--p-ink); }

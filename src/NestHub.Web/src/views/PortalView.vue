@@ -1127,7 +1127,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="portal-page" :class="['theme-' + activeTheme, { 'motion-paused': motionPaused }]" v-loading="loading">
-    <div v-if="['ocean', 'neon', 'paper', 'blackgold', 'liquid', 'launchpad'].includes(activeTheme)" class="theme-ambient" aria-hidden="true"><span></span><span></span></div>
+    <div v-if="activeTheme !== 'sakura'" class="theme-ambient" aria-hidden="true"><span></span><span></span></div>
     <div v-if="activeTheme === 'sakura'" class="sakura-starfall" aria-hidden="true">
       <span v-for="star in 18" :key="star" class="sakura-starfall__trail" :style="{
         left: `${(star * 37) % 100}%`,
@@ -1493,6 +1493,9 @@ onBeforeUnmount(() => {
         >
           <i :class="['fa', isPublicView ? 'fa-user-o' : 'fa-globe']"></i>
         </el-button>
+      <el-button class="portal-rail-action" circle title="刷新数据" aria-label="刷新数据" @click="refreshPortal">
+        <el-icon><Refresh /></el-icon>
+      </el-button>
         <template v-if="portal?.canEdit">
           <el-button class="portal-rail-action" circle title="新增分类" aria-label="新增分类" @click="openCreateCategory()">
             <el-icon><FolderAdd /></el-icon>
@@ -1500,10 +1503,10 @@ onBeforeUnmount(() => {
           <el-button class="portal-rail-action" circle title="新增链接" aria-label="新增链接" @click="openCreateLink()">
             <el-icon><Link /></el-icon>
           </el-button>
-          <el-button class="portal-rail-action" circle title="后台管理" aria-label="后台管理" @click="openAdmin">
+          <el-button class="portal-rail-action portal-rail-settings" circle title="后台管理" aria-label="后台管理" @click="openAdmin">
             <el-icon><Setting /></el-icon>
           </el-button>
-          <el-button class="portal-rail-action" circle title="退出登录" aria-label="退出登录" @click="logout">
+          <el-button class="portal-rail-action portal-rail-exit" circle title="退出登录" aria-label="退出登录" @click="logout">
             <el-icon><SwitchButton /></el-icon>
           </el-button>
         </template>
@@ -1512,9 +1515,7 @@ onBeforeUnmount(() => {
           <el-icon><Connection /></el-icon>
         </el-button>
       </template>
-      <el-button class="portal-rail-action" circle title="刷新数据" aria-label="刷新数据" @click="refreshPortal">
-        <el-icon><Refresh /></el-icon>
-      </el-button>
+
     </div>
 
       <el-button class="portal-back-top" circle title="返回顶部" aria-label="返回顶部" @click="scrollToTop">
@@ -5061,3 +5062,5 @@ html.dark .theme-paper .portal-context-menu__divider { background: #3a3220; }
 <style scoped src="../styles/portal-motion.css"></style>
 
 <style scoped src="../styles/portal-grid-classic.css"></style>
+
+<style scoped src="../styles/portal-controls.css"></style>

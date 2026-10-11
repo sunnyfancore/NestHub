@@ -15,6 +15,25 @@
 .theme-neon .theme-ambient span { max-width: none; }
 .theme-liquid .theme-ambient span + span { animation-delay: -12s; }
 .theme-paper .theme-ambient span + span { animation-delay: -16s; }
+/* Visible, theme-specific decoration stays in the margins, above backgrounds. */
+.theme-default2 .theme-ambient span { width:220px;height:220px;min-width:0;min-height:0;right:3vw;top:20vh;border-radius:24px;border:1px solid color-mix(in srgb,var(--p-accent) 18%,transparent);background:linear-gradient(135deg,color-mix(in srgb,var(--p-accent) 7%,transparent),transparent);animation:theme-grid-orbit 24s ease-in-out infinite alternate; }
+.theme-default2 .theme-ambient span + span { left:18vw;bottom:8vh;top:auto;right:auto;width:100px;height:100px;animation-delay:-12s; }
+.theme-ocean .theme-ambient span { background:radial-gradient(ellipse,#46b9df40,transparent 68%); }
+.theme-neon .theme-ambient span { background:linear-gradient(transparent,#77e0c030,transparent); }
+.theme-paper .theme-ambient span { width:160px;height:220px;min-width:0;min-height:0;right:3vw;top:22vh;border-radius:8px;border:1px solid #b8925030;background:linear-gradient(120deg,#dfbe8d20,transparent);animation:theme-paper-float 22s ease-in-out infinite alternate; }
+.theme-paper .theme-ambient span + span { left:19vw;top:auto;bottom:8vh;right:auto;animation-delay:-11s; }
+.theme-blackgold .theme-ambient span { background:radial-gradient(ellipse,#e1c88e42,transparent 68%); }
+.theme-liquid .theme-ambient span { background:radial-gradient(ellipse,#75c9e948,transparent 68%); }
+.theme-liquid .theme-ambient span + span { background:radial-gradient(ellipse,#b8a1ec38,transparent 68%); }
+.theme-lime .theme-ambient span { width:120px;height:180px;min-width:0;min-height:0;right:2vw;top:28vh;border-radius:80% 0 80% 0;border:1px solid #87af4040;background:linear-gradient(135deg,#c9f36b30,transparent);animation:theme-paper-float 18s ease-in-out infinite alternate; }
+.theme-lime .theme-ambient span + span { left:18vw;top:auto;bottom:8vh;right:auto;width:70px;height:110px;animation-delay:-9s; }
+.theme-directory .theme-ambient span,.theme-workspace .theme-ambient span { width:180px;height:180px;min-width:0;min-height:0;right:2vw;top:24vh;border-radius:50%;background:none;border:1px dashed color-mix(in srgb,var(--p-accent) 25%,transparent);animation:theme-compass-turn 60s linear infinite; }
+.theme-directory .theme-ambient span + span,.theme-workspace .theme-ambient span + span { display:none; }
+.theme-workspace .theme-ambient span { border-radius:22px;border-style:solid;animation:theme-grid-orbit 26s ease-in-out infinite alternate; }
+.theme-launchpad .theme-ambient span { background:radial-gradient(ellipse,color-mix(in srgb,var(--p-accent) 23%,transparent),transparent 68%); }
+@keyframes theme-grid-orbit { from { transform:translate3d(0,0,0) rotate(-8deg);opacity:.5; } to { transform:translate3d(-20px,35px,0) rotate(8deg);opacity:1; } }
+@keyframes theme-paper-float { from { transform:translate3d(0,0,0) rotate(-7deg);opacity:.5; } to { transform:translate3d(-15px,28px,0) rotate(7deg);opacity:1; } }
+@keyframes theme-compass-turn { from { transform:rotate(0); } to { transform:rotate(360deg); } }
 .portal-page :is(.portal-sidebar__link,.portal-sidebar__child-link,.portal-search-shell) { transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease; }
 .portal-page .portal-card:focus-within { outline: 2px solid var(--p-accent); outline-offset: 3px; }
 .portal-page:is(.theme-default2,.theme-ocean,.theme-neon,.theme-paper,.theme-blackgold,.theme-liquid,.theme-directory,.theme-workspace,.theme-launchpad) .portal-card { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease; }
