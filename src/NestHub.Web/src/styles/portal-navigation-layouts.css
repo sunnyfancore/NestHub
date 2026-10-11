@@ -1,7 +1,7 @@
 /* Structured category groups keep parent and child navigation together. */
 .portal-page.portal-page.portal-page.portal-page:is(.navigation-groups,.navigation-index) .portal-sidebar__nav { display:flex;flex-direction:column;gap:6px;padding:14px 12px 24px; }
 .portal-page.portal-page.portal-page.portal-page:is(.navigation-groups,.navigation-index) .portal-sidebar__group { min-width:0;border:1px solid transparent;border-radius:12px; }
-.portal-page.portal-page.portal-page.portal-page.navigation-groups .portal-sidebar__group.is-expanded { border-color:var(--p-line);background:var(--p-panel); }
+.portal-page.portal-page.portal-page.portal-page.navigation-groups .portal-sidebar__group.is-expanded { border-color:transparent;background:transparent;box-shadow:none; }
 .portal-page.portal-page.portal-page.portal-page:is(.navigation-groups,.navigation-index) .portal-sidebar__link { min-height:48px;margin:0;padding:10px 12px;gap:10px;border-radius:11px; }
 .portal-page.portal-page.portal-page.portal-page.navigation-groups .portal-sidebar__link-icon { width:28px;height:28px;font-size:15px; }
 .portal-page.portal-page.portal-page.portal-page:is(.navigation-groups,.navigation-index) .portal-sidebar__link-text { flex:1;min-width:0;text-align:left; }
