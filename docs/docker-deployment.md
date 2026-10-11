@@ -48,7 +48,7 @@ docker compose -f docker-compose.mysql.yml up -d --wait --wait-timeout 300
 
 | 宿主机 | 容器 | 内容 |
 | --- | --- | --- |
-| `./data/app` | `/app/AppData` | SQLite 的 `nesthub.db`、WAL/SHM 文件和上传目录 `uploads/` |
+| `./data/app` | `/app/AppData` | SQLite 的 `nesthub.db`、WAL/SHM 文件、上传目录 `uploads/` 与应用版本目录 `updates/` |
 | `./data/mysql` | MySQL `/var/lib/mysql` | 仅 MySQL 版使用的数据库数据 |
 | `./.env` | Compose 读取，不挂载 | JWT 密钥、密码、端口、镜像等 |
 | `./backups` | 不自动挂载 | 导出的数据库及文件备份 |
@@ -115,12 +115,14 @@ volumes:
 
 更新过程：查询 GitHub Releases → 下载当前架构的应用包 → SHA-256 和大小校验 → 解压到独立版本目录 → 重启应用 → 健康检查。下载期间网站可用，重启时短暂断开。新程序启动失败自动恢复旧程序；数据库结构变更不能自动撤销，因此更新前仍须备份。
 
-首次切换：保留 `.env` 与原有数据目录，移除旧 `updater` 服务、Docker socket 挂载、`user: "0:0"` 和 `Updates__ContainerName`。旧版写入的文件可能属于 root，先调整权限，再更新一次基础镜像：
+首次切换：保留 `.env` 与原有数据目录，移除旧 `updater` 服务、Docker socket 挂载、`user: "0:0"` 和 `Updates__ContainerName`。旧版写入的文件可能属于 root，先停止应用并备份，再调整权限和更新一次基础镜像：
 
 ```bash
+docker compose stop nesthub
+# 先备份 .env 和整个 data/app
 sudo chown -R 1654:1654 ./data/app
 docker compose pull nesthub
-docker compose up -d --remove-orphans --wait --wait-timeout 300
+docker compose up -d --no-deps --force-recreate --remove-orphans --wait --wait-timeout 300 nesthub
 ```
 
 之后超级管理员进入 **后台 → 应用更新** 操作。MySQL 版添加 `-f docker-compose.mysql.yml`。修改 Compose、环境变量或基础镜像后仍需重建容器。
