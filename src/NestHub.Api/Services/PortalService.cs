@@ -184,24 +184,15 @@ public sealed class PortalService
 
     public async Task RecordClickAsync(Guid linkId, TenantContext? viewer)
     {
-        var link = await _orm.Select<Bookmark>()
+        // Update only the counters: concurrent clicks must not overwrite bookmark edits.
+        var affected = await _orm.Update<Bookmark>()
             .DisableGlobalFilter("TenantFilter")
             .Where(item => item.Id == linkId)
-            .ToOneAsync();
-
-        if (link is null)
-        {
-            throw new KeyNotFoundException("链接不存在。");
-        }
-
-        link.ClickCount += 1;
-        link.LastVisitedAt = DateTime.UtcNow;
-        link.UpdatedAt = DateTime.UtcNow;
-
-        await _orm.Update<Bookmark>()
-            .DisableGlobalFilter("TenantFilter")
-            .SetSource(link)
+            .Set(item => item.ClickCount + 1)
+            .Set(item => item.LastVisitedAt, DateTime.UtcNow)
+            .Set(item => item.UpdatedAt, DateTime.UtcNow)
             .ExecuteAffrowsAsync();
+        if (affected == 0) throw new KeyNotFoundException("链接不存在。");
     }
 
     private async Task<Tenant?> ResolveTenantAsync(TenantContext? viewer, bool? publicView = null)

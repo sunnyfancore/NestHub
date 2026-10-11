@@ -4,9 +4,11 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 
-async function setup(unauthorized = false, sourceTab = false, initialStorage = {}) {
+async function setup(unauthorized = false, sourceTab = false, initialStorage = {}, permissionsGranted = true) {
   const elements = new Map();
   const requests = [];
+  const permissionRequests = [];
+  const messages = [];
   const storage = { connection: { site: 'https://nest.example', token: 'test-token' }, ...initialStorage };
   function element(id) {
     if (!elements.has(id)) elements.set(id, {
@@ -23,7 +25,7 @@ async function setup(unauthorized = false, sourceTab = false, initialStorage = {
   const completed = new Promise(resolve => { ready = resolve; });
   const context = vm.createContext({
     URL, AbortSignal, location: { href: `chrome-extension://test/popup.html${sourceTab ? '?sourceTab=7' : ''}` },
-    document: { documentElement: { dataset: {} }, getElementById: element, createElement: () => ({}) },
+    document: { body: { dataset: {} }, documentElement: { dataset: {} }, getElementById: element, createElement: () => ({}) },
     chrome: {
       storage: { local: {
         setAccessLevel: async () => {}, get: async () => ({ ...storage }),
@@ -34,13 +36,13 @@ async function setup(unauthorized = false, sourceTab = false, initialStorage = {
         query: async query => query.url ? [{ id: 9, url: 'https://nest.example/' }] : [{ title: 'Example', url: 'https://example.com/', favIconUrl: 'https://example.com/branding/icon.png' }],
         get: async id => { assert.equal(id, 7); return { title: 'Source page', url: 'https://source.example/' }; }
       },
-      permissions: { request: async () => true },
+      permissions: { request: async value => { permissionRequests.push(value); return permissionsGranted; } },
       scripting: { executeScript: async options => {
         assert.equal(options.target.tabId, 9);
         assert.equal(options.args[0], 'https://nest.example');
         return [{ result: 'website-token' }];
       } },
-      runtime: { sendMessage: async () => ({ ok: true }) }
+      runtime: { sendMessage: async message => { messages.push(message); if (message.type === 'settings-save') Object.assign(storage, message.settings); return { ok: true }; } }
     },
     fetch: async (url, options) => {
       requests.push({ url, options });
@@ -55,7 +57,7 @@ async function setup(unauthorized = false, sourceTab = false, initialStorage = {
   const source = fs.readFileSync(path.join(__dirname, '../nesthub/popup.js'), 'utf8');
   vm.runInContext(source.replace('init().catch(fail);', 'init().catch(fail).finally(ready);'), context);
   await completed;
-  return { element, requests, storage, context };
+  return { element, requests, storage, context, permissionRequests, messages };
 }
 
 test('restores token, reads current page and saves into portal tenant/category', async () => {
@@ -238,11 +240,38 @@ test('malformed cached category triggers fresh read instead of crashing popup', 
   assert.equal(app.element('category').value, 'category-id');
 });
 
-test('top theme choices select directly and reflect the active theme', async () => {
+test('theme choices select directly and reflect the active theme', async () => {
   const { element, storage } = await setup();
   assert.equal(element('theme-default2')['aria-pressed'], 'true');
   await element('theme-lime').handlers.click();
   assert.equal(storage.theme, 'lime');
   assert.equal(element('theme-lime')['aria-pressed'], 'true');
   assert.equal(element('theme-default2')['aria-pressed'], 'false');
+});
+
+
+test('checkboxes stage settings and saving requests all permissions once', async () => {
+  const app = await setup();
+  for (const id of ['openOnStartup', 'openOnNewTab', 'floating']) {
+    app.element(id).checked = true;
+    await app.element(id).handlers.change();
+  }
+  assert.equal(app.permissionRequests.length, 0);
+  assert.equal(app.storage.floatingEnabled, undefined);
+  await app.element('saveStartup').handlers.click();
+  assert.equal(app.permissionRequests.length, 1);
+  assert.deepEqual(Array.from(app.permissionRequests[0].permissions), ['tabs']);
+  assert.deepEqual(Array.from(app.permissionRequests[0].origins), ['http://*/*', 'https://*/*']);
+  assert.equal(app.storage.floatingEnabled, true);
+  assert.equal(app.storage.openOnNewTab, true);
+});
+test('denied combined permissions leave saved settings untouched and allow retry', async () => {
+  const app = await setup(false, false, { openOnStartup: false, floatingEnabled: false }, false);
+  app.element('openOnStartup').checked = true;
+  app.element('floating').checked = true;
+  await app.element('saveStartup').handlers.click();
+  assert.equal(app.storage.openOnStartup, false);
+  assert.equal(app.storage.floatingEnabled, false);
+  assert.ok(!app.messages.some(message => message.type === 'settings-save'));
+  assert.equal(app.element('saveStartup').disabled, false);
 });

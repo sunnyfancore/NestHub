@@ -1,10 +1,5 @@
-# Legacy overlay filename retained; the main Compose already enables native updates.
+# Compatibility overlay; application updates are already enabled in the main Compose.
 services:
   nesthub:
-    container_name: ${NESTHUB_CONTAINER_NAME:-nesthub}
-    user: "0:0"
     environment:
       Updates__Enabled: "true"
-      Updates__ContainerName: ${NESTHUB_CONTAINER_NAME:-nesthub}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock

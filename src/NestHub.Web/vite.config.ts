@@ -1,10 +1,26 @@
 import { fileURLToPath, URL } from 'node:url'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import Components from 'unplugin-vue-components/vite'
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+import type { Declaration } from 'postcss'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), Components({ resolvers: [ElementPlusResolver()], dts: false })],
+  css: {
+    postcss: {
+      plugins: [{
+        postcssPlugin: 'modern-icon-font',
+        Declaration(declaration: Declaration) {
+          // All supported browsers use WOFF2; avoid shipping five redundant font formats.
+          if (declaration.prop === 'src' && declaration.value.includes('fontawesome-webfont')) {
+            declaration.value = "url('../fonts/fontawesome-webfont.woff2') format('woff2')"
+          }
+        },
+      }],
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -32,10 +48,6 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules/element-plus') || id.includes('@element-plus')) {
-            return 'element'
-          }
-
           if (id.includes('node_modules/vue') || id.includes('node_modules/pinia')) {
             return 'vue'
           }

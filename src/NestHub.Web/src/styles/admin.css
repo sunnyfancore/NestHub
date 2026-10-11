@@ -100,3 +100,31 @@ html[data-admin-workspace] .el-dialog .el-input__wrapper { border-radius: 9px; }
   .tenant-directory .admin-toolbar__left { width: 100%; }
   .tenant-directory .admin-toolbar__left .el-input { flex: 1; min-width: 130px; width: auto !important; }
 }
+
+/* Consistent finishing details across management pages. */
+.admin-shell.admin-shell .admin-main,.admin-shell.admin-shell .admin-content{min-width:0}
+.admin-shell.admin-shell .admin-content>.updates-page{max-width:1040px}
+.admin-shell.admin-shell .admin-content :is(h2,h3){text-wrap:balance}
+.admin-shell.admin-shell .admin-content .admin-toolbar{gap:12px;flex-wrap:wrap}
+.admin-shell.admin-shell .admin-content :is(.admin-toolbar__left,.admin-toolbar__right){min-width:0;flex-wrap:wrap;gap:8px}
+.admin-shell.admin-shell .admin-content .el-button+.el-button{margin-left:0}
+.admin-shell.admin-shell .admin-content :is(.el-empty,.empty-hint){padding:32px 20px;color:#64796d}
+html[data-admin-workspace] .el-form-item__label{font-size:13px;line-height:1.5;align-items:center}
+html[data-admin-workspace] .el-form-item__error{line-height:1.5;padding-top:5px}
+html[data-admin-workspace] .el-message-box{max-width:calc(100vw - 32px);border-radius:14px}
+html[data-admin-workspace] .el-dialog__body{overflow-wrap:anywhere}
+html[data-admin-workspace] .el-dialog__footer{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;border-top:1px solid #edf2ef;padding-top:16px}
+html[data-admin-workspace] .el-dialog__footer .el-button+.el-button{margin-left:0}
+html[data-admin-workspace] :is(a,button,[role=button]):focus-visible{outline:2px solid #168575;outline-offset:3px}
+.admin-shell.admin-shell .admin-heading{min-width:0}
+.admin-shell.admin-shell .admin-heading__eyebrow{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50vw}
+.admin-shell.admin-shell .admin-avatar{cursor:pointer}
+@media(max-width:600px){
+.admin-shell.admin-shell{height:100dvh}
+.admin-shell.admin-shell .admin-topbar{gap:8px}
+.admin-shell.admin-shell .admin-content :is(.admin-toolbar__left,.admin-toolbar__right){width:100%}
+.admin-shell.admin-shell .admin-content .admin-toolbar :is(.el-input,.el-select){max-width:100%;min-width:0}
+.admin-shell.admin-shell .admin-content .el-pagination{flex-wrap:wrap;justify-content:flex-start;gap:6px}
+html[data-admin-workspace] .el-dialog{margin-top:6vh!important;max-height:88dvh;overflow:auto}
+html[data-admin-workspace] .el-form-item{margin-bottom:22px}
+}

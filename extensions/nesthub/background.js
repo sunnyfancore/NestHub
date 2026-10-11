@@ -95,7 +95,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const fromPopup = !fromWebpage && sender.url?.startsWith(chrome.runtime.getURL('popup.html'));
   const accepted = fromWebpage
     ? ['floating-state', 'floating-position', 'floating-open'].includes(message?.type)
-    : fromPopup && ['floating-toggle', 'theme-sync'].includes(message?.type);
+    : fromPopup && ['floating-toggle', 'theme-sync', 'settings-save'].includes(message?.type);
   if (!accepted) return false;
   (async () => {
     if (message.type === 'floating-state') {
@@ -146,10 +146,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
       return { ok: true };
     }
+    let nextSettings;
+    if (message.type === 'settings-save') {
+      const value = message.settings;
+      if (!value || ['openOnStartup', 'openOnNewTab', 'floatingEnabled'].some(key => typeof value[key] !== 'boolean') || typeof value.startupUrl !== 'string') throw new Error('无效设置');
+      if ((value.openOnStartup || value.openOnNewTab) && !navigationUrl({ startupUrl: value.startupUrl })) throw new Error('请先连接有效的导航站点。');
+      if ((value.openOnStartup || value.openOnNewTab) && !await chrome.permissions.contains({ permissions: ['tabs'] })) throw new Error('缺少标签页权限，设置未保存。');
+      if (value.floatingEnabled && !await chrome.permissions.contains({ origins: matches })) throw new Error('缺少网页访问权限，设置未保存。');
+      nextSettings = { openOnStartup: value.openOnStartup, openOnNewTab: value.openOnNewTab, startupUrl: value.startupUrl, floatingEnabled: value.floatingEnabled };
+    } else {
     if (typeof message.enabled !== 'boolean') throw new Error('无效设置');
-    await chrome.storage.local.set({ floatingEnabled: message.enabled });
-    const enabled = await syncFloating();
-    for (const tab of await chrome.tabs.query({})) {
+      nextSettings = { floatingEnabled: message.enabled };
+    }
+    const previous = { ...await chrome.storage.local.get(Object.keys(nextSettings)) };
+    await chrome.storage.local.set(nextSettings);
+    let enabled;
+    try { enabled = await syncFloating(); }
+    catch (error) {
+      const absent = Object.keys(nextSettings).filter(key => !(key in previous));
+      await chrome.storage.local.set(previous);
+      if (absent.length) await chrome.storage.local.remove(absent);
+      await syncFloating().catch(() => {});
+      throw error;
+    }
+    for (const tab of await chrome.tabs.query({}).catch(() => [])) {
       if (!/^https?:\/\//i.test(tab.url || '')) continue;
       try {
         if (enabled) await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['floating.js'] });

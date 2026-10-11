@@ -17,7 +17,7 @@ import {
   User,
   Menu,
 } from '@element-plus/icons-vue'
-import { computed, ref, onMounted, onBeforeUnmount } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChangePasswordDialog from '@/components/portal/ChangePasswordDialog.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -27,6 +27,12 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const sidebarOpen = ref(false)
+const adminContentRef = ref<HTMLElement | null>(null)
+watch(() => route.fullPath, async () => {
+  sidebarOpen.value = false
+  await nextTick()
+  adminContentRef.value?.scrollTo({ top: 0 })
+})
 const changePasswordVisible = ref(false)
 onMounted(() => { document.documentElement.dataset.adminWorkspace = 'true' })
 onBeforeUnmount(() => { delete document.documentElement.dataset.adminWorkspace })
@@ -150,9 +156,9 @@ function logout() {
             前台首页
           </el-button>
           <el-dropdown trigger="click" @command="handleUserCommand">
-            <div class="admin-avatar">
+            <button class="admin-avatar" type="button" aria-label="账户菜单">
               <el-icon :size="18"><User /></el-icon>
-            </div>
+            </button>
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item disabled>
@@ -173,7 +179,7 @@ function logout() {
         </div>
       </header>
 
-      <div class="admin-content">
+      <div ref="adminContentRef" class="admin-content">
         <RouterView />
       </div>
     </main>

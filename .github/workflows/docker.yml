@@ -56,6 +56,9 @@ jobs:
           python3 scripts/check-api.py --seed --snapshot /tmp/sqlite-api.json
           curl --fail http://localhost:5186/health
           curl --fail http://localhost:5186/ | grep -q 'id="app"'
+          curl --fail --compressed --dump-header /tmp/frontend-headers http://localhost:5186/ -o /tmp/frontend.html
+          grep -qi '^content-encoding: \(br\|gzip\)' /tmp/frontend-headers
+          grep -qi '^vary:.*accept-encoding' /tmp/frontend-headers
           curl --fail http://localhost:5186/downloads/nesthub-extension.zip -o /tmp/extension.zip
           unzip -t /tmp/extension.zip
           docker compose exec -T nesthub sh -c 'echo persistent > /app/AppData/ci-persistence'
@@ -80,22 +83,51 @@ jobs:
           printf '%s\n' 'services:' '  nesthub:' '    environment:' '      Database__ConnectionString: "Data Source=/app/AppData/migrated.db"' > /tmp/migrated.yml
           docker compose -f docker-compose.yml -f /tmp/migrated.yml up -d --wait --wait-timeout 300
           python3 scripts/check-api.py --snapshot /tmp/mysql-api.json
-      - name: Single-container self update preserves data
+      - name: Application update keeps container and data
         shell: bash
         run: |
-          docker run -d --name nesthub-ci-registry -p 127.0.0.1:5000:5000 registry:2
-          docker tag nesthub:smoke localhost:5000/nesthub-ci:latest
-          for attempt in 1 2 3 4 5; do docker push localhost:5000/nesthub-ci:latest && break; sleep 2; done
-          NESTHUB_IMAGE=localhost:5000/nesthub-ci:latest docker compose -f docker-compose.yml -f /tmp/migrated.yml up -d --wait --wait-timeout 300
-          printf '%s\n' 'FROM nesthub:smoke' 'ENV NESTHUB_BUILD_REVISION=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' > /tmp/update.Dockerfile
-          docker build -f /tmp/update.Dockerfile -t localhost:5000/nesthub-ci:latest .
-          docker push localhost:5000/nesthub-ci:latest
-          set -a
-          source .env
-          set +a
-          python3 scripts/check-self-update.py
+          original=$(docker compose ps -q nesthub)
+          docker compose exec -T nesthub bash -c '
+            set -e
+            root=/app/AppData/updates
+            rev=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+            mkdir -p "$root/releases/$rev"
+            cp -a /app/base/. "$root/releases/$rev/"
+            printf "{\"revision\":\"%s\",\"startedAt\":\"%s\"}" "$rev" "$(date -u +%FT%TZ)" > "$root/pending.json"
+            kill -TERM $(cat /app/AppData/updates/app.pid)
+          '
+          for attempt in $(seq 1 100); do
+            state=$(docker compose exec -T nesthub cat /app/AppData/updates/status.json 2>/dev/null || true)
+            echo "$state" | grep -q '"state": "success"' && break
+            sleep 2
+          done
+          echo "$state" | grep -q '"state": "success"'
+          test "$(docker compose ps -q nesthub)" = "$original"
+          set -a; source .env; set +a
           python3 scripts/check-api.py --snapshot /tmp/mysql-api.json
-          test "$(docker ps --filter name=nesthub-update-task --format '{{.ID}}')" = ''
+          docker compose -f docker-compose.yml -f /tmp/migrated.yml up -d --force-recreate --wait --wait-timeout 300
+          docker compose exec -T nesthub grep -q bbbbbbbb /app/AppData/updates/active
+          python3 scripts/check-api.py --snapshot /tmp/mysql-api.json
+      - name: Failed application startup restores the working version
+        shell: bash
+        run: |
+          docker compose exec -T nesthub bash -c '
+            root=/app/AppData/updates
+            rev=cccccccccccccccccccccccccccccccccccccccc
+            mkdir -p "$root/releases/$rev"
+            echo invalid > "$root/releases/$rev/NestHub.Api.dll"
+            jq -n --arg revision "$rev" --arg startedAt "$(date -u +%FT%TZ)" "{revision:\$revision,startedAt:\$startedAt}" > "$root/pending.json"
+            kill -TERM $(cat "$root/app.pid")
+          '
+          for attempt in $(seq 1 100); do
+            state=$(docker compose exec -T nesthub cat /app/AppData/updates/status.json 2>/dev/null || true)
+            if echo "$state" | grep -q '"state": "failed"' && curl --fail --silent http://localhost:5186/health; then break; fi
+            sleep 2
+          done
+          echo "$state" | grep -q '"state": "failed"'
+          docker compose exec -T nesthub grep -q bbbbbbbb /app/AppData/updates/active
+          set -a; source .env; set +a
+          python3 scripts/check-api.py --snapshot /tmp/mysql-api.json
       - name: Failure diagnostics
         if: failure()
         run: docker compose -f docker-compose.mysql.yml logs --tail=100
@@ -104,7 +136,6 @@ jobs:
         run: |
           docker compose down
           docker compose -f docker-compose.mysql.yml down
-          docker rm -f nesthub-ci-registry || true
 
   publish:
     if: github.event_name != 'pull_request'
@@ -146,3 +177,41 @@ jobs:
             type=gha,scope=smoke
             type=gha,scope=release
           cache-to: type=gha,mode=max,scope=release
+
+  application-packages:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Build frontend and architecture packages
+        run: |
+          npm ci --prefix src/NestHub.Web
+          npm run build --prefix src/NestHub.Web
+          mkdir -p src/NestHub.Api/wwwroot
+          cp -a src/NestHub.Web/dist/. src/NestHub.Api/wwwroot/
+          for rid in linux-x64 linux-arm64; do
+            dotnet publish src/NestHub.Api -c Release -r "$rid" --self-contained false -p:SkipFrontendBuild=true -o "publish/application/$rid"
+          done
+          python3 scripts/package-application.py "$GITHUB_SHA"
+      - name: Publish complete application release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tag="app-$GITHUB_SHA"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" publish/application/assets/* --clobber
+          else
+            gh release create "$tag" --target "$GITHUB_SHA" --draft --prerelease --title "Application ${GITHUB_SHA:0:8}" --notes "应用更新包（.NET 10，Linux x64 / ARM64）。基础运行环境变更请更新 Docker 镜像。"
+            gh release upload "$tag" publish/application/assets/*
+          fi
+          gh release edit "$tag" --draft=false

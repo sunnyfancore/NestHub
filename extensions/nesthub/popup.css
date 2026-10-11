@@ -113,3 +113,42 @@ footer{padding:8px 0 10px;border:0;color:var(--muted);opacity:.75;font-size:9px}
 .theme-choice[aria-pressed=true]{border-color:var(--accent);background:var(--tint);box-shadow:inset 0 0 0 1px var(--accent);font-weight:700}
 .theme-choice:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .theme-picker .theme-description{display:block;margin-top:6px;padding:0;font-size:10px;min-height:16px}
+
+/* Keep collecting first; themes remain directly selectable below the save action. */
+.theme-picker{margin:12px 0 0;padding:10px 0 12px;border-top:1px solid var(--line);border-bottom:0}
+.theme-picker__heading{margin-bottom:6px}
+.theme-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
+.theme-choice{padding:7px 1px;gap:3px;font-size:10px;border-radius:7px}
+.theme-swatch{width:6px;height:6px}
+.theme-picker .theme-description{display:none}
+
+/* Each task has its own compact page, rather than stacking every control. */
+.panel-tabs{display:flex;gap:4px;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin:8px 0}
+.panel-tabs button{flex:1;padding:6px;border-radius:7px;background:transparent;color:var(--muted);font-size:11px}
+.panel-tabs button[aria-pressed=true]{background:var(--page);color:var(--accent);box-shadow:0 1px 4px #00000008;font-weight:600}
+body:not([data-panel=collect]) :is(#saveForm,#connectionForm){display:none}
+body:not([data-panel=theme]) .theme-picker{display:none}
+body:not([data-panel=settings]) .settings{display:none}
+.panel-title{font-size:13px;color:var(--ink);margin:0 0 8px}
+body[data-panel=theme] .theme-picker{margin:0;border:0;padding:8px 0 16px}
+body[data-panel=theme] .theme-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+body[data-panel=theme] .theme-choice{padding:12px 4px;font-size:11px;gap:5px}
+#saveForm:has(.extra-options[open]) .collection-fields{display:none}
+#status{max-height:48px;overflow:hidden}
+body[data-panel=settings] .settings{border:0;padding:6px 0 12px}
+
+/* One stable footer across all three pages, including a taller floating window. */
+body{display:flex;flex-direction:column;min-height:600px;min-height:max(600px,100dvh)}
+body>header,body>.panel-tabs,body>#status,body>form,body>section{flex-shrink:0}
+footer{margin-top:auto;padding:12px 0 14px;border-top:1px solid var(--line);text-align:center;flex-shrink:0;line-height:1.5}
+#saveStartup{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;height:42px;margin-top:16px;border:1px solid transparent;font-weight:600;border-radius:11px;box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 15%,transparent)}
+#saveStartup svg{width:17px;height:17px;flex-shrink:0}
+#saveStartup:active:not(:disabled){transform:translateY(1px)}
+#openNavigation{display:inline-flex;align-items:center;justify-content:center;padding:8px 13px;border:1px solid var(--line);border-radius:10px;background:var(--page);color:var(--ink);font-size:11px;box-shadow:0 1px 2px #00000003}
+#openNavigation:hover{background:var(--tint);border-color:var(--tint-line);color:var(--tint-ink)}
+@media(prefers-reduced-motion:reduce){#saveStartup:active:not(:disabled){transform:none}}
+.connection-badge{display:flex;flex-direction:column;align-items:flex-end;gap:3px;max-width:155px;min-width:0}
+.connection-badge #space{display:block;max-width:100%;margin:0;padding:0;border:0;border-radius:0;background:transparent;font-size:10px;line-height:1.5;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.connection-badge #space::before{display:none}
+.connection-badge #space[hidden]{display:none}
+.connection-badge #disconnect{padding:2px 0;font-size:10px;color:var(--accent)}

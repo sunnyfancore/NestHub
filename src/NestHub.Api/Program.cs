@@ -1,4 +1,6 @@
 using System.Text;
+using System.IO.Compression;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.StaticFiles;
@@ -11,12 +13,6 @@ using NestHub.Api.Infrastructure.MultiTenancy;
 using NestHub.Api.Infrastructure.Persistence;
 using NestHub.Api.Infrastructure.Security;
 using NestHub.Api.Services;
-
-if (args.Contains("--self-update"))
-{
-    Environment.ExitCode = await DockerSelfUpdate.RunAsync();
-    return;
-}
 
 if (args.Contains("--migrate-mysql-to-sqlite"))
 {
@@ -37,6 +33,14 @@ builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptio
 builder.Services.Configure<CorsOptions>(builder.Configuration.GetSection(CorsOptions.SectionName));
 builder.Services.Configure<SuperAdminOptions>(builder.Configuration.GetSection(SuperAdminOptions.SectionName));
 
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(options => options.Level = CompressionLevel.Fastest);
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks();
@@ -107,6 +111,11 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// Compress public frontend assets, never authentication/API responses or already compressed downloads.
+app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api")
+    && !context.Request.Path.StartsWithSegments("/uploads")
+    && !context.Request.Path.StartsWithSegments("/downloads")
+    && !context.Request.Path.StartsWithSegments("/health"), branch => branch.UseResponseCompression());
 app.UseDefaultFiles();
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -127,6 +136,7 @@ app.UseMiddleware<TenantContextMiddleware>();
 app.UseAuthorization();
 
 app.MapHealthChecks("/health");
+app.MapGet("/health/version", () => Results.Json(new { revision = app.Configuration["NESTHUB_BUILD_REVISION"] ?? "local" })).AllowAnonymous();
 app.MapControllers();
 app.MapFallbackToFile("index.html", new StaticFileOptions
 {

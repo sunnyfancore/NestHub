@@ -2,6 +2,7 @@
 import { safeIconSource } from '@/components/portal/siteIcons'
 
 import {
+  Collection,
   Connection,
   Edit,
   FolderAdd,
@@ -13,19 +14,18 @@ import {
   Top,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import Sortable from 'sortablejs'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createCategory, deleteCategory, sortCategories, updateCategory } from '@/api/categories'
 import { createLink, deleteLink, sortLinks, updateLink } from '@/api/links'
 import { clickPortalLink, getPortal, searchPortal } from '@/api/portal'
 import { updateSearchEngine, updateSiteSettings } from '@/api/site'
-import AppInfoDialog from '@/components/portal/AppInfoDialog.vue'
-import LoginDialog from '@/components/portal/LoginDialog.vue'
-import PortalCategoryDialog from '@/components/portal/PortalCategoryDialog.vue'
-import PortalLinkDialog from '@/components/portal/PortalLinkDialog.vue'
+const AppInfoDialog = defineAsyncComponent(() => import('@/components/portal/AppInfoDialog.vue'))
+const LoginDialog = defineAsyncComponent(() => import('@/components/portal/LoginDialog.vue'))
+const PortalCategoryDialog = defineAsyncComponent(() => import('@/components/portal/PortalCategoryDialog.vue'))
+const PortalLinkDialog = defineAsyncComponent(() => import('@/components/portal/PortalLinkDialog.vue'))
 import PortalSiteIcon from '@/components/portal/PortalSiteIcon.vue'
-import SiteSettingsDialog from '@/components/portal/SiteSettingsDialog.vue'
+const SiteSettingsDialog = defineAsyncComponent(() => import('@/components/portal/SiteSettingsDialog.vue'))
 import { useAuthStore } from '@/stores/auth'
 import { resolveTheme } from '@/themes'
 import type {
@@ -45,6 +45,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const loading = ref(false)
+const portalError = ref('')
 const saving = ref(false)
 const VIEW_KEY = 'nesthub.public-view'
 const isPublicView = ref(localStorage.getItem(VIEW_KEY) === 'true')
@@ -164,7 +165,9 @@ const childSectionContainerRefs = ref<Record<string, HTMLElement | null>>({})
 const linkContainerRefs = ref<Record<string, HTMLElement | null>>({})
 const sidebarNavRef = ref<HTMLElement | null>(null)
 const sidebarChildrenRefs = ref<Record<string, HTMLElement | null>>({})
-const sortables = ref<any[]>([])
+const sortables: Array<{ destroy(): void }> = []
+let sortableGeneration = 0
+let portalDisposed = false
 
 const searchEngines = [
   { label: '百度', value: 'baidu' as SearchEngine },
@@ -268,6 +271,7 @@ function applyPortalData(data: PortalResponse) {
 
 async function loadPortal(forceRefresh = false) {
   loading.value = true
+  portalError.value = ''
 
   try {
     if (!forceRefresh) {
@@ -304,7 +308,7 @@ async function loadPortal(forceRefresh = false) {
     setupSectionObserver()
     return true
   } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || '加载导航门户失败。')
+    portalError.value = error?.response?.data?.message || '导航暂时无法加载，请检查网络后重试。'
     return false
   } finally {
     loading.value = false
@@ -790,19 +794,22 @@ function setLinkContainerRef(categoryId: string | null, element: unknown) {
 }
 
 function destroySortables() {
-  for (const sortable of sortables.value) {
+  for (const sortable of sortables) {
     sortable.destroy()
   }
-  sortables.value = []
+  sortables.length = 0
 }
 
-function initializeSortables() {
+async function initializeSortables() {
+  const generation = ++sortableGeneration
   destroySortables()
 
-  if (!portal.value?.canEdit) {
+  if (portalDisposed || !portal.value?.canEdit) {
     return
   }
 
+  const Sortable = (await import('sortablejs')).default
+  if (portalDisposed || generation !== sortableGeneration || !portal.value?.canEdit) return
   const sortableOpts = {
     animation: 160,
     ghostClass: 'portal-card--ghost',
@@ -811,7 +818,7 @@ function initializeSortables() {
 
   // Sidebar drag: parent categories
   if (sidebarNavRef.value) {
-    sortables.value.push(
+    sortables.push(
       Sortable.create(sidebarNavRef.value, {
         animation: 160,
         draggable: '.portal-sidebar__group',
@@ -838,7 +845,7 @@ function initializeSortables() {
   for (const root of portal.value.categories) {
     const childContainer = sidebarChildrenRefs.value[root.id]
     if (childContainer && root.children.length > 1) {
-      sortables.value.push(
+      sortables.push(
         Sortable.create(childContainer, {
           animation: 160,
           draggable: '.portal-sidebar__child-item',
@@ -862,7 +869,7 @@ function initializeSortables() {
   }
 
   if (rootSectionContainerRef.value) {
-    sortables.value.push(
+    sortables.push(
       Sortable.create(rootSectionContainerRef.value, {
         ...sortableOpts,
         draggable: '.portal-section',
@@ -888,7 +895,7 @@ function initializeSortables() {
   for (const root of portal.value.categories) {
     const childContainer = childSectionContainerRefs.value[root.id]
     if (childContainer && root.children.length > 1) {
-      sortables.value.push(
+      sortables.push(
         Sortable.create(childContainer, {
           ...sortableOpts,
           draggable: '.portal-child-tab',
@@ -911,7 +918,7 @@ function initializeSortables() {
 
     const rootLinksContainer = linkContainerRefs.value[root.id]
     if (rootLinksContainer && root.links.length > 1) {
-      sortables.value.push(
+      sortables.push(
         Sortable.create(rootLinksContainer, {
           ...sortableOpts,
           draggable: '.portal-card',
@@ -939,7 +946,7 @@ function initializeSortables() {
         continue
       }
 
-      sortables.value.push(
+      sortables.push(
         Sortable.create(childLinksContainer, {
           ...sortableOpts,
           draggable: '.portal-card',
@@ -1072,6 +1079,7 @@ onMounted(async () => {
     ensureProfile(),
     loadPortal(),
   ])
+  if (portalDisposed) return
   setupSectionObserver()
   window.addEventListener('click', closeContextMenu)
   window.addEventListener('click', closeCategoryContextMenu)
@@ -1090,6 +1098,9 @@ function handleGlobalClick(e: MouseEvent) {
 }
 
 onBeforeUnmount(() => {
+  portalDisposed = true
+  ++sortableGeneration
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
   window.removeEventListener('resize', handleViewportResize)
   delete document.documentElement.dataset.portalTheme
   window.removeEventListener('nesthub-theme-updated', handleExtensionTheme)
@@ -1111,6 +1122,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="portal-page" :class="'theme-' + activeTheme" v-loading="loading">
+    <div v-if="['ocean', 'neon', 'paper', 'blackgold', 'liquid', 'launchpad'].includes(activeTheme)" class="theme-ambient" aria-hidden="true"><span></span><span></span></div>
     <div v-if="activeTheme === 'sakura'" class="sakura-starfall" aria-hidden="true">
       <span v-for="star in 18" :key="star" class="sakura-starfall__trail" :style="{
         left: `${(star * 37) % 100}%`,
@@ -1159,12 +1171,13 @@ onBeforeUnmount(() => {
         >
           <a
             class="portal-sidebar__link"
+            :href="'#' + anchorId(category.id)"
             :class="{ 'is-active': activeSectionId === category.id }"
             @click.prevent="scrollToSection(category.id); if (category.children.length) toggleMenu(category.id); mobileSidebarOpen = false"
           >
             <span v-if="portal?.canEdit" class="portal-sidebar__drag">
               <i v-if="category.icon" :class="['fa', category.icon, 'portal-sidebar__link-icon']"></i>
-              <i v-else class="fa fa-grip-vertical portal-sidebar__grip" aria-hidden="true"></i>
+              <i v-else class="fa fa-bars portal-sidebar__grip" aria-hidden="true"></i>
             </span>
             <template v-else>
               <i v-if="category.icon" :class="['fa', category.icon, 'portal-sidebar__link-icon']"></i>
@@ -1193,11 +1206,12 @@ onBeforeUnmount(() => {
                 <a
                   @click.prevent="selectChildCategory(category, child.id); mobileSidebarOpen = false"
                   class="portal-sidebar__child-link"
+                  :href="'#' + anchorId(child.id)"
                   :class="{ 'is-active': activeSectionId === child.id }"
                 >
                   <span v-if="portal?.canEdit" class="portal-sidebar__child-drag">
                     <i v-if="child.icon" :class="['fa', child.icon, 'portal-sidebar__child-icon']"></i>
-                    <i v-else class="fa fa-grip-vertical portal-sidebar__grip" aria-hidden="true"></i>
+                    <i v-else class="fa fa-bars portal-sidebar__grip" aria-hidden="true"></i>
                   </span>
                   <template v-else>
                     <i v-if="child.icon" :class="['fa', child.icon, 'portal-sidebar__child-icon']"></i>
@@ -1308,6 +1322,15 @@ onBeforeUnmount(() => {
       </header>
 
       <div ref="rootSectionContainerRef" class="portal-content">
+        <section v-if="portalError" class="portal-feedback" role="alert">
+          <strong>加载未完成</strong><p>{{ portalError }}</p><el-button :loading="loading" @click="loadPortal(true)">重新加载</el-button>
+        </section>
+        <section v-else-if="!loading && portal && !portal.categories.length" class="portal-feedback">
+          <el-icon :size="32"><Collection /></el-icon>
+          <h2>{{ portal.canEdit ? '从第一个分类开始' : '这里还没有收藏' }}</h2>
+          <p>{{ portal.canEdit ? '先创建分类，再添加常用网址，整理你的导航空间。' : '当前空间暂未展示链接，稍后再来看看。' }}</p>
+          <el-button v-if="portal.canEdit" type="primary" @click="openCreateCategory()">创建分类</el-button>
+        </section>
         <section
           v-for="category in portal?.categories || []"
           :id="anchorId(category.id)"
@@ -1360,7 +1383,7 @@ onBeforeUnmount(() => {
                 </span>
 
                 <div class="portal-card__copy">
-                  <strong>{{ link.title }}</strong>
+                  <strong :title="link.title">{{ link.title }}</strong>
                   <p>{{ extractDomain(link.url) }}</p>
                 </div>
               </button>
@@ -1422,7 +1445,7 @@ onBeforeUnmount(() => {
                     </span>
 
                     <div class="portal-card__copy">
-                      <strong>{{ link.title }}</strong>
+                      <strong :title="link.title">{{ link.title }}</strong>
                       <p>{{ extractDomain(link.url) }}</p>
                     </div>
                   </button>
@@ -1617,6 +1640,7 @@ onBeforeUnmount(() => {
     </el-dialog>
 
     <PortalCategoryDialog
+      v-if="categoryDialogVisible"
       v-model="categoryDialogVisible"
       :category="editingCategory"
       :parent-options="categoryParents"
@@ -1626,6 +1650,7 @@ onBeforeUnmount(() => {
     />
 
     <PortalLinkDialog
+      v-if="linkDialogVisible"
       v-model="linkDialogVisible"
       :link="editingLink"
       :category-options="categoryOptions"
@@ -1635,16 +1660,17 @@ onBeforeUnmount(() => {
     />
 
     <SiteSettingsDialog
-      v-if="portal"
+      v-if="portal && siteDialogVisible"
       v-model="siteDialogVisible"
       :site="portal.site"
       :submitting="saving"
       @submit="submitSiteSettings"
     />
 
-    <AppInfoDialog v-model="appInfoDialogVisible" />
+    <AppInfoDialog v-if="appInfoDialogVisible" v-model="appInfoDialogVisible" />
 
     <LoginDialog
+      v-if="loginDialogVisible"
       v-model="loginDialogVisible"
       @success="handleLoginSuccess"
     />
@@ -5026,3 +5052,6 @@ html.dark .theme-paper .portal-context-menu__divider { background: #3a3220; }
 <style scoped src="../styles/portal-refinement.css"></style>
 
 <style scoped src="../styles/portal-sakura.css"></style>
+<style scoped src="../styles/portal-motion.css"></style>
+
+<style scoped src="../styles/portal-grid-classic.css"></style>

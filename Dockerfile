@@ -16,17 +16,19 @@ RUN dotnet publish src/NestHub.Api/NestHub.Api.csproj -c Release -o /out --no-re
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends curl tzdata \
+RUN apt-get update && apt-get install -y --no-install-recommends curl tzdata jq \
     && rm -rf /var/lib/apt/lists/*
 ENV ASPNETCORE_URLS=http://+:8080 \
     ASPNETCORE_ENVIRONMENT=Production \
     TZ=Asia/Shanghai
-COPY --from=build /out/ ./
-RUN mkdir -p /app/AppData && chown -R app:app /app/AppData
+COPY --from=build /out/ /app/base/
+COPY scripts/app-launcher.sh /app/app-launcher.sh
+RUN mkdir -p /app/AppData && ln -s /app/AppData /app/base/AppData \
+    && chmod 755 /app/app-launcher.sh && chown -R app:app /app/AppData
 USER app
 ARG APP_REVISION=local
 ENV NESTHUB_BUILD_REVISION=$APP_REVISION
 EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=5 \
+HEALTHCHECK --interval=10s --timeout=5s --start-period=90s --retries=5 \
     CMD curl --fail --silent http://127.0.0.1:8080/health || exit 1
-ENTRYPOINT ["dotnet", "NestHub.Api.dll"]
+ENTRYPOINT ["/bin/bash", "/app/app-launcher.sh"]

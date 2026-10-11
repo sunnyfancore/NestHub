@@ -32,3 +32,14 @@
 .sakura-starfall span:nth-child(6){left:94%;animation-duration:20s;animation-delay:-5s;color:#a878d4}
 @keyframes sakura-popup-fall{0%{transform:translate3d(0,-24px,0) rotate(0);opacity:0}10%,80%{opacity:.45}45%{opacity:.2}100%{transform:translate3d(-35px,calc(100vh + 48px),0) rotate(150deg);opacity:0}}
 @media(prefers-reduced-motion:reduce){:root[data-theme=sakura] .sakura-starfall{display:none}.sakura-starfall span{animation:none}}
+
+/* Compact collectors use interaction-only motion instead of continuous overlays. */
+:root:not([data-theme=sakura]) .brand-icon{transition:transform .2s ease}
+:root:not([data-theme=sakura]) .primary-button{transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
+@media(hover:hover) and (pointer:fine){
+:root:is([data-theme=ocean],[data-theme=liquid],[data-theme=launchpad],[data-theme=blackgold]) .primary-button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 5px 14px color-mix(in srgb,var(--accent) 18%,transparent)}
+:root[data-theme=neon] .primary-button:hover:not(:disabled){box-shadow:0 0 16px #77e0c030}
+:root[data-theme=paper] .brand-icon:hover{transform:rotate(-5deg)}
+:root:is([data-theme=workspace],[data-theme=directory]) .primary-button:hover:not(:disabled){transform:translateX(2px)}
+}
+@media(prefers-reduced-motion:reduce){:root:not([data-theme=sakura]) :is(.brand-icon,.primary-button){transition:none;transform:none!important}}

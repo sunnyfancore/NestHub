@@ -17,7 +17,6 @@ name: nesthub
 services:
   nesthub:
     container_name: nesthub
-    user: "0:0"
     image: ${NESTHUB_IMAGE:-ghcr.io/sunnyfancore/nesthub:latest}
     ports:
       - "${NESTHUB_BIND_ADDRESS:-0.0.0.0}:${NESTHUB_PORT:-5186}:8080"
@@ -33,10 +32,8 @@ services:
       SuperAdmin__Password: ${ADMIN_PASSWORD:?Configure ADMIN_PASSWORD in .env}
       SuperAdmin__DisplayName: 超级管理员
       Updates__Enabled: "true"
-      Updates__ContainerName: nesthub
     volumes:
       - ./data/app:/app/AppData
-      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
 ```
@@ -121,11 +118,11 @@ docker compose up -d --no-deps --wait --wait-timeout 300 nesthub
 
 ### 后台点击更新（默认可用）
 
-SQLite 部署仅运行一个 NestHub 容器，应用内置 Docker 更新逻辑，不依赖 Watchtower。点击更新后使用当前镜像启动临时任务容器，完成拉取、替换、健康检查与失败回退，任务结束自动删除。
+后台从 GitHub Releases 下载应用包，校验后在同一容器内切换程序并重启。无需 Docker socket、Watchtower 或额外更新容器。新版本启动失败时自动恢复旧程序；数据库结构不自动回滚，更新前请备份。
 
-需要给应用挂载 `/var/run/docker.sock`，配置 `container_name`、`Updates__ContainerName` 和 `Updates__Enabled=true`。示例以 root 用户运行以访问 socket；这赋予应用 Docker 管理权限，仅超级管理员可触发更新。镜像使用 `latest`，支持保留用户指定的镜像代理地址。
+首次切换需要手动拉取一次新基础镜像并重建容器，移除旧 socket 挂载、`user: "0:0"` 和 `Updates__ContainerName`。数据目录须允许 UID 1654 写入。之后进入 **后台 → 应用更新**，可查看下载、校验、重启与健康检查进度。
 
-首次切换到内置更新需要手动拉取本次新版，再运行 `docker compose up -d --remove-orphans`。保留原数据目录与 `.env`，旧 Watchtower 服务和 `UPDATE_API_TOKEN` 可移除。之后进入 **后台 → 应用更新** 操作。MySQL 部署保留数据库容器，仅替换 NestHub 应用；更新失败时恢复旧容器不等同于回滚数据库，更新前请备份数据。
+更新包默认直接从 GitHub 下载，可用 `Updates__ProxyUrl` 配置 HTTP / SOCKS5 代理。Docker 镜像代理只用于镜像，不会加速 GitHub 应用包。应用版本保存在 `AppData/updates`，重建容器会继续使用已更新版本；运行环境升级仍需更新基础镜像。完整说明见 [部署指南](docs/docker-deployment.md)。
 
 ## 浏览器快捷收藏
 

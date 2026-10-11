@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
-function setup(initialTabs = [{ id: 7, url: 'https://example.com/' }]) {
+function setup(initialTabs = [{ id: 7, url: 'https://example.com/' }], failRegistration = false) {
   const storage = { connection: { token: 'secret' } };
   const registered = [], windows = [], injected = [], removed = [];
   let listener;
@@ -19,7 +19,8 @@ function setup(initialTabs = [{ id: 7, url: 'https://example.com/' }]) {
       storage: { local: {
         setAccessLevel: async () => {},
         get: async () => storage,
-        set: async data => Object.assign(storage, data)
+        set: async data => Object.assign(storage, data),
+        remove: async keys => keys.forEach(key => delete storage[key])
       } },
       runtime: {
         getURL: file => `chrome-extension://test/${file}`,
@@ -29,7 +30,7 @@ function setup(initialTabs = [{ id: 7, url: 'https://example.com/' }]) {
       permissions: { contains: async () => true, onRemoved: event },
       scripting: {
         getRegisteredContentScripts: async () => registered,
-        registerContentScripts: async scripts => registered.push(...scripts),
+        registerContentScripts: async scripts => { if (failRegistration) { failRegistration = false; throw new Error('Registration failed'); } registered.push(...scripts); },
         updateContentScripts: async scripts => { registered.splice(0, registered.length, ...scripts); },
         unregisterContentScripts: async () => { registered.length = 0; },
         executeScript: async target => injected.push(target)
@@ -165,4 +166,27 @@ test('malformed saved navigation address does not crash new-tab handling', async
   await app.createdTab({id: 30, url: 'chrome://newtab/'});
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(app.updatedTabs.length, 0);
+});
+
+
+test('combined settings save persists all options and registers the floating script', async () => {
+  const app = setup();
+  const result = await app.send({ type: 'settings-save', settings: { openOnStartup: true, openOnNewTab: true, startupUrl: 'https://nest.example/', floatingEnabled: true } }, popup);
+  assert.equal(result.ok, true);
+  assert.equal(app.storage.openOnStartup, true);
+  assert.equal(app.storage.openOnNewTab, true);
+  assert.equal(app.storage.floatingEnabled, true);
+  assert.equal(app.registered.length, 1);
+});
+
+
+test('registration failure rolls back all combined settings', async () => {
+  const app = setup([], true);
+  Object.assign(app.storage, { openOnStartup: false, openOnNewTab: false, floatingEnabled: false, startupUrl: 'https://old.example/' });
+  const result = await app.send({ type: 'settings-save', settings: { openOnStartup: true, openOnNewTab: true, startupUrl: 'https://new.example/', floatingEnabled: true } }, popup);
+  assert.equal(result.ok, false);
+  assert.equal(app.storage.openOnStartup, false);
+  assert.equal(app.storage.openOnNewTab, false);
+  assert.equal(app.storage.floatingEnabled, false);
+  assert.equal(app.storage.startupUrl, 'https://old.example/');
 });

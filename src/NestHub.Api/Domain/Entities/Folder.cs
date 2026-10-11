@@ -4,6 +4,7 @@ using NestHub.Api.Domain.Interfaces;
 namespace NestHub.Api.Domain.Entities;
 
 [Table(Name = "folders")]
+[Index("idx_folder_tenant_scope", "TenantId,ParentId", false)]
 public sealed class Folder : AuditableEntity, ITenantEntity
 {
     [Column(Name = "tenant_id", DbType = "char(36)", IsNullable = false)]

@@ -24,13 +24,11 @@ public sealed class SuperAdminService
             .OrderBy(t => t.CreatedAt)
             .ToListAsync();
 
-        var allBookmarks = await _orm.Select<Bookmark>()
+        var counts = await _orm.Select<Bookmark>()
             .DisableGlobalFilter("TenantFilter")
-            .ToListAsync(b => new { b.TenantId });
-
-        var countMap = allBookmarks
-            .GroupBy(b => b.TenantId)
-            .ToDictionary(g => g.Key, g => g.Count());
+            .GroupBy(bookmark => bookmark.TenantId)
+            .ToListAsync(group => new { TenantId = group.Key, Count = group.Count() });
+        var countMap = counts.ToDictionary(item => item.TenantId, item => item.Count);
 
         return tenants.Select(t => new AdminTenantDto
         {

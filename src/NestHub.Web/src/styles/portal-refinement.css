@@ -119,3 +119,11 @@
 @media (max-width: 360px) {
   .portal-page.portal-page.portal-page.theme-lime .portal-grid { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Feedback and keyboard details use the active palette without changing themes. */
+.portal-feedback{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:240px;padding:32px 20px;text-align:center;background:var(--p-panel);color:var(--p-ink);border:1px solid var(--p-line);border-radius:16px}
+.portal-feedback h2,.portal-feedback p{margin:0}.portal-feedback h2{font-size:18px}.portal-feedback p{font-size:13px;color:var(--p-muted);max-width:420px;line-height:1.8}
+.portal-page .portal-card__main:focus-visible{outline:2px solid var(--p-accent);outline-offset:4px;border-radius:8px}
+.portal-page :is(.portal-hamburger,.portal-sidebar__close,.portal-view-toggle,.portal-search-engine-btn,.portal-search-submit):focus-visible{outline:2px solid var(--p-accent);outline-offset:3px}
+.portal-page .portal-card__copy{min-width:0}
+@media(max-width:760px){.portal-feedback{min-height:200px;padding:26px 16px}}

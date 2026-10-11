@@ -86,9 +86,23 @@ test('collection window save action is visible without scrolling, including expa
     const box = await save.boundingBox();
     assert.ok(box.y >= 0 && box.y + box.height <= 600, 'save button must be entirely visible initially');
     assert.equal(await page.evaluate(() => scrollY), 0);
+    for (const name of ['theme', 'settings', 'collect']) {
+      await page.locator('#panel-' + name).click();
+      assert.ok(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight), name + ' panel must fit without scrolling');
+      const footer = await page.locator('footer').boundingBox();
+      assert.ok(Math.abs(footer.y + footer.height - 600) <= 1, name + ' footer must remain at the bottom');
+    }
     assert.ok(await page.locator('.extra-options').evaluate(element => !element.open));
     fs.mkdirSync(output, { recursive: true });
     await page.screenshot({ path: path.join(output, 'popup-test.png') });
+    await page.locator('#panel-settings').click();
+    await page.evaluate(() => document.documentElement.dataset.theme = 'sakura');
+    await page.screenshot({ path: path.join(output, 'settings-footer-sakura.png') });
+    await page.setViewportSize({width:380,height:720});
+    const tallFooter = await page.locator('footer').boundingBox();
+    assert.ok(Math.abs(tallFooter.y + tallFooter.height - 720) <= 1, 'footer must follow the floating window height');
+    await page.setViewportSize({width:380,height:600});
+    await page.locator('#panel-collect').click();
     await page.locator('.extra-options summary').click();
     const expanded = await save.boundingBox();
     assert.ok(expanded.y >= 0 && expanded.y + expanded.height <= 600, 'sticky save action must remain visible');

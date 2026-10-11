@@ -4,6 +4,7 @@ using NestHub.Api.Domain.Interfaces;
 namespace NestHub.Api.Domain.Entities;
 
 [Table(Name = "bookmarks")]
+[Index("idx_bookmark_tenant_scope", "TenantId,FolderId", false)]
 public sealed class Bookmark : AuditableEntity, ITenantEntity
 {
     [Column(Name = "tenant_id", DbType = "char(36)", IsNullable = false)]

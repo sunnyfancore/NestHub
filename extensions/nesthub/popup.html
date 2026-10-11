@@ -1,13 +1,40 @@
 <!doctype html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NestHub 快捷收藏</title><link rel="stylesheet" href="popup.css"><link rel="stylesheet" href="themes.css"></head>
-<body>
+<body data-panel="collect">
   <div class="sakura-starfall" aria-hidden="true"><span>✦</span><span>✧</span><span>✦</span><span>✧</span><span>✦</span><span>✧</span></div>
   <header>
     <img class="brand-icon" src="icons/icon-48.png" alt="">
     <div class="brand"><div class="brand-name">NestHub</div><h1>快捷收藏</h1></div>
-    <button id="disconnect" hidden type="button">断开连接</button>
+    <div class="connection-badge"><p id="space" hidden></p><button id="disconnect" hidden type="button">断开连接</button></div>
   </header>
+  <nav class="panel-tabs" aria-label="插件页面"><button id="panel-collect" type="button" aria-pressed="true">收藏</button><button id="panel-theme" type="button" aria-pressed="false">主题</button><button id="panel-settings" type="button" aria-pressed="false">设置</button></nav>
+  <p id="status" role="status" aria-live="polite">正在读取当前网页…</p>
+  <form id="connectionForm" hidden>
+    <p class="connection-heading">连接你的导航空间</p>
+    <p class="connection-description">填写站点地址与 API 令牌，开始收藏。</p>
+    <label for="site">导航站点地址</label><input id="site" type="text" inputmode="url" placeholder="https://nav.example.com" required>
+    <button id="connectFromSite" type="button" class="settings-save login-connect">使用网站登录状态连接</button>
+    <small>读取此地址下已登录的 NestHub 页面，无需复制令牌。</small>
+    <label for="token">API 令牌</label><input id="token" type="password" placeholder="粘贴从 NestHub 后台复制的令牌" autocomplete="off" spellcheck="false" required>
+    <small>在 NestHub 后台「API 调用说明」中复制令牌，无需填写账号密码。</small>
+    <div class="save-actions"><button class="primary-button" type="submit">验证并连接 <span aria-hidden="true">→</span></button></div>
+  </form>
+  <form id="saveForm" hidden>
+    <div class="collection-fields">
+    <label for="title">网页标题</label><input id="title" maxlength="120" required>
+    <label for="url">网页地址</label><input id="url" type="url" maxlength="1024" required>
+    <div class="category-heading"><label for="category">保存到分类</label><button id="refresh" type="button" title="强制从 NestHub 获取最新分类">刷新分类</button></div>
+    <select id="category" required></select>
+    </div>
+    <details class="extra-options">
+      <summary>添加描述和标签</summary>
+      <label for="description">描述</label><textarea id="description" maxlength="500" rows="2" placeholder="记下收藏这页的理由"></textarea>
+      <label for="tags">标签</label><input id="tags" maxlength="255" placeholder="多个标签用逗号分隔">
+    </details>
+    <label class="inline"><input id="pinned" type="checkbox">置顶到我的导航</label>
+    <div class="save-actions"><button class="primary-button" id="save" type="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1Z"/></svg>添加到 NestHub</button></div>
+  </form>
   <section class="theme-picker" aria-label="导航与插件主题">
     <div class="theme-picker__heading">主题</div>
     <div id="theme" class="theme-grid" role="group" aria-label="选择主题">
@@ -25,42 +52,17 @@
     </div>
     <small id="themeDescription" class="theme-description" aria-live="polite"></small>
   </section>
-  <p id="status" role="status" aria-live="polite">正在读取当前网页…</p>
-  <form id="connectionForm" hidden>
-    <p class="connection-heading">连接你的导航空间</p>
-    <p class="connection-description">填写站点地址与 API 令牌，开始收藏。</p>
-    <label for="site">导航站点地址</label><input id="site" type="text" inputmode="url" placeholder="https://nav.example.com" required>
-    <button id="connectFromSite" type="button" class="settings-save login-connect">使用网站登录状态连接</button>
-    <small>读取此地址下已登录的 NestHub 页面，无需复制令牌。</small>
-    <label for="token">API 令牌</label><input id="token" type="password" placeholder="粘贴从 NestHub 后台复制的令牌" autocomplete="off" spellcheck="false" required>
-    <small>在 NestHub 后台「API 调用说明」中复制令牌，无需填写账号密码。</small>
-    <div class="save-actions"><button class="primary-button" type="submit">验证并连接 <span aria-hidden="true">→</span></button></div>
-  </form>
-  <form id="saveForm" hidden>
-    <p id="space"></p>
-    <label for="title">网页标题</label><input id="title" maxlength="120" required>
-    <label for="url">网页地址</label><input id="url" type="url" maxlength="1024" required>
-    <div class="category-heading"><label for="category">保存到分类</label><button id="refresh" type="button" title="强制从 NestHub 获取最新分类">刷新分类</button></div>
-    <select id="category" required></select>
-    <details class="extra-options">
-      <summary>添加描述和标签</summary>
-      <label for="description">描述</label><textarea id="description" maxlength="500" rows="2" placeholder="记下收藏这页的理由"></textarea>
-      <label for="tags">标签</label><input id="tags" maxlength="255" placeholder="多个标签用逗号分隔">
-    </details>
-    <label class="inline"><input id="pinned" type="checkbox">置顶到我的导航</label>
-    <div class="save-actions"><button class="primary-button" id="save" type="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1Z"/></svg>添加到 NestHub</button></div>
-  </form>
-  <details class="settings">
-    <summary>插件设置</summary>
+  <section class="settings">
+    <h2 class="panel-title">插件设置</h2>
     <label class="inline"><input id="openOnStartup" type="checkbox">启动浏览器时打开导航</label>
     <label class="inline"><input id="openOnNewTab" type="checkbox">新标签页也打开导航</label>
     <small id="startupAddress">自动使用已连接的导航地址，无需重复填写。</small>
-    <button id="saveStartup" type="button" class="settings-save">保存启动设置</button>
     <button id="openNavigation" type="button" class="settings-save">立即打开导航</button>
     <small>复用空白新标签页，不额外多开一页；首次开启需授权读取标签页地址。</small>
     <label class="inline"><input id="floating" type="checkbox">在网页上显示贴边收藏按钮</label>
-    <small>开启时需授权网页访问；拖动可调整位置，取消勾选即可关闭。</small>
-  </details>
+    <small>拖动可调整位置；修改以上选项后统一保存，首次启用时合并请求权限。</small>
+    <button id="saveStartup" type="button" class="settings-save primary-button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 12 4 4L19 6" stroke-linecap="round" stroke-linejoin="round"/></svg>保存插件设置</button>
+  </section>
   <footer>你的收藏，只发送到你连接的 NestHub</footer>
   <script src="popup.js" type="module"></script>
 </body></html>

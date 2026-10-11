@@ -26,7 +26,7 @@ if grep -q 'replace-with-' .env; then
   echo '请先替换 .env 中的示例密码。'; exit 1
 fi
 mkdir -p data/app backups
-# Keep data writable for the default .NET app user, including when native updates are disabled.
+# Keep data writable for the default .NET app user, including when application updates are disabled.
 if [ "$(id -u)" = 0 ]; then
   chown -R 1654:1654 data/app
 elif command -v sudo >/dev/null; then

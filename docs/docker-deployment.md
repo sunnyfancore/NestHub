@@ -100,35 +100,46 @@ docker run --rm --add-host host.docker.internal:host-gateway \
 
 ### 后台一键更新（默认包含）
 
-SQLite 部署只运行一个 NestHub 容器；MySQL 版另有数据库容器。没有常驻更新服务，不使用 Watchtower，也不再需要 `UPDATE_API_TOKEN`。
+SQLite 部署只运行一个 NestHub 容器；MySQL 版另有数据库容器。日常更新下载应用包，在当前容器内部重启程序，不再拉取镜像或替换容器。
 
 ```yaml
-container_name: nesthub
-user: "0:0"
 environment:
   Updates__Enabled: "true"
-  Updates__ContainerName: nesthub
+  # 可选：访问 GitHub 的 HTTP 或 SOCKS5 代理
+  # Updates__ProxyUrl: http://192.168.1.10:7890
 volumes:
   - ./data/app:/app/AppData
-  - /var/run/docker.sock:/var/run/docker.sock
 ```
 
-完整示例见仓库根目录 `docker-compose.yml` 和 `docker-compose.mysql.yml`。多个实例请分别设置不同的 `NESTHUB_CONTAINER_NAME`。应用名称必须与 `Updates__ContainerName` 一致。
+完整示例见根目录 `docker-compose.yml` 和 `docker-compose.mysql.yml`。无需 Docker socket、Watchtower、root 用户或更新令牌。应用包适配 Linux x64 / ARM64 与 .NET 10；基础运行环境的大版本升级仍需要更新 Docker 镜像。
 
-更新过程：先拉取现有容器配置中指定的镜像（包括代理地址），原应用继续运行；镜像有变化后保留端口、环境变量、标签、网络、数据挂载和健康检查，替换容器。健康检查失败时尝试恢复旧容器。执行任务使用当前 NestHub 镜像的临时容器，结束自动删除，正常运行仍只有一个应用容器。镜像代理尚未同步或固定版本无变化时会显示“镜像仓库尚无更新”。
+更新过程：查询 GitHub Releases → 下载当前架构的应用包 → SHA-256 和大小校验 → 解压到独立版本目录 → 重启应用 → 健康检查。下载期间网站可用，重启时短暂断开。新程序启动失败自动恢复旧程序；数据库结构变更不能自动撤销，因此更新前仍须备份。
 
-首次升级到本实现：备份数据，保留 `.env`、数据库和原有挂载目录，用新版 Compose 补充容器名称和 socket 配置，移除旧 `updater` 服务。当前旧版镜像没有内置更新执行器，必须手动更新一次：
+首次切换：保留 `.env` 与原有数据目录，移除旧 `updater` 服务、Docker socket 挂载、`user: "0:0"` 和 `Updates__ContainerName`。旧版写入的文件可能属于 root，先调整权限，再更新一次基础镜像：
 
 ```bash
+sudo chown -R 1654:1654 ./data/app
 docker compose pull nesthub
-docker compose up -d --remove-orphans
+docker compose up -d --remove-orphans --wait --wait-timeout 300
 ```
 
-MySQL 版命令添加 `-f docker-compose.mysql.yml`。之后超级管理员进入 **后台 → 应用更新** 点击更新。Compose 目录或 `.env` 修改不会自动同步到已运行容器，配置变更仍需运行 `docker compose up -d`。
+之后超级管理员进入 **后台 → 应用更新** 操作。MySQL 版添加 `-f docker-compose.mysql.yml`。修改 Compose、环境变量或基础镜像后仍需重建容器。
 
-挂载 Docker socket 赋予应用管理 Docker 的权限。示例使用 `user: "0:0"`，仅超级管理员能调用更新接口；若不需要此功能，移除 socket 挂载和 `user` 设置，将 `Updates__Enabled` 设为 `false`。应用恢复使用镜像默认 UID 1654，已有数据目录和文件需保持该用户可写。
+持久目录：
 
-任务状态写入数据目录中的 `update-status.json`。失败回退保留原数据，但数据库结构变更不保证兼容旧版，因此更新前仍需备份。当前支持 Linux Docker Engine 的 Unix socket、公开镜像及公开镜像代理；不支持私有镜像仓库认证或 Windows named pipe。
+| 路径 | 用途 |
+| --- | --- |
+| `AppData/nesthub.db` | SQLite 数据库 |
+| `AppData/uploads` | 上传文件 |
+| `AppData/updates/releases/<提交号>` | 独立应用版本（包括前端和插件包） |
+| `AppData/updates/active` | 当前成功启用版本 |
+| `AppData/updates/previous` | 上一个版本 |
+| `AppData/updates/pending.json` | 等待启动验证的版本 |
+| `AppData/updates/status.json` | 更新进度与结果 |
+
+应用版本随数据目录保存，普通容器重建不会丢失。手动更新镜像不会覆盖已经启用的应用包。若需恢复使用镜像内置程序，先停止容器、备份数据库和 `updates` 目录，再移走 `updates/active` 与 `updates/pending.json`，启动容器。不要删除数据库或上传目录；旧程序未必兼容新版数据库结构。
+
+GitHub 应用包和 Docker 镜像是两个独立下载通道。`ghcr.dockerproxy.net` 只用于镜像；服务器访问 GitHub 较慢时配置 `Updates__ProxyUrl`。代理应能访问 GitHub API、Release 附件及其文件 CDN。发布流水线仅在完整上传所有包和清单后公开应用版本，未完成的草稿不会被检测为更新。
 
 ### 手动更新
 

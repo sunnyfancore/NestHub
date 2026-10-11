@@ -1,7 +1,7 @@
 import { createApp } from 'vue'
-import ElementPlus from 'element-plus'
-import zhCn from 'element-plus/es/locale/lang/zh-cn'
-import 'element-plus/dist/index.css'
+import 'element-plus/es/components/message/style/css'
+import 'element-plus/es/components/message-box/style/css'
+import 'font-awesome/css/font-awesome.min.css'
 import './style.css'
 import './styles/portal-palette.css'
 import App from './App.vue'
@@ -13,7 +13,6 @@ const app = createApp(App)
 
 app.use(pinia)
 app.use(router)
-app.use(ElementPlus, { locale: zhCn })
 
 const authStore = useAuthStore()
 

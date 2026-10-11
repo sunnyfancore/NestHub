@@ -2,7 +2,6 @@ name: nesthub
 services:
   nesthub:
     container_name: ${NESTHUB_CONTAINER_NAME:-nesthub}
-    user: "0:0"  # 内置更新需要访问 Docker socket
     image: ${NESTHUB_IMAGE:-ghcr.io/sunnyfancore/nesthub:latest}
     ports:
       - "${NESTHUB_BIND_ADDRESS:-0.0.0.0}:${NESTHUB_PORT:-5186}:8080"
@@ -18,10 +17,9 @@ services:
       SuperAdmin__Password: ${ADMIN_PASSWORD:?Configure ADMIN_PASSWORD in .env}
       SuperAdmin__DisplayName: 超级管理员
       Updates__Enabled: "true"
-      Updates__ContainerName: ${NESTHUB_CONTAINER_NAME:-nesthub}
+      Updates__ProxyUrl: ${UPDATE_PROXY_URL:-}
     volumes:
       - ./data/app:/app/AppData
-      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       mysql:
         condition: service_healthy

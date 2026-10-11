@@ -1,0 +1,34 @@
+/* Only transform/opacity animate. Decorations never intercept interaction. */
+.theme-ambient { position: fixed; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; contain: strict; }
+.theme-ambient span { position: absolute; width: 36vw; height: 36vw; min-width: 240px; min-height: 240px; right: -12vw; top: -12vw; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb,var(--p-accent) 12%,transparent), transparent 68%); animation: theme-light-drift 22s ease-in-out infinite alternate; }
+.theme-ambient span + span { top: auto; right: auto; left: -12vw; bottom: -12vw; animation-delay: -11s; animation-direction: alternate-reverse; }
+.theme-ocean .theme-ambient span { width: 55vw; height: 55vw; background: radial-gradient(ellipse, #46b9df14, transparent 65%); }
+.theme-neon .theme-ambient span { border-radius: 0; width: 100%; min-width: 0; height: 110px; min-height: 0; left: 0; right: auto; top: -110px; background: linear-gradient(transparent,#77e0c014,transparent); animation: theme-neon-scan 16s linear infinite; }
+.theme-neon .theme-ambient span + span { display: none; }
+.theme-paper .theme-ambient span { background: radial-gradient(ellipse,#dfbe8d14,transparent 65%); animation-duration: 30s; }
+.theme-blackgold .theme-ambient span { background: radial-gradient(ellipse,#e1c88e18,transparent 65%); animation-duration: 26s; }
+.theme-liquid .theme-ambient span { background: radial-gradient(ellipse,#75c9e91c,transparent 65%); }
+.theme-liquid .theme-ambient span + span { background: radial-gradient(ellipse,#b8a1ec18,transparent 65%); }
+.theme-launchpad .theme-ambient span { animation: theme-light-breathe 18s ease-in-out infinite alternate; }
+.portal-page:is(.theme-default2,.theme-ocean,.theme-neon,.theme-paper,.theme-blackgold,.theme-liquid,.theme-directory,.theme-workspace,.theme-launchpad) .portal-card { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease; }
+.portal-page:is(.theme-ocean,.theme-neon,.theme-paper,.theme-blackgold,.theme-liquid,.theme-workspace,.theme-launchpad) .portal-card__icon { transition: transform .22s ease; }
+@media (hover: hover) and (pointer: fine) {
+  .portal-page.portal-page.portal-page:is(.theme-ocean,.theme-blackgold,.theme-liquid,.theme-launchpad) .portal-card:hover { transform: translateY(-3px); box-shadow: 0 9px 22px color-mix(in srgb,var(--p-accent) 12%,transparent); }
+  .portal-page.portal-page.portal-page.theme-neon .portal-card:hover { box-shadow: 0 0 18px #77e0c026; }
+  .portal-page.portal-page.portal-page.theme-paper .portal-card:hover { transform: rotate(-.35deg) translateY(-2px); }
+  .portal-page.portal-page.portal-page.theme-workspace .portal-card:hover { transform: translateX(3px); }
+  .portal-page.portal-page.portal-page.theme-directory .portal-card:hover { transform: translateX(2px); }
+  .portal-page:is(.theme-ocean,.theme-liquid,.theme-launchpad) .portal-card:hover .portal-card__icon { transform: rotate(-4deg) scale(1.06); }
+  .portal-page.theme-workspace .portal-card:hover .portal-card__icon { transform: scale(1.08); }
+}
+@keyframes theme-light-drift { from { transform: translate3d(0,0,0) scale(.9); opacity: .45; } to { transform: translate3d(-6vw,8vh,0) scale(1.15); opacity: 1; } }
+@keyframes theme-light-breathe { from { transform: scale(.85); opacity: .3; } to { transform: scale(1.1); opacity: .8; } }
+@keyframes theme-neon-scan { from { transform: translate3d(0,0,0); opacity: 0; } 15%,85% { opacity: 1; } to { transform: translate3d(0,calc(100vh + 220px),0); opacity: 0; } }
+@media (max-width: 760px) { .theme-ambient span + span { display: none; } .theme-ambient span { animation-duration: 32s; } }
+@media (prefers-reduced-motion: reduce) {
+  .theme-ambient { display: none; }
+  .theme-ambient span { animation: none; }
+  .portal-page:is(.theme-default2,.theme-ocean,.theme-neon,.theme-paper,.theme-blackgold,.theme-liquid,.theme-directory,.theme-workspace,.theme-launchpad) :is(.portal-card,.portal-card__icon) { transition: none; }
+  .portal-page.portal-page.portal-page:is(.theme-default2,.theme-ocean,.theme-neon,.theme-paper,.theme-blackgold,.theme-liquid,.theme-directory,.theme-workspace,.theme-launchpad) .portal-card:hover,
+  .portal-page:is(.theme-ocean,.theme-liquid,.theme-workspace,.theme-launchpad) .portal-card:hover .portal-card__icon { transform: none; }
+}

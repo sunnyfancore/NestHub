@@ -40,6 +40,7 @@ function showConnection() {
   $('connectionForm').hidden = false;
   $('saveForm').hidden = true;
   $('disconnect').hidden = true;
+  $('space').hidden = true;
 }
 async function disconnect() {
   ++categoryRequest;
@@ -78,6 +79,8 @@ function validCategories(options) {
 function renderCategories(portal, previous) {
   targetTenantId = portal.tenant.id;
   $('space').textContent = `保存到：${portal.tenant.name}`;
+  $('space').hidden = false;
+  $('space').title = `保存到：${portal.tenant.name}`;
   $('category').replaceChildren();
   for (const category of portal.editor.categoryOptions) {
     const option = document.createElement('option');
@@ -243,24 +246,36 @@ for (const name of themeNames) {
     return changeTheme();
   });
 }
+let settingsSaving = false;
 $('saveStartup').addEventListener('click', async () => {
+  if (settingsSaving) return;
   const enabled = $('openOnStartup').checked;
   const newTabEnabled = $('openOnNewTab').checked;
-  $('saveStartup').disabled = true;
+  const floatingEnabled = $('floating').checked;
+  settingsSaving = true;
+  for (const id of ['saveStartup', 'openOnStartup', 'openOnNewTab', 'floating']) $(id).disabled = true;
   try {
     const raw = connection?.site || $('site').value.trim();
     let url = '';
-    if (raw) {
-      const parsed = normalizeSite(raw);
-      if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error('请填写不含账号密码的 HTTP 或 HTTPS 导航地址。');
-      url = parsed.href;
-    }
+    if (raw) url = normalizeSite(raw).href;
     if ((enabled || newTabEnabled) && !url) throw new Error('请先连接导航站点。');
-    if ((enabled || newTabEnabled) && !await chrome.permissions.request({ permissions: ['tabs'] })) throw new Error('需要标签页权限才能复用新标签页，请允许后再保存。');
-    await chrome.storage.local.set({ openOnStartup: enabled, openOnNewTab: newTabEnabled, startupUrl: url });
+    const permissions = {};
+    if (enabled || newTabEnabled) permissions.permissions = ['tabs'];
+    if (floatingEnabled) permissions.origins = ['http://*/*', 'https://*/*'];
+    // Request the complete set directly in the click gesture, before any other async work.
+    if (Object.keys(permissions).length && !await chrome.permissions.request(permissions))
+      throw new Error('未获得所需权限，设置未保存。可取消需要权限的选项后再保存。');
+    const result = await chrome.runtime.sendMessage({ type: 'settings-save', settings: {
+      openOnStartup: enabled, openOnNewTab: newTabEnabled, startupUrl: url, floatingEnabled
+    } });
+    if (!result?.ok) throw new Error(result?.error || '插件设置保存失败，请重试。');
     $('startupAddress').textContent = url ? `导航地址：${url}` : '连接导航站点后自动使用该地址。';
-    status(newTabEnabled ? '已保存，新标签页将直接打开导航。' : enabled ? '已保存，下次启动浏览器时在空白标签页打开导航。' : '已关闭自动打开导航。');
-  } catch (error) { fail(error); } finally { $('saveStartup').disabled = false; }
+    status('插件设置已保存。');
+  } catch (error) { fail(error); }
+  finally {
+    settingsSaving = false;
+    for (const id of ['saveStartup', 'openOnStartup', 'openOnNewTab', 'floating']) $(id).disabled = false;
+  }
 });
 $('openNavigation').addEventListener('click', async () => {
   try {
@@ -268,19 +283,15 @@ $('openNavigation').addEventListener('click', async () => {
     await chrome.tabs.create({ url: site.href, active: true });
   } catch (error) { fail(error); }
 });
-$('floating').addEventListener('change', async () => {
-  const enabled = $('floating').checked;
-  $('floating').disabled = true;
-  try {
-    if (enabled && !await chrome.permissions.request({ origins: ['http://*/*', 'https://*/*'] })) throw new Error('未授权网页访问，贴边按钮未开启。');
-    const result = await chrome.runtime.sendMessage({ type: 'floating-toggle', enabled });
-    if (!result?.ok) throw new Error(result?.error || '设置失败，请重试。');
-    status(enabled ? '贴边收藏按钮已开启。' : '贴边收藏按钮已关闭。');
-  } catch (error) {
-    $('floating').checked = !enabled;
-    fail(error);
-  } finally { $('floating').disabled = false; }
-});
+for (const id of ['openOnStartup', 'openOnNewTab', 'floating']) {
+  $(id).addEventListener('change', () => status('设置尚未保存，请点击「保存插件设置」。'));
+}
+for (const panel of ['collect', 'theme', 'settings']) {
+  $('panel-' + panel).addEventListener('click', () => {
+    document.body.dataset.panel = panel;
+    for (const name of ['collect', 'theme', 'settings']) $('panel-' + name).setAttribute('aria-pressed', String(name === panel));
+  });
+}
 async function init() {
   // Keep the access token unavailable to content scripts.
   await chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
