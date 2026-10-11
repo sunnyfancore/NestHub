@@ -89,7 +89,16 @@
     const collect = document.createElement('button');
     collect.className = 'collect';
     collect.setAttribute('aria-label', '收藏到 NestHub');
-    const icon = document.createElement('img'); icon.src = chrome.runtime.getURL('icons/icon-32.png'); icon.alt = ''; icon.style.cssText = 'width:28px;height:28px;border-radius:8px;pointer-events:none'; collect.append(icon);
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('viewBox', '0 0 24 24');
+    icon.setAttribute('fill', 'none');
+    icon.setAttribute('stroke', 'currentColor');
+    icon.setAttribute('stroke-width', '1.8');
+    icon.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1Z');
+    icon.append(path);
+    collect.append(icon);
     collect.addEventListener('pointerdown', event => {
       if (event.button !== 0) return;
       const startX = event.clientX, startY = event.clientY;
