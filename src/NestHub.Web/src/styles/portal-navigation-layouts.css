@@ -22,7 +22,7 @@
   .portal-page.portal-page.portal-page.portal-page:is(.navigation-groups,.navigation-index) .portal-sidebar__child-link { min-height:44px; }
 }
 .portal-rail-toggle { display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:44px;margin-bottom:12px;border:1px solid var(--p-line);border-radius:10px;color:var(--p-side-ink);background:var(--p-panel);cursor:pointer; }
-@media(min-width:761px) {
+@media(min-width:1161px) {
   .portal-page.portal-page.portal-page.portal-page.navigation-rail .portal-sidebar { width:100%;min-width:0; }
   .portal-page.portal-page.portal-page.portal-page.navigation-rail:not(.rail-expanded) { grid-template-columns:88px minmax(0,1fr) !important; }
   .portal-page.portal-page.portal-page.portal-page.navigation-rail:not(.rail-expanded) .portal-sidebar__logo { padding-inline:10px; }

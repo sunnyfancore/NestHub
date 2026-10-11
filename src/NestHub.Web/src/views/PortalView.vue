@@ -68,7 +68,7 @@ const mobileSidebarOpen = ref(false)
 const railExpanded = ref(false)
 const navigationLayout = computed(() => ['lime', 'sakura'].includes(activeTheme.value) ? 'groups' : activeTheme.value === 'launchpad' ? 'index' : ['blackgold', 'neon'].includes(activeTheme.value) ? 'rail' : 'directory')
 const sidebarRef = ref<HTMLElement | null>(null)
-useSidebarKeyboard(mobileSidebarOpen, sidebarRef, 760)
+useSidebarKeyboard(mobileSidebarOpen, sidebarRef, 1160)
 const mobileRailOpen = ref(false)
 const searchSuggestionIndex = ref(-1)
 const searchSuggestions = ref<PortalSearchResult[]>([])
@@ -87,7 +87,7 @@ const activeTheme = computed(() => {
 
 watch(activeTheme, theme => { document.documentElement.dataset.portalTheme = theme; railExpanded.value = false }, { immediate: true })
 function handleViewportResize() {
-  if ((viewportWidth.value <= 760) !== (window.innerWidth <= 760)) { railExpanded.value = false; mobileSidebarOpen.value = false }
+  if ((viewportWidth.value <= 1160) !== (window.innerWidth <= 1160)) { railExpanded.value = false; mobileSidebarOpen.value = false }
   viewportWidth.value = window.innerWidth
   closeContextMenu()
   closeCategoryContextMenu()
@@ -655,7 +655,7 @@ function navigateCategory(category: PortalCategory) {
     if (['groups', 'index'].includes(navigationLayout.value)) expandedMenu.value = {}
     expandedMenu.value[category.id] = !expanded
     toggleMenu(category.id)
-    if (navigationLayout.value === 'rail' && viewportWidth.value > 760) railExpanded.value = true
+    if (navigationLayout.value === 'rail' && viewportWidth.value > 1160) railExpanded.value = true
     return
   }
   mobileSidebarOpen.value = false
@@ -5136,3 +5136,4 @@ html.dark .theme-paper .portal-context-menu__divider { background: #3a3220; }
 <style scoped src="../styles/portal-navigation-layouts.css"></style>
 
 <style scoped src="../styles/portal-finish.css"></style>
+<style scoped src="../styles/portal-responsive.css"></style>
