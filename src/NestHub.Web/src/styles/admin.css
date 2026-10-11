@@ -102,6 +102,32 @@ html[data-admin-workspace] .el-dialog .el-input__wrapper { border-radius: 9px; }
 }
 
 /* Consistent finishing details across management pages. */
+.admin-mobile-records { display:none; }
+.category-sort-help { color:#64796d;font-size:12px;line-height:1.7;margin:0 0 12px; }
+.admin-record { padding:16px;background:var(--el-bg-color);border:1px solid var(--el-border-color-light);border-radius:12px;min-width:0; }
+.admin-record__heading { display:flex;gap:12px;align-items:center;justify-content:space-between; }
+.admin-record__heading h3 { margin:0;font-size:15px;overflow-wrap:anywhere; }
+.admin-record__url { font-size:12px;color:var(--el-text-color-secondary);overflow-wrap:anywhere;line-height:1.7;margin:10px 0; }
+.admin-record__details { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0; }
+.admin-record__details div { min-width:0; }
+.admin-record__details dt { font-size:11px;color:var(--el-text-color-secondary); }
+.admin-record__details dd { margin:4px 0 0;font-size:12px;overflow-wrap:anywhere; }
+.admin-record__actions { display:flex;flex-wrap:wrap;gap:8px;border-top:1px solid var(--el-border-color-lighter);padding-top:12px; }
+.admin-record__actions .el-button { flex:1; }
+@media(max-width:760px) {
+  .admin-shell.admin-shell .admin-mobile-records { display:grid;gap:12px;flex:none; }
+  .admin-shell.admin-shell .admin-desktop-records { display:none; }
+  .admin-shell.admin-shell .cat-tree__row { touch-action:pan-y; }
+  .admin-shell.admin-shell .cat-tree__drag { touch-action:none;user-select:none; }
+  .admin-shell.admin-shell .admin-pagination { width:100%;overflow:hidden; }
+  .admin-shell.admin-shell .el-pagination__jump { display:none; }
+  .admin-shell.admin-shell .import-result { gap:8px;padding:12px; }
+  .admin-shell.admin-shell .import-result .result-item { padding:12px 8px;min-width:0; }
+  .admin-shell.admin-shell .import-result .result-item span { font-size:12px;overflow-wrap:anywhere; }
+  .admin-shell.admin-shell .admin-content :is(.el-upload,.el-upload-dragger) { width:100%;max-width:100%; }
+  .admin-shell.admin-shell .admin-content .el-upload-list__item-name { overflow:hidden;text-overflow:ellipsis; }
+  .admin-shell.admin-shell .admin-record__heading .el-tag { flex-shrink:0; }
+}
 .admin-shell.admin-shell .admin-main,.admin-shell.admin-shell .admin-content{min-width:0}
 .admin-shell.admin-shell .admin-content>.updates-page{max-width:1040px}
 .admin-shell.admin-shell .admin-content :is(h2,h3){text-wrap:balance}

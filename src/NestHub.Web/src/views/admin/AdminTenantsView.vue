@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import AdminLoadNotice from '@/components/admin/AdminLoadNotice.vue'
 import { createTenant, getTenants, resetTenantPassword, toggleTenantActive, updateTenant } from '@/api/super'
 import type { AdminTenant } from '@/types/models'
 
 const loading = ref(false)
 const tenants = ref<AdminTenant[]>([])
+const loadError = ref('')
+let loadSequence = 0
 const keyword = ref('')
 const filteredTenants = computed(() => {
   const query = keyword.value.trim().toLocaleLowerCase()
@@ -32,13 +35,16 @@ const resetTarget = ref<AdminTenant | null>(null)
 const newPassword = ref('')
 
 async function load() {
+  const sequence = ++loadSequence
   loading.value = true
+  loadError.value = ''
   try {
-    tenants.value = await getTenants()
+    const result = await getTenants()
+    if (sequence === loadSequence) tenants.value = result
   } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || '获取数据失败。')
+    if (sequence === loadSequence) loadError.value = error?.response?.data?.message || '租户读取失败，请重新加载。'
   } finally {
-    loading.value = false
+    if (sequence === loadSequence) loading.value = false
   }
 }
 
@@ -142,10 +148,12 @@ function formatDate(dateStr: string) {
 }
 
 onMounted(load)
+onBeforeUnmount(() => { ++loadSequence })
 </script>
 
 <template>
   <div class="admin-page tenant-page">
+    <AdminLoadNotice :message="loadError" :loading="loading" @retry="load" />
     <div class="tenant-overview">
       <div class="tenant-stat"><span>租户总数</span><strong>{{ tenants.length }}</strong><small>独立的导航空间</small></div>
       <div class="tenant-stat"><span>启用中</span><strong>{{ activeCount }}</strong><small>可正常访问的空间</small></div>
@@ -167,7 +175,16 @@ onMounted(load)
       </el-button>
     </div>
 
-    <el-table
+    <div class="admin-mobile-records" v-loading="loading">
+      <article v-for="item in filteredTenants" :key="item.id" class="admin-record">
+        <div class="admin-record__heading"><h3>{{ item.name }}</h3><el-tag :type="item.isActive ? 'success' : 'danger'">{{ item.isActive ? '启用' : '停用' }}</el-tag></div>
+        <p class="admin-record__url">{{ item.email || '未设置邮箱' }}</p>
+        <dl class="admin-record__details"><div><dt>角色</dt><dd>{{ item.isSuperAdmin ? '超级管理员' : '普通租户' }}</dd></div><div><dt>链接</dt><dd>{{ item.linkCount }}</dd></div><div><dt>创建</dt><dd>{{ formatDate(item.createdAt) }}</dd></div></dl>
+        <div class="admin-record__actions"><el-button @click="openEdit(item)">编辑</el-button><el-button v-if="!item.isSuperAdmin" :type="item.isActive ? 'warning' : 'success'" plain @click="handleToggleActive(item)">{{ item.isActive ? '停用' : '启用' }}</el-button><el-button v-if="item.email" @click="openResetPassword(item)">重置密码</el-button></div>
+      </article>
+      <el-empty v-if="!loading && !filteredTenants.length" description="暂无符合条件的租户" :image-size="64" />
+    </div>
+    <el-table class="admin-desktop-records"
       v-loading="loading"
       :data="filteredTenants"
       row-key="id"

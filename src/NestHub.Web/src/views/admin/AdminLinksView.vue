@@ -215,7 +215,16 @@ onMounted(async () => {
       </div>
     </div>
 
-    <el-table v-loading="loading" :data="pagedLinks" row-class-name="link-table__row" height="100%">
+    <div class="admin-mobile-records" v-loading="loading">
+      <article v-for="item in pagedLinks" :key="item.id" class="admin-record">
+        <div class="admin-record__heading"><h3>{{ item.title }}</h3><el-tag v-if="item.isPinned" size="small">置顶</el-tag></div>
+        <p class="admin-record__url">{{ item.url }}</p>
+        <dl class="admin-record__details"><div><dt>分类</dt><dd>{{ item.categoryName || '未分类' }}</dd></div><div><dt>点击</dt><dd>{{ item.clickCount }}</dd></div><div><dt>排序</dt><dd>{{ item.sortOrder }}</dd></div><div><dt>更新</dt><dd>{{ new Date(item.updatedAt).toLocaleString() }}</dd></div></dl>
+        <div class="admin-record__actions"><el-button :disabled="!categoriesReady" @click="openEdit(item)">编辑链接</el-button><el-button type="danger" plain @click="remove(item)">删除链接</el-button></div>
+      </article>
+      <el-empty v-if="!loading && !pagedLinks.length" :description="linksError ? '链接读取未完成，请重新加载。' : keyword || categoryId ? '没有符合筛选条件的链接。' : '暂无链接，添加一个常用网址吧。'" :image-size="64" />
+    </div>
+    <el-table class="admin-desktop-records" v-loading="loading" :data="pagedLinks" row-class-name="link-table__row" height="100%">
       <template #empty><span>{{ linksError ? '链接读取未完成，请重新加载。' : keyword || categoryId ? '没有符合筛选条件的链接。' : '暂无链接，添加一个常用网址吧。' }}</span></template>
       <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
       <el-table-column prop="categoryName" label="分类" min-width="120" show-overflow-tooltip />

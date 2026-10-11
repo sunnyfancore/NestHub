@@ -159,8 +159,14 @@ function initSortables() {
     Sortable.create(treeRef.value, {
       animation: 160,
       draggable: '.cat-tree__parent',
+      handle: '.cat-tree__drag',
+      delay: 280,
+      delayOnTouchOnly: true,
+      touchStartThreshold: 8,
+      fallbackTolerance: 8,
       ghostClass: 'cat-tree__parent--ghost',
-      onEnd: async () => {
+      onEnd: async (event: { oldIndex?: number; newIndex?: number }) => {
+        if (event.oldIndex === event.newIndex) return
         if (!treeRef.value) return
         const orderedIds = Array.from(treeRef.value.querySelectorAll<HTMLElement>('.cat-tree__parent'))
           .map((el) => el.dataset.id || '')
@@ -171,6 +177,7 @@ function initSortables() {
           await load()
         } catch (error: any) {
           ElMessage.error(error?.response?.data?.message || '排序失败。')
+          await load()
         }
       },
     }),
@@ -185,8 +192,14 @@ function initSortables() {
       Sortable.create(container, {
         animation: 160,
         draggable: '.cat-tree__child',
+        handle: '.cat-tree__drag',
+        delay: 280,
+        delayOnTouchOnly: true,
+        touchStartThreshold: 8,
+        fallbackTolerance: 8,
         ghostClass: 'cat-tree__child--ghost',
-        onEnd: async () => {
+        onEnd: async (event: { oldIndex?: number; newIndex?: number }) => {
+          if (event.oldIndex === event.newIndex) return
           const orderedIds = Array.from(container.querySelectorAll<HTMLElement>('.cat-tree__child'))
             .map((el) => el.dataset.id || '')
             .filter(Boolean)
@@ -196,6 +209,7 @@ function initSortables() {
             await load()
           } catch (error: any) {
             ElMessage.error(error?.response?.data?.message || '排序失败。')
+            await load()
           }
         },
       }),
@@ -225,6 +239,7 @@ async function resetSortOrder() {
 }
 
 watch(() => route.path, load)
+watch(expandedNodes, async () => { await nextTick(); initSortables() }, { deep:true })
 
 onMounted(load)
 onBeforeUnmount(() => {
@@ -255,6 +270,7 @@ onBeforeUnmount(() => {
       </el-button>
     </div>
 
+    <p class="category-sort-help">上下滑动浏览分类；按住左侧排序手柄再拖动，可调整同级顺序。</p>
     <div v-loading="loading" ref="treeRef" class="cat-tree">
       <div
         v-for="node in tree"
@@ -370,8 +386,11 @@ onBeforeUnmount(() => {
 
 @media (max-width: 760px) {
   .admin-page {
-    height: 100%;
+    height: auto;
+    flex-shrink:0;
+    overflow:visible;
   }
+  .admin-page .cat-tree { flex:none;overflow:visible; }
 }
 
 /* ── tree ── */
