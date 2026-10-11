@@ -133,6 +133,9 @@ using (var cacheService = new SystemUpdateService(new ConfigurationBuilder().Add
     Check((await cacheService.CheckAsync(CancellationToken.None)).HasUpdate, "Failed refresh discarded verified release");
 }
 Console.WriteLine("APPLICATION_RELEASE_CACHE_SURVIVES_NETWORK_FAILURE_OK");
+var unorderedReleases = JsonNode.Parse("""[{"draft":false,"tag_name":"app-old","published_at":"2026-10-11T07:01:49Z"},{"draft":false,"tag_name":"app-new","published_at":"2026-10-11T07:22:45Z"},{"draft":true,"tag_name":"app-draft","published_at":"2026-10-12T00:00:00Z"}]""")!.AsArray();
+Check(SystemUpdateService.OrderedApplicationReleases(unorderedReleases).First()!["tag_name"]!.GetValue<string>() == "app-new", "Release API ordering hid newer application package");
+Console.WriteLine("APPLICATION_RELEASE_PUBLICATION_ORDER_OK");
 
 var networkRoot = Path.Combine(Path.GetTempPath(), "nesthub-network-" + Guid.NewGuid().ToString("N"));
 var networkConfig = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Updates:DataPath"] = networkRoot, ["Updates:ProxyUrl"] = "http://192.168.1.2:7890" }).Build();

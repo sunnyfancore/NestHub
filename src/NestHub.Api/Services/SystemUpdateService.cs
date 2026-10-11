@@ -108,7 +108,7 @@ public sealed class SystemUpdateService : IDisposable
         var text = await client.GetStringAsync("https://api.github.com/repos/sunnyfancore/NestHub/releases?per_page=30", timeout.Token);
         var releases = JsonNode.Parse(text)!.AsArray();
         JsonObject? nextManifest = null;
-        foreach (var release in releases.Where(r => r?["draft"]?.GetValue<bool>() == false && r?["tag_name"]?.GetValue<string>().StartsWith("app-") == true))
+        foreach (var release in OrderedApplicationReleases(releases))
         {
             var asset = release?["assets"]?.AsArray().FirstOrDefault(a => a?["name"]?.GetValue<string>() == "manifest.json");
             if (asset is null) continue;
@@ -201,6 +201,9 @@ public sealed class SystemUpdateService : IDisposable
     {
         if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != "https" || uri.Host != "github.com" || uri.UserInfo.Length != 0 || !uri.AbsolutePath.StartsWith("/sunnyfancore/NestHub/releases/download/", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("更新地址不属于 NestHub 官方发布仓库。");
     }
+    public static IEnumerable<JsonNode?> OrderedApplicationReleases(JsonArray releases) => releases
+        .Where(r => r?["draft"]?.GetValue<bool>() == false && r?["tag_name"]?.GetValue<string>().StartsWith("app-") == true)
+        .OrderByDescending(r => DateTimeOffset.TryParse(r?["published_at"]?.GetValue<string>(), out var published) ? published : DateTimeOffset.MinValue);
     public static void ValidateManifest(JsonObject manifest, string rid)
     {
         var revision = manifest["revision"]?.GetValue<string>() ?? "";
