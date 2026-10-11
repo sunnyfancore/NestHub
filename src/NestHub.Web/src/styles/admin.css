@@ -128,3 +128,50 @@ html[data-admin-workspace] :is(a,button,[role=button]):focus-visible{outline:2px
 html[data-admin-workspace] .el-dialog{margin-top:6vh!important;max-height:88dvh;overflow:auto}
 html[data-admin-workspace] .el-form-item{margin-bottom:22px}
 }
+
+/* Whole-workspace polish: calm surfaces, consistent fields and touch targets. */
+.admin-shell.admin-shell .cat-tree__drag:hover { color: #168575; background: #e7f2ed; }
+.admin-shell.admin-shell .cat-tree__icon { color: #168575; }
+@media(max-width:600px) {
+  .admin-shell.admin-shell .admin-topbar { flex-wrap: nowrap; }
+  .admin-shell.admin-shell .admin-topbar__left { flex: 1; }
+  .admin-shell.admin-shell .admin-heading__eyebrow { max-width: 100%; }
+  .admin-shell.admin-shell .cat-tree__row { display: grid; grid-template-columns: 44px 44px 18px minmax(0,1fr); gap: 6px; padding: 10px; }
+  .admin-shell.admin-shell .cat-tree__row > .cat-tree__name { grid-column: 4; }
+  .admin-shell.admin-shell .cat-tree__count { grid-column: 1 / 3; font-variant-numeric: tabular-nums; }
+  .admin-shell.admin-shell .cat-tree__actions { grid-column: 3 / 5; justify-self: end; gap: 4px; }
+  .admin-shell.admin-shell .cat-tree__actions .el-button { min-width: 44px; min-height: 44px; }
+  .admin-shell.admin-shell :is(.cat-tree__drag,.cat-tree__toggle) { width: 44px; height: 44px; }
+}
+.admin-shell.admin-shell :is(.admin-topbar__left,.admin-topbar__right,.stat-card__body) { min-width: 0; }
+.admin-shell.admin-shell .admin-nav__item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-shell.admin-shell .admin-sidebar-close { display: none; }
+.admin-shell.admin-shell .admin-content .el-input__wrapper.is-focus,
+.admin-shell.admin-shell .admin-content .el-select__wrapper.is-focused { box-shadow: 0 0 0 1px #168575 inset,0 0 0 3px #16857512; }
+.admin-shell.admin-shell .admin-content .el-textarea__inner:focus { box-shadow: 0 0 0 1px #168575 inset,0 0 0 3px #16857512; }
+.admin-shell.admin-shell .admin-content .el-form-item__content { min-width: 0; }
+.admin-shell.admin-shell .admin-content :is(.el-alert__description,.el-form-item__error,.el-descriptions__content) { overflow-wrap: anywhere; }
+.admin-shell.admin-shell .admin-content .el-table__empty-text { line-height: 1.7; padding: 18px 0; }
+.admin-shell.admin-shell .admin-content .stat-card__body strong { overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+html[data-admin-workspace] .el-dialog__header { padding-bottom: 16px; border-bottom: 1px solid #edf2ef; }
+html[data-admin-workspace] .el-dialog__body { padding-top: 20px; }
+html[data-admin-workspace] .el-dialog__headerbtn { width: 44px; height: 44px; }
+@media(max-width:980px) {
+  .admin-shell.admin-shell .admin-brand { padding: 20px 14px; }
+  .admin-shell.admin-shell .admin-sidebar-close { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: auto; width: 44px; height: 44px; padding: 0; color: #60746a; background: transparent; border: 0; border-radius: 10px; cursor: pointer; }
+  .admin-shell.admin-shell .admin-nav__item { min-height: 44px; }
+  .admin-shell.admin-shell .admin-hamburger { min-width: 44px; min-height: 44px; }
+}
+@media(max-width:600px) {
+  .admin-shell.admin-shell .admin-topbar__right { gap: 4px; flex-shrink: 0; }
+  .admin-shell.admin-shell .admin-topbar__left { gap: 4px; }
+  .admin-shell.admin-shell .admin-avatar { width: 44px; height: 44px; flex-shrink: 0; }
+  .admin-shell.admin-shell .admin-topbar__right .el-button { min-height: 44px; padding-inline: 8px; }
+  .admin-shell.admin-shell .admin-content .el-button { min-height: 44px; }
+  .admin-shell.admin-shell .admin-content :is(.el-input__wrapper,.el-select__wrapper) { min-height: 44px; }
+  .admin-shell.admin-shell .admin-content .el-pagination :is(button,.number,.more) { min-width: 44px; min-height: 44px; }
+  html[data-admin-workspace] .el-dialog__footer .el-button { min-width: 80px; min-height: 44px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .admin-shell.admin-shell :is(.admin-sidebar,.admin-nav__item,.el-button) { transition: none; }
+}

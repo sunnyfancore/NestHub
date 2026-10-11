@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useSidebarKeyboard } from '@/composables/useSidebarKeyboard'
 import { safeIconSource } from '@/components/portal/siteIcons'
 
 import {
@@ -64,6 +65,8 @@ const searchEngineMenuVisible = ref(false)
 const expandedMenu = ref<Record<string, boolean>>({})
 const activeChildTabs = ref<Record<string, string>>({})
 const mobileSidebarOpen = ref(false)
+const sidebarRef = ref<HTMLElement | null>(null)
+useSidebarKeyboard(mobileSidebarOpen, sidebarRef, 760)
 const mobileRailOpen = ref(false)
 const searchSuggestionIndex = ref(-1)
 const searchSuggestions = ref<PortalSearchResult[]>([])
@@ -81,7 +84,11 @@ const activeTheme = computed(() => {
 })
 
 watch(activeTheme, theme => { document.documentElement.dataset.portalTheme = theme }, { immediate: true })
-function handleViewportResize() { viewportWidth.value = window.innerWidth }
+function handleViewportResize() {
+  viewportWidth.value = window.innerWidth
+  closeContextMenu()
+  closeCategoryContextMenu()
+}
 
 function applyDarkMode(dark: boolean) {
   document.documentElement.classList.toggle('dark', dark)
@@ -134,33 +141,18 @@ const categoryContextMenu = ref<{
 
 const activeSectionId = ref<string>('')
 
-const contextMenuStyle = computed(() => {
-  const menuWidth = 180
-  const menuHeight = 280
-  let x = contextMenu.value.x - 10
-  let y = contextMenu.value.y - 5
-  if (x + menuWidth > window.innerWidth) {
-    x = window.innerWidth - menuWidth - 10
+const linkMenuRef = ref<HTMLElement | null>(null)
+const categoryMenuRef = ref<HTMLElement | null>(null)
+const linkMenuSize = ref({ width: 180, height: 280 })
+const categoryMenuSize = ref({ width: 180, height: 200 })
+function menuPosition(x: number, y: number, size: { width: number; height: number }) {
+  return {
+    left: `${Math.max(8, Math.min(x, window.innerWidth - size.width - 8))}px`,
+    top: `${Math.max(8, Math.min(y, window.innerHeight - size.height - 8))}px`,
   }
-  if (y + menuHeight > window.innerHeight) {
-    y = window.innerHeight - menuHeight - 10
-  }
-  return { left: `${x}px`, top: `${y}px` }
-})
-
-const categoryContextMenuStyle = computed(() => {
-  const menuWidth = 160
-  const menuHeight = 200
-  let x = categoryContextMenu.value.x
-  let y = categoryContextMenu.value.y
-  if (x + menuWidth > window.innerWidth) {
-    x = window.innerWidth - menuWidth - 10
-  }
-  if (y + menuHeight > window.innerHeight) {
-    y = window.innerHeight - menuHeight - 10
-  }
-  return { left: `${x}px`, top: `${y}px` }
-})
+}
+const contextMenuStyle = computed(() => menuPosition(contextMenu.value.x, contextMenu.value.y, linkMenuSize.value))
+const categoryContextMenuStyle = computed(() => menuPosition(categoryContextMenu.value.x, categoryContextMenu.value.y, categoryMenuSize.value))
 
 const rootSectionContainerRef = ref<HTMLElement | null>(null)
 const mainScrollRef = ref<HTMLElement | null>(null)
@@ -377,6 +369,8 @@ async function setPublicView(publicView: boolean) {
     return
   }
 
+  closeSearchSuggestions()
+  searchSuggestions.value = []
   isPublicView.value = publicView
   localStorage.setItem(VIEW_KEY, String(isPublicView.value))
   expandedMenu.value = {}
@@ -415,24 +409,28 @@ function openSearchEngine(keyword: string) {
 }
 
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+let searchRequestId = 0
 
-async function onSearchInput() {
+async function onSearchInput(event?: Event) {
+  const requestId = ++searchRequestId
   const keyword = searchKeyword.value.trim()
+  const publicView = isPublicView.value
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+  searchDebounceTimer = null
   searchSuggestionIndex.value = -1
-
-  if (!keyword) {
-    searchSuggestions.value = []
-    searchSuggestionsVisible.value = false
-    return
-  }
+  searchSuggestions.value = []
+  searchSuggestionsVisible.value = false
+  if (!keyword || (event instanceof InputEvent && event.isComposing)) return
 
   searchDebounceTimer = setTimeout(async () => {
+    searchDebounceTimer = null
     try {
-      const results = await searchPortal(keyword, isPublicView.value)
+      const results = await searchPortal(keyword, publicView)
+      if (portalDisposed || requestId !== searchRequestId) return
       searchSuggestions.value = results.slice(0, 8)
       searchSuggestionsVisible.value = searchSuggestions.value.length > 0
     } catch {
+      if (portalDisposed || requestId !== searchRequestId) return
       searchSuggestions.value = []
       searchSuggestionsVisible.value = false
     }
@@ -440,6 +438,7 @@ async function onSearchInput() {
 }
 
 function handleSearchKeydown(e: KeyboardEvent) {
+  if (e.isComposing || e.keyCode === 229) return
   if (!searchSuggestionsVisible.value || searchSuggestions.value.length === 0) {
     if (e.key === 'Enter') runSearch()
     return
@@ -473,6 +472,9 @@ function selectSuggestion(item: PortalSearchResult) {
 }
 
 function closeSearchSuggestions() {
+  ++searchRequestId
+  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+  searchDebounceTimer = null
   searchSuggestionsVisible.value = false
   searchSuggestionIndex.value = -1
 }
@@ -662,12 +664,16 @@ function childAnchorId(categoryId: string) {
 }
 
 function openContextMenu(link: PortalLink, event: MouseEvent) {
+  closeCategoryContextMenu()
   contextMenu.value = {
     visible: true,
     x: event.clientX,
     y: event.clientY,
     link,
   }
+  void nextTick(() => {
+    if (linkMenuRef.value) linkMenuSize.value = { width: linkMenuRef.value.offsetWidth, height: linkMenuRef.value.offsetHeight }
+  })
 }
 
 function closeContextMenu() {
@@ -676,12 +682,16 @@ function closeContextMenu() {
 }
 
 function openCategoryContextMenu(category: PortalCategory, event: MouseEvent) {
+  closeContextMenu()
   categoryContextMenu.value = {
     visible: true,
     x: event.clientX,
     y: event.clientY,
     category,
   }
+  void nextTick(() => {
+    if (categoryMenuRef.value) categoryMenuSize.value = { width: categoryMenuRef.value.offsetWidth, height: categoryMenuRef.value.offsetHeight }
+  })
 }
 
 function closeCategoryContextMenu() {
@@ -1075,6 +1085,7 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', handleMotionVisibility)
   handleMotionVisibility()
   window.addEventListener('resize', handleViewportResize)
+  window.addEventListener('keydown', handlePortalEscape)
   window.addEventListener('nesthub-theme-updated', handleExtensionTheme)
   if (!authStore.isAuthenticated && isPublicView.value) {
     isPublicView.value = false
@@ -1094,6 +1105,18 @@ onMounted(async () => {
   mainScrollRef.value?.addEventListener('scroll', handleMainScroll)
 })
 
+function handlePortalEscape(event: KeyboardEvent) {
+  if (event.key !== 'Escape' || Array.from(document.querySelectorAll<HTMLElement>('.el-dialog, .el-message-box')).some(element => element.getClientRects().length > 0)) return
+  if (mobileSidebarOpen.value) {
+    mobileSidebarOpen.value = false
+    document.querySelector<HTMLButtonElement>('.portal-hamburger')?.focus()
+  }
+  closeSearchSuggestions()
+  searchEngineMenuVisible.value = false
+  closeContextMenu()
+  closeCategoryContextMenu()
+}
+
 function handleGlobalClick(e: MouseEvent) {
   const target = e.target as HTMLElement
   if (!target.closest('.portal-search-shell')) {
@@ -1106,8 +1129,9 @@ onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', handleMotionVisibility)
   portalDisposed = true
   ++sortableGeneration
-  if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
+  closeSearchSuggestions()
   window.removeEventListener('resize', handleViewportResize)
+  window.removeEventListener('keydown', handlePortalEscape)
   delete document.documentElement.dataset.portalTheme
   window.removeEventListener('nesthub-theme-updated', handleExtensionTheme)
   destroySortables()
@@ -1150,7 +1174,7 @@ onBeforeUnmount(() => {
     <!-- mobile sidebar overlay -->
     <div v-if="mobileSidebarOpen" class="portal-sidebar-overlay" @click="mobileSidebarOpen = false"></div>
 
-    <aside class="portal-sidebar" :class="{ 'is-mobile-open': mobileSidebarOpen }">
+    <aside ref="sidebarRef" class="portal-sidebar" :class="{ 'is-mobile-open': mobileSidebarOpen }">
       <div class="portal-sidebar__logo" :class="{ 'is-full': portal?.site.logoMode === 'full' }">
         <template v-if="portal">
           <template v-if="portal.site.logoMode === 'full'">
@@ -1187,6 +1211,9 @@ onBeforeUnmount(() => {
           <a
             class="portal-sidebar__link"
             :href="'#' + anchorId(category.id)"
+            :title="category.name"
+            :aria-expanded="category.children.length ? Boolean(expandedMenu[category.id]) : undefined"
+            :aria-current="activeSectionId === category.id ? 'location' : undefined"
             :class="{ 'is-active': activeSectionId === category.id }"
             @click.prevent="scrollToSection(category.id); if (category.children.length) toggleMenu(category.id); mobileSidebarOpen = false"
           >
@@ -1222,6 +1249,8 @@ onBeforeUnmount(() => {
                   @click.prevent="selectChildCategory(category, child.id); mobileSidebarOpen = false"
                   class="portal-sidebar__child-link"
                   :href="'#' + anchorId(child.id)"
+                  :title="child.name"
+                  :aria-current="activeSectionId === child.id ? 'location' : undefined"
                   :class="{ 'is-active': activeSectionId === child.id }"
                 >
                   <span v-if="portal?.canEdit" class="portal-sidebar__child-drag">
@@ -1250,21 +1279,26 @@ onBeforeUnmount(() => {
           type="button"
           title="打开导航"
           aria-label="打开导航"
+          :aria-expanded="mobileSidebarOpen"
           @click="mobileSidebarOpen = true"
         >
           <i class="fa fa-bars" aria-hidden="true"></i>
         </button>
         <div class="portal-searchbar__inner">
           <div class="portal-search-shell">
-            <button class="portal-search-engine-btn" type="button" @click="toggleSearchEngineMenu">
+            <button class="portal-search-engine-btn" type="button" :aria-expanded="searchEngineMenuVisible" aria-label="选择搜索引擎" @click="toggleSearchEngineMenu">
               {{ currentSearchEngineLabel }}
               <i class="fa" :class="searchEngineMenuVisible ? 'fa-caret-up' : 'fa-caret-down'" aria-hidden="true"></i>
             </button>
             <input
               v-model="searchKeyword"
               class="portal-search-field"
+              aria-label="搜索收藏或搜索引擎"
+              autocomplete="off"
               :placeholder="portal?.site.searchPlaceholder || '请输入关键词'"
               @input="onSearchInput"
+              @compositionstart="closeSearchSuggestions()"
+              @compositionend="onSearchInput"
               @keydown="handleSearchKeydown"
               @focus="searchSuggestionsVisible = searchSuggestions.length > 0"
             />
@@ -1310,6 +1344,7 @@ onBeforeUnmount(() => {
                     v-if="item.iconUrl"
                     :src="safeIconSource(item.iconUrl)"
                     class="portal-suggest__icon"
+                    alt=""
                     @error="($event.target as HTMLImageElement).style.display = 'none'"
                   />
                   <i v-else class="fa fa-link portal-suggest__icon-fallback" aria-hidden="true"></i>
@@ -1374,6 +1409,8 @@ onBeforeUnmount(() => {
               class="portal-child-tab"
               :class="{ 'is-active': activeChildTab(category) === child.id }"
               :data-category-id="child.id"
+              :title="child.name"
+              :aria-pressed="activeChildTab(category) === child.id"
               @click="setActiveChildTab(category, child.id)"
               @contextmenu.prevent="openCategoryContextMenu(child, $event)"
             >
@@ -1602,6 +1639,7 @@ onBeforeUnmount(() => {
 
     <div
       v-if="contextMenu.visible && contextMenu.link"
+      ref="linkMenuRef"
       class="portal-context-menu"
       :style="contextMenuStyle"
       @click.stop
@@ -1626,6 +1664,7 @@ onBeforeUnmount(() => {
 
     <div
       v-if="categoryContextMenu.visible && categoryContextMenu.category && portal?.canEdit"
+      ref="categoryMenuRef"
       class="portal-context-menu"
       :style="categoryContextMenuStyle"
       @click.stop
@@ -5076,3 +5115,5 @@ html.dark .theme-paper .portal-context-menu__divider { background: #3a3220; }
 
 <style scoped src="../styles/portal-controls.css"></style>
 <style scoped src="../styles/portal-menus.css"></style>
+
+<style scoped src="../styles/portal-finish.css"></style>

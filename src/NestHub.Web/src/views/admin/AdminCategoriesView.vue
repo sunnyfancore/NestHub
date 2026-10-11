@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminLoadNotice from '@/components/admin/AdminLoadNotice.vue'
 import { Delete, Edit, Plus, Refresh, Sort } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import Sortable from 'sortablejs'
@@ -65,16 +66,22 @@ const parentOptions = computed<PortalCategoryOption[]>(() =>
     })),
 )
 
+const loadError = ref('')
+let categoriesRequestId = 0
 async function load() {
+  const requestId = ++categoriesRequestId
   loading.value = true
+  loadError.value = ''
   try {
-    items.value = await getAdminCategories(targetTenantId.value)
+    const result = await getAdminCategories(targetTenantId.value)
+    if (requestId !== categoriesRequestId) return
+    items.value = result
     await nextTick()
-    initSortables()
+    if (requestId === categoriesRequestId) initSortables()
   } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || '获取分类列表失败。')
+    if (requestId === categoriesRequestId) loadError.value = error?.response?.data?.message || '分类读取失败，请重新加载。'
   } finally {
-    loading.value = false
+    if (requestId === categoriesRequestId) loading.value = false
   }
 }
 
@@ -101,6 +108,7 @@ function openEdit(item: AdminCategoryItem) {
 }
 
 async function submit(payload: SavePortalCategoryRequest) {
+  if (saving.value) return
   saving.value = true
   try {
     if (editingCategory.value) {
@@ -125,7 +133,8 @@ async function remove(item: AdminCategoryItem) {
     ElMessage.warning('该分类下有子分类，请先删除或移动子分类。')
     return
   }
-  await ElMessageBox.confirm(`确认删除分类「${item.name}」吗？`, '删除分类', { type: 'warning' })
+  const confirmed = await ElMessageBox.confirm(`确认删除分类「${item.name}」吗？`, '删除分类', { type: 'warning' }).then(() => true, () => false)
+  if (!confirmed) return
   try {
     await deleteCategory(item.id, targetTenantId.value)
     ElMessage.success('分类已删除。')
@@ -195,7 +204,8 @@ function initSortables() {
 }
 
 async function resetSortOrder() {
-  await ElMessageBox.confirm('将按当前显示顺序重新分配排序值（步长10），确认继续？', '重置排序', { type: 'info' })
+  const confirmed = await ElMessageBox.confirm('将按当前显示顺序重新分配排序值（步长10），确认继续？', '重置排序', { type: 'info' }).then(() => true, () => false)
+  if (!confirmed) return
   try {
     // Must send same-level groups separately
     const parentIds = tree.value.map((n) => n.item.id)
@@ -217,11 +227,15 @@ async function resetSortOrder() {
 watch(() => route.path, load)
 
 onMounted(load)
-onBeforeUnmount(destroySortables)
+onBeforeUnmount(() => {
+  ++categoriesRequestId
+  destroySortables()
+})
 </script>
 
 <template>
   <div class="admin-page">
+    <AdminLoadNotice :message="loadError" :loading="loading" @retry="load" />
     <div class="admin-toolbar">
       <div class="admin-toolbar__left">
         <el-button type="primary" @click="openCreate()">
@@ -250,24 +264,24 @@ onBeforeUnmount(destroySortables)
       >
         <div class="cat-tree__row">
           <button class="cat-tree__drag" type="button" title="拖拽排序">
-            <i class="fa fa-grip-vertical" aria-hidden="true"></i>
+            <i class="fa fa-bars" aria-hidden="true"></i>
           </button>
-          <button v-if="node.children.length" class="cat-tree__toggle" type="button" @click="toggleExpand(node)">
+          <button v-if="node.children.length" class="cat-tree__toggle" type="button" :aria-label="`${isExpanded(node.item.id) ? '折叠' : '展开'} ${node.item.name}`" :aria-expanded="isExpanded(node.item.id)" @click="toggleExpand(node)">
             <i class="fa" :class="isExpanded(node.item.id) ? 'fa-caret-down' : 'fa-caret-right'" aria-hidden="true"></i>
           </button>
           <span v-else class="cat-tree__toggle-placeholder"></span>
           <i v-if="node.item.icon" :class="['fa', node.item.icon, 'cat-tree__icon']"></i>
           <i v-else class="fa fa-folder cat-tree__icon" aria-hidden="true"></i>
-          <span class="cat-tree__name">{{ node.item.name }}</span>
+          <span class="cat-tree__name" :title="node.item.name">{{ node.item.name }}</span>
           <span class="cat-tree__count">{{ node.item.linkCount }} 链接</span>
           <div class="cat-tree__actions">
-            <el-button text size="small" @click="openCreate(node.item.id)">
+            <el-button text size="small" aria-label="添加子分类" title="添加子分类" @click="openCreate(node.item.id)">
               <el-icon><Plus /></el-icon>
             </el-button>
-            <el-button text size="small" @click="openEdit(node.item)">
+            <el-button text size="small" aria-label="编辑分类" title="编辑分类" @click="openEdit(node.item)">
               <el-icon><Edit /></el-icon>
             </el-button>
-            <el-button text size="small" type="danger" @click="remove(node.item)">
+            <el-button text size="small" type="danger" aria-label="删除分类" title="删除分类" @click="remove(node.item)">
               <el-icon><Delete /></el-icon>
             </el-button>
           </div>
@@ -287,18 +301,18 @@ onBeforeUnmount(destroySortables)
             >
               <div class="cat-tree__row cat-tree__row--child">
                 <button class="cat-tree__drag" type="button" title="拖拽排序">
-                  <i class="fa fa-grip-vertical" aria-hidden="true"></i>
+                  <i class="fa fa-bars" aria-hidden="true"></i>
                 </button>
                 <span class="cat-tree__indent"></span>
                 <i v-if="child.icon" :class="['fa', child.icon, 'cat-tree__icon']"></i>
                 <i v-else class="fa fa-file-o cat-tree__icon" aria-hidden="true"></i>
-                <span class="cat-tree__name">{{ child.name }}</span>
+                <span class="cat-tree__name" :title="child.name">{{ child.name }}</span>
                 <span class="cat-tree__count">{{ child.linkCount }} 链接</span>
                 <div class="cat-tree__actions">
-                  <el-button text size="small" @click="openEdit(child)">
+                  <el-button text size="small" aria-label="编辑分类" title="编辑分类" @click="openEdit(child)">
                     <el-icon><Edit /></el-icon>
                   </el-button>
-                  <el-button text size="small" type="danger" @click="remove(child)">
+                  <el-button text size="small" type="danger" aria-label="删除分类" title="删除分类" @click="remove(child)">
                     <el-icon><Delete /></el-icon>
                   </el-button>
                 </div>
@@ -308,7 +322,7 @@ onBeforeUnmount(destroySortables)
         </transition>
       </div>
 
-      <div v-if="!tree.length && !loading" class="cat-tree__empty">暂无分类，点击上方按钮添加。</div>
+      <div v-if="!tree.length && !loading && !loadError" class="cat-tree__empty">暂无分类，点击上方按钮添加。</div>
     </div>
 
     <PortalCategoryDialog

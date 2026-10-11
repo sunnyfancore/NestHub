@@ -1,0 +1,43 @@
+/* Shared editors are teleported: scope directly to their dialog class. */
+html .el-overlay-dialog .nesthub-editor-dialog.nesthub-editor-dialog.el-dialog {
+  --editor-bg: var(--p-panel, #fff);
+  --editor-ink: var(--p-ink, #243447);
+  --editor-muted: var(--p-muted, #64796d);
+  --editor-line: var(--p-line, #e2eae6);
+  --editor-accent: var(--p-accent, #168575);
+  --editor-soft: var(--p-soft, #e7f2ed);
+  max-width: calc(100vw - 28px); max-height: 88dvh; margin-top: 6dvh;
+  display: flex; flex-direction: column; overflow: hidden; padding: 20px;
+  border: 1px solid var(--editor-line); border-radius: 16px;
+  background: linear-gradient(var(--editor-bg),var(--editor-bg)),linear-gradient(var(--p-bg,#fff),var(--p-bg,#fff));
+  color: var(--editor-ink);
+}
+html[data-admin-workspace] .el-overlay-dialog .nesthub-editor-dialog.nesthub-editor-dialog.el-dialog {
+  --editor-bg: #fff; --editor-ink: #243447; --editor-muted: #64796d;
+  --editor-line: #e2eae6; --editor-accent: #168575; --editor-soft: #e7f2ed;
+}
+.nesthub-editor-dialog.el-dialog .el-dialog__header { flex-shrink: 0; padding: 0 32px 16px 0; border-bottom: 1px solid var(--editor-line); }
+.nesthub-editor-dialog.el-dialog .el-dialog__headerbtn { width: 44px; height: 44px; }
+.nesthub-editor-dialog.el-dialog .el-dialog__body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 4px 8px; color: var(--editor-ink); }
+.nesthub-editor-dialog.el-dialog .el-dialog__footer { flex-shrink: 0; display: flex; justify-content: flex-end; gap: 8px; padding: 16px 0 0; border-top: 1px solid var(--editor-line); }
+.nesthub-editor-dialog.el-dialog .el-dialog__footer .el-button + .el-button { margin-left: 0; }
+.nesthub-editor-dialog.el-dialog .el-form-item { margin-bottom: 24px; }
+.nesthub-editor-dialog.el-dialog .el-form-item__error { line-height: 1.5; }
+.nesthub-editor-dialog.el-dialog .icon-field__preview { min-height: 36px; background: var(--editor-bg); color: var(--editor-accent); border-color: var(--editor-line); border-radius: 8px; }
+.nesthub-editor-dialog.el-dialog .icon-field__placeholder { color: var(--editor-muted); }
+.nesthub-editor-dialog.el-dialog .icon-picker { position: relative; top: auto; flex-basis: 100%; width: 100%; max-height: min(320px,40dvh); background: var(--editor-bg); border-color: var(--editor-line); box-shadow: none; }
+.nesthub-editor-dialog.el-dialog .icon-picker__search { background: var(--editor-bg); color: var(--editor-ink); border-color: var(--editor-line); }
+.nesthub-editor-dialog.el-dialog :is(.icon-picker__label,.icon-picker__empty) { color: var(--editor-muted); }
+.nesthub-editor-dialog.el-dialog .icon-picker__empty { margin: 4px 0; font-size: 12px; }
+.nesthub-editor-dialog.el-dialog .icon-picker__item { color: var(--editor-ink); }
+.nesthub-editor-dialog.el-dialog .icon-picker__item:hover,
+.nesthub-editor-dialog.el-dialog .icon-picker__item.is-active { background: var(--editor-soft); color: var(--editor-accent); border-color: var(--editor-accent); }
+.nesthub-editor-dialog.el-dialog :is(button,input):focus-visible { outline: 2px solid var(--editor-accent); outline-offset: 2px; }
+@media(max-width:600px) {
+  html .el-overlay-dialog .nesthub-editor-dialog.nesthub-editor-dialog.el-dialog { padding: 16px; max-height: 92dvh; margin-top: 4dvh !important; }
+  .nesthub-editor-dialog.el-dialog .el-dialog__body { padding-top: 16px; }
+  .nesthub-editor-dialog.el-dialog .el-dialog__footer .el-button { flex: 1; min-height: 44px; }
+  .nesthub-editor-dialog.el-dialog :is(.el-input__wrapper,.el-select__wrapper,.icon-field__preview,.icon-picker__search) { min-height: 44px; }
+  .nesthub-editor-dialog.el-dialog :is(.icon-picker__item,.icon-field__clear) { min-width: 44px; min-height: 44px; }
+  .nesthub-editor-dialog.el-dialog .el-input__inner { font-size: 16px; }
+}

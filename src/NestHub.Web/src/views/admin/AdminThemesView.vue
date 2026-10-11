@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdminLoadNotice from '@/components/admin/AdminLoadNotice.vue'
 import { ElMessage } from 'element-plus'
 import { onMounted, ref } from 'vue'
 import { getAdminThemes } from '@/api/admin'
@@ -6,6 +7,8 @@ import { getSiteSettings, updateSiteSettings } from '@/api/site'
 import type { AdminThemeOption, SaveSiteSettingsRequest } from '@/types/models'
 import { themeOptions, resolveTheme } from '@/themes'
 
+const ready = ref(false)
+const loadError = ref('')
 const loading = ref(false)
 const saving = ref(false)
 const CACHE_KEY = 'nesthub-portal-cache'
@@ -27,6 +30,7 @@ function previewTheme(name: string) {
 
 async function load() {
   loading.value = true
+  loadError.value = ''
 
   try {
     const available = await getAdminThemes()
@@ -34,14 +38,16 @@ async function load() {
     form.value = await getSiteSettings()
     form.value.themeName = resolveTheme(form.value.themeName)
     form.value.mobileThemeName = resolveTheme(form.value.mobileThemeName)
+    ready.value = true
   } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || '获取主题信息失败。')
+    loadError.value = error?.response?.data?.message || '获取主题信息失败。'
   } finally {
     loading.value = false
   }
 }
 
 async function submit() {
+  if (!ready.value || loading.value || saving.value) return
   saving.value = true
 
   try {
@@ -60,7 +66,8 @@ onMounted(load)
 
 <template>
   <div class="admin-page" v-loading="loading">
-    <div class="theme-config">
+    <AdminLoadNotice :message="loadError" :loading="loading" @retry="load" />
+    <div v-if="ready" class="theme-config">
       <el-form inline>
         <el-form-item label="PC 主题">
           <el-select v-model="form.themeName" style="width: 220px">
@@ -86,7 +93,7 @@ onMounted(load)
       </el-form>
     </div>
 
-    <div class="theme-grid">
+    <div v-if="ready" class="theme-grid">
       <article v-for="theme in themes" :key="theme.name" class="theme-card">
         <div class="theme-card__thumb" @click="previewTheme(theme.name)">
           <div class="theme-preview" :class="`theme-preview--${theme.name}`">

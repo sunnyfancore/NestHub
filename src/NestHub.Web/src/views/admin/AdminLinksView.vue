@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import AdminLoadNotice from '@/components/admin/AdminLoadNotice.vue'
 import { Delete, Edit, Link, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { getAdminCategories, getAdminLinks } from '@/api/admin'
 import { createLink, deleteLink, updateLink } from '@/api/links'
@@ -45,24 +46,47 @@ const pagedLinks = computed(() => {
   return allLinks.value.slice(start, start + pageSize.value)
 })
 
+const categoriesError = ref('')
+const linksError = ref('')
+const categoriesReady = ref(false)
+const categoriesLoading = ref(false)
+let categoryRequestId = 0
 async function loadCategories() {
-  categories.value = await getAdminCategories(targetTenantId.value)
+  const requestId = ++categoryRequestId
+  categoriesLoading.value = true
+  categoriesError.value = ''
+  try {
+    const result = await getAdminCategories(targetTenantId.value)
+    if (requestId !== categoryRequestId) return
+    categories.value = result
+    categoriesReady.value = true
+  } catch (error: any) {
+    if (requestId === categoryRequestId) categoriesError.value = error?.response?.data?.message || '分类读取失败，可重新加载；链接列表仍可查看。'
+  } finally {
+    if (requestId === categoryRequestId) categoriesLoading.value = false
+  }
 }
 
+let linksRequestId = 0
+onBeforeUnmount(() => { ++linksRequestId; ++categoryRequestId })
 async function loadLinks() {
+  const requestId = ++linksRequestId
   loading.value = true
+  linksError.value = ''
 
   try {
-    allLinks.value = await getAdminLinks({
+    const result = await getAdminLinks({
       keyword: keyword.value || undefined,
       categoryId: categoryId.value || undefined,
       targetTenantId: targetTenantId.value,
     })
+    if (requestId !== linksRequestId) return
+    allLinks.value = result
     page.value = 1
   } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || '获取链接列表失败。')
+    if (requestId === linksRequestId) linksError.value = error?.response?.data?.message || '链接读取失败，请重新加载。'
   } finally {
-    loading.value = false
+    if (requestId === linksRequestId) loading.value = false
   }
 }
 
@@ -103,6 +127,7 @@ function openEdit(item: AdminLinkItem) {
 }
 
 async function submit(payload: SavePortalLinkRequest) {
+  if (saving.value || !categoriesReady.value) return
   saving.value = true
 
   try {
@@ -124,9 +149,10 @@ async function submit(payload: SavePortalLinkRequest) {
 }
 
 async function remove(item: AdminLinkItem) {
-  await ElMessageBox.confirm(`确认删除链接「${item.title}」吗？`, '删除链接', {
+  const confirmed = await ElMessageBox.confirm(`确认删除链接「${item.title}」吗？`, '删除链接', {
     type: 'warning',
-  })
+  }).then(() => true, () => false)
+  if (!confirmed) return
 
   try {
     await deleteLink(item.id, targetTenantId.value)
@@ -138,21 +164,24 @@ async function remove(item: AdminLinkItem) {
 }
 
 watch(() => route.path, async () => {
-  await loadCategories()
-  await loadLinks()
+  categoriesReady.value = false
+  categories.value = []
+  allLinks.value = []
+  await Promise.all([loadCategories(), loadLinks()])
 })
 
 onMounted(async () => {
-  await loadCategories()
-  await loadLinks()
+  await Promise.all([loadCategories(), loadLinks()])
 })
 </script>
 
 <template>
   <div class="admin-page">
+    <AdminLoadNotice :message="categoriesError" :loading="categoriesLoading" @retry="loadCategories" />
+    <AdminLoadNotice :message="linksError" :loading="loading" @retry="loadLinks" />
     <div class="admin-toolbar">
       <div class="admin-toolbar__left">
-        <el-input v-model="keyword" placeholder="搜索标题或链接" style="width: 220px" @keyup.enter="loadLinks">
+        <el-input v-model="keyword" placeholder="搜索标题或链接" aria-label="搜索标题或链接" clearable @clear="loadLinks" style="width: 220px" @keyup.enter="loadLinks">
           <template #prefix>
             <el-icon><Search /></el-icon>
           </template>
@@ -169,7 +198,7 @@ onMounted(async () => {
       </div>
 
       <div class="admin-toolbar__left">
-        <el-button type="primary" @click="openCreate">
+        <el-button type="primary" :disabled="!categoriesReady" @click="openCreate">
           <el-icon><Plus /></el-icon>
           添加链接
         </el-button>
@@ -187,6 +216,7 @@ onMounted(async () => {
     </div>
 
     <el-table v-loading="loading" :data="pagedLinks" row-class-name="link-table__row" height="100%">
+      <template #empty><span>{{ linksError ? '链接读取未完成，请重新加载。' : keyword || categoryId ? '没有符合筛选条件的链接。' : '暂无链接，添加一个常用网址吧。' }}</span></template>
       <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
       <el-table-column prop="categoryName" label="分类" min-width="120" show-overflow-tooltip />
       <el-table-column prop="url" label="主链接" min-width="240" show-overflow-tooltip />
@@ -204,10 +234,10 @@ onMounted(async () => {
       </el-table-column>
       <el-table-column label="操作" width="140" fixed="right">
         <template #default="{ row }">
-          <el-button text @click="openEdit(row)">
+          <el-button text aria-label="编辑链接" title="编辑链接" :disabled="!categoriesReady" @click="openEdit(row)">
             <el-icon><Edit /></el-icon>
           </el-button>
-          <el-button text type="danger" @click="remove(row)">
+          <el-button text type="danger" aria-label="删除链接" title="删除链接" @click="remove(row)">
             <el-icon><Delete /></el-icon>
           </el-button>
         </template>
@@ -270,8 +300,12 @@ onMounted(async () => {
 
 @media (max-width: 760px) {
   .admin-page {
-    height: calc(100vh - 72px);
+    height: auto;
+    min-height: calc(100dvh - 108px);
+    overflow: visible;
   }
+
+  .admin-page .el-table { flex: none; height: 380px !important; }
 
   .admin-toolbar__left .el-input {
     width: 100% !important;

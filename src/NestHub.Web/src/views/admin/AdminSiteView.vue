@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import AdminLoadNotice from '@/components/admin/AdminLoadNotice.vue'
 import { ElMessage } from 'element-plus'
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { getSiteSettings, updateSiteSettings, uploadLogo } from '@/api/site'
 import type { SaveSiteSettingsRequest } from '@/types/models'
@@ -10,6 +11,8 @@ const targetTenantId = computed(() => (route.meta?.targetTenantId as string) || 
 
 const CACHE_KEY = 'nesthub-portal-cache'
 
+const ready = ref(false)
+const loadError = ref('')
 const loading = ref(false)
 const saving = ref(false)
 const form = ref<SaveSiteSettingsRequest>({
@@ -26,19 +29,27 @@ const form = ref<SaveSiteSettingsRequest>({
   showBottomDock: true,
 })
 
+let requestId = 0
+onBeforeUnmount(() => { ++requestId })
 async function load() {
+  const currentRequest = ++requestId
   loading.value = true
+  loadError.value = ''
 
   try {
-    form.value = await getSiteSettings(targetTenantId.value)
+    const result = await getSiteSettings(targetTenantId.value)
+    if (currentRequest !== requestId) return
+    form.value = result
+    ready.value = true
   } catch (error: any) {
-    ElMessage.error(error?.response?.data?.message || '获取站点设置失败。')
+    if (currentRequest === requestId) loadError.value = error?.response?.data?.message || '获取站点设置失败。'
   } finally {
-    loading.value = false
+    if (currentRequest === requestId) loading.value = false
   }
 }
 
 async function submit() {
+  if (!ready.value || loading.value || saving.value) return
   saving.value = true
 
   try {
@@ -67,12 +78,13 @@ function removeLogo() {
   form.value.logoUrl = ''
 }
 
-watch(targetTenantId, load, { immediate: true })
+watch(targetTenantId, () => { ready.value = false; void load() }, { immediate: true })
 </script>
 
 <template>
   <div class="admin-page" v-loading="loading">
-    <div class="form-card">
+    <AdminLoadNotice :message="loadError" :loading="loading" @retry="load" />
+    <div v-if="ready" class="form-card">
       <el-form label-position="top">
         <el-form-item label="站点标题">
           <el-input v-model="form.title" />

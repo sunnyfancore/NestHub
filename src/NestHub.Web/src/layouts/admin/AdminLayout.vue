@@ -16,17 +16,21 @@ import {
   Compass,
   User,
   Menu,
+  Close,
 } from '@element-plus/icons-vue'
 import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ChangePasswordDialog from '@/components/portal/ChangePasswordDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 import '@/styles/admin.css'
+import { useSidebarKeyboard } from '@/composables/useSidebarKeyboard'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const sidebarOpen = ref(false)
+const sidebarRef = ref<HTMLElement | null>(null)
+useSidebarKeyboard(sidebarOpen, sidebarRef, 980)
 const adminContentRef = ref<HTMLElement | null>(null)
 watch(() => route.fullPath, async () => {
   sidebarOpen.value = false
@@ -34,8 +38,21 @@ watch(() => route.fullPath, async () => {
   adminContentRef.value?.scrollTo({ top: 0 })
 })
 const changePasswordVisible = ref(false)
-onMounted(() => { document.documentElement.dataset.adminWorkspace = 'true' })
-onBeforeUnmount(() => { delete document.documentElement.dataset.adminWorkspace })
+function closeSidebar() {
+  sidebarOpen.value = false
+  document.querySelector<HTMLButtonElement>('.admin-hamburger')?.focus()
+}
+function handleSidebarEscape(event: KeyboardEvent) {
+  if (event.key === 'Escape' && sidebarOpen.value && !Array.from(document.querySelectorAll<HTMLElement>('.el-dialog, .el-message-box')).some(element => element.getClientRects().length > 0)) closeSidebar()
+}
+onMounted(() => {
+  document.documentElement.dataset.adminWorkspace = 'true'
+  window.addEventListener('keydown', handleSidebarEscape)
+})
+onBeforeUnmount(() => {
+  delete document.documentElement.dataset.adminWorkspace
+  window.removeEventListener('keydown', handleSidebarEscape)
+})
 
 const allSections = [
   {
@@ -114,13 +131,14 @@ function logout() {
 
 <template>
   <div class="admin-shell">
-    <div v-if="sidebarOpen" class="admin-overlay" @click="sidebarOpen = false"></div>
-    <aside class="admin-sidebar" :class="{ 'is-open': sidebarOpen }">
+    <div v-if="sidebarOpen" class="admin-overlay" @click="closeSidebar"></div>
+    <aside ref="sidebarRef" class="admin-sidebar" :class="{ 'is-open': sidebarOpen }">
       <div class="admin-brand">
         <div class="admin-brand__icon">
           <el-icon :size="22"><Compass /></el-icon>
         </div>
         <div><h1>NestHub</h1><span class="admin-brand__caption">导航管理工作台</span></div>
+        <button class="admin-sidebar-close" type="button" aria-label="关闭侧栏菜单" @click="closeSidebar"><el-icon><Close /></el-icon></button>
       </div>
 
       <div class="admin-nav">

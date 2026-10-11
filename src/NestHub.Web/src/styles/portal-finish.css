@@ -1,0 +1,38 @@
+/* Shared finishing rules preserve each theme's palette and layout. */
+.portal-page.portal-page.portal-page.portal-page :is(.portal-search-shell,.portal-card,.portal-section__title,.portal-card__copy) { min-width: 0; }
+.portal-page.portal-page.portal-page.portal-page .portal-section__title h2 { overflow-wrap: anywhere; line-height: 1.5; }
+.portal-page.portal-page.portal-page.portal-page .portal-card__copy p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.portal-page.portal-page.portal-page.portal-page .portal-search-shell:focus-within { outline: 2px solid var(--p-accent); outline-offset: 3px; }
+.portal-page.portal-page.portal-page.portal-page :is(button,a,[tabindex]):focus-visible { outline: 2px solid var(--p-accent); outline-offset: 3px; }
+.portal-page.portal-page.portal-page.portal-page :is(.portal-engine-menu,.portal-suggest,.portal-context-menu) {
+  border: 1px solid var(--p-line); color: var(--p-ink); backdrop-filter: none;
+  max-height: min(420px,60dvh); overflow-y: auto; overscroll-behavior: contain;
+}
+.portal-page.portal-page.portal-page.portal-page .portal-context-menu { max-height: min(420px,calc(100dvh - 16px)); max-width: calc(100vw - 16px); }
+/* Composite translucent panel tokens against the theme background to make overlays opaque. */
+.portal-page.portal-page.portal-page.portal-page :is(.portal-engine-menu,.portal-suggest,.portal-context-menu) { background: linear-gradient(var(--p-panel),var(--p-panel)),linear-gradient(var(--p-bg),var(--p-bg)); }
+.portal-page.portal-page.portal-page.portal-page :is(.portal-engine-menu__item,.portal-suggest__title,.portal-context-menu__item) { color: var(--p-ink); }
+.portal-page.portal-page.portal-page.portal-page :is(.portal-suggest__category,.portal-suggest__footer) { color: var(--p-muted); }
+.portal-page.portal-page.portal-page.portal-page .portal-suggest__category { max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.portal-page.portal-page.portal-page.portal-page .portal-suggest__footer { border-color: var(--p-line); line-height: 1.6; }
+.portal-page.portal-page.portal-page.portal-page :is(.portal-engine-menu__item,.portal-suggest__item,.portal-context-menu__item).is-active { background: var(--p-soft); }
+.portal-page.portal-page.portal-page.portal-page .portal-context-menu__item.is-danger { color: var(--el-color-danger); }
+.portal-page.portal-page.portal-page.portal-page .portal-child-tab { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.portal-page.portal-page.portal-page.portal-page .portal-feedback p { overflow-wrap: anywhere; }
+.portal-page.portal-page.portal-page.portal-page .portal-footer { overflow-wrap: anywhere; line-height: 1.7; padding-inline: 20px; }
+.portal-page.portal-page.portal-page.portal-page :deep(.el-loading-mask) { background: color-mix(in srgb,var(--p-bg) 88%,transparent); }
+.portal-page.portal-page.portal-page.portal-page :deep(.el-loading-spinner .path) { stroke: var(--p-accent); }
+@media(hover:hover) {
+  .portal-page.portal-page.portal-page.portal-page :is(.portal-engine-menu__item,.portal-suggest__item,.portal-context-menu__item):hover { background: var(--p-soft); }
+}
+@media(max-width:760px) {
+  .portal-page.portal-page.portal-page.portal-page :is(.portal-search-engine-btn,.portal-search-submit,.portal-hamburger,.portal-child-tab,.portal-engine-menu__item,.portal-suggest__item,.portal-context-menu__item) { min-height: 44px; }
+  .portal-page.portal-page.portal-page.portal-page .portal-hamburger { min-width: 44px; }
+  .portal-page.portal-page.portal-page.portal-page .portal-child-tab { max-width: min(240px,65vw); }
+  .portal-page.portal-page.portal-page.portal-page .portal-search-field { font-size: 16px; }
+  .portal-page.portal-page.portal-page.portal-page .portal-suggest__item { padding-inline: 12px; gap: 8px; }
+  .portal-page.portal-page.portal-page.portal-page .portal-suggest__footer { font-size: 11px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .portal-page.portal-page.portal-page.portal-page :is(.portal-card,.portal-search-shell,.portal-child-tab) { transition: none; }
+}
