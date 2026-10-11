@@ -8,6 +8,7 @@ interface UpdateStatus {
   hasUpdate: boolean; updateEnabled: boolean; workflowUrl: string; disabledReason?: string | null
   updateState?: string | null; updateStage?: string | null; updateMessage?: string | null
   updateStartedAt?: string | null; downloadedBytes?: number | null; totalBytes?: number | null; updateTaskUpdatedAt?: string | null
+  serverTime?: string | null
 }
 const info = ref<UpdateStatus | null>(null)
 const network = ref({ proxyUrl: '', mirrorUrl: '' })
@@ -47,11 +48,12 @@ const hint = ref('')
 const now = ref(Date.now())
 const startedAt = ref(0)
 const finishedAt = ref(0)
+const clockOffset = ref(0)
 const localFailure = ref(false)
 const stageNames = ['启动任务', '下载应用包', '校验与切换', '健康检查', '完成']
 const activeStates = ['pulling', 'replacing', 'checking', 'rollingBack']
 const stage = computed(() => ({ pulling: 1, replacing: 2, checking: 3, rollingBack: 3, success: 4 }[info.value?.updateStage || info.value?.updateState || ''] ?? 0))
-const elapsed = computed(() => startedAt.value ? Math.max(0, Math.floor(((finishedAt.value || now.value) - startedAt.value) / 1000)) : 0)
+const elapsed = computed(() => startedAt.value ? Math.max(0, Math.floor(((finishedAt.value || now.value + clockOffset.value) - startedAt.value) / 1000)) : 0)
 const failed = computed(() => localFailure.value || info.value?.updateState === 'failed')
 const completed = computed(() => info.value?.updateState === 'success' && !updating.value && !info.value?.hasUpdate)
 const statusTitle = computed(() => uncertain.value ? '等待确认任务状态' : updating.value ? disconnected.value ? '应用正在重新连接' : info.value?.updateState === 'rollingBack' ? '正在恢复原版本' : '更新正在进行' : failed.value ? '更新未完成' : completed.value ? '更新已完成' : info.value?.updateState === 'unchanged' ? '发布包尚未就绪' : info.value?.hasUpdate ? '有新版本可用' : info.value?.latestRevision ? '当前版本已就绪' : checkError.value ? '版本信息待确认' : checking.value ? '正在获取版本信息' : '尚未发布应用包')
@@ -63,6 +65,17 @@ let baseline = ''
 let requestedAt = 0
 function revision(value?: string) { return value && value !== 'local' ? value.slice(0, 7) : '本地构建' }
 function reloadPage() { window.location.reload() }
+function timestamp(value?: string | null) { return value ? Date.parse(/[zZ]|[+-]\d\d:\d\d$/.test(value) ? value : value + 'Z') : NaN }
+function syncClock(result: UpdateStatus) {
+  const serverTime = timestamp(result.serverTime)
+  if (Number.isFinite(serverTime)) clockOffset.value = serverTime - Date.now()
+  const start = timestamp(result.updateStartedAt)
+  if (Number.isFinite(start)) {
+    // Older servers may have a clock ahead of the browser; don't reset the timer on every poll.
+    startedAt.value = Number.isFinite(serverTime) ? start : Math.min(start, requestedAt || Date.now())
+  }
+  if (activeStates.includes(result.updateState || '')) finishedAt.value = 0
+}
 function schedule() { if (!disposed) timer = setTimeout(poll, 2000) }
 function mergeProgress(result: UpdateStatus) {
   info.value = { ...info.value!, ...result, latestRevision: info.value?.latestRevision || '', publishedAt: info.value?.publishedAt || null, workflowUrl: info.value?.workflowUrl || '', hasUpdate: info.value?.hasUpdate || false }
@@ -72,13 +85,16 @@ function consume(result: UpdateStatus) {
   const identity = result.updateStartedAt || result.updateTaskUpdatedAt || ''
   if (!identity || identity === baseline) return false
   mergeProgress(result)
-  const serverStart = Date.parse(result.updateStartedAt || '')
-  if (Number.isFinite(serverStart)) startedAt.value = serverStart
+  syncClock(result)
   hint.value = result.updateMessage || '更新任务正在执行。'
   if (['failed', 'unchanged', 'success'].includes(result.updateState || '')) {
     updating.value = false
     uncertain.value = false
-    finishedAt.value = Date.parse(result.updateTaskUpdatedAt || '') || Date.now()
+    const end = timestamp(result.updateTaskUpdatedAt)
+    const start = timestamp(result.updateStartedAt)
+    finishedAt.value = Number.isFinite(end) && Number.isFinite(start)
+      ? startedAt.value + Math.max(0, end - start)
+      : Date.now() + clockOffset.value
     if (result.updateState === 'success') {
       info.value!.hasUpdate = info.value!.currentRevision !== info.value!.latestRevision
       hint.value = '更新完成，请刷新页面使用新版。'
@@ -111,7 +127,8 @@ function resume() {
   if (timer) clearTimeout(timer)
   baseline = ''
   requestedAt = Date.now()
-  startedAt.value = Date.parse(info.value?.updateStartedAt || '') || requestedAt
+  if (info.value) syncClock(info.value)
+  if (!startedAt.value) startedAt.value = requestedAt + clockOffset.value
   finishedAt.value = 0
   uncertain.value = false
   updating.value = true
@@ -154,7 +171,7 @@ async function apply() {
   uncertain.value = false
   disconnected.value = false
   localFailure.value = false
-  startedAt.value = requestedAt
+  startedAt.value = requestedAt + clockOffset.value
   finishedAt.value = 0
   hint.value = '正在启动更新任务。离开页面后，任务仍会继续执行。'
   info.value = { ...info.value, updateState: undefined, updateStage: undefined, downloadedBytes: null, totalBytes: null }
@@ -164,7 +181,7 @@ async function apply() {
     if (error.response) {
       updating.value = false
       localFailure.value = true
-      finishedAt.value = Date.now()
+      finishedAt.value = Date.now() + clockOffset.value
       hint.value = error.response.data?.message || '更新请求失败，请检查部署配置。'
       return
     }

@@ -43,7 +43,7 @@ public sealed class SystemUpdatesController(SystemUpdateService updates, TenantC
     public async Task<IActionResult> Check(CancellationToken cancellationToken, [FromQuery] bool force = false)
     {
         if (tenant.Current?.IsSuperAdmin != true) return Forbid();
-        try { return Ok(await updates.CheckAsync(cancellationToken, force)); }
+        try { return Ok((await updates.CheckAsync(cancellationToken, force)) with { ServerTime = DateTimeOffset.UtcNow.ToString("O") }); }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         { return StatusCode(503, new { message = "暂时无法查询 GitHub 更新，请稍后重试。" }); }
         catch (Exception ex) when (ex is IOException or System.Text.Json.JsonException or InvalidOperationException)
@@ -54,7 +54,7 @@ public sealed class SystemUpdatesController(SystemUpdateService updates, TenantC
     public IActionResult Progress()
     {
         if (tenant.Current?.IsSuperAdmin != true) return Forbid();
-        return Ok(updates.Progress());
+        return Ok(updates.Progress() with { ServerTime = DateTimeOffset.UtcNow.ToString("O") });
     }
 
     [HttpPost]

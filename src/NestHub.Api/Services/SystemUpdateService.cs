@@ -7,7 +7,7 @@ using System.Text.Json.Nodes;
 namespace NestHub.Api.Services;
 
 public sealed record SystemUpdateStatus(string CurrentRevision, string LatestRevision, string? PublishedAt,
-    bool HasUpdate, bool UpdateEnabled, string WorkflowUrl, string? DisabledReason = null, string? UpdateState = null, string? UpdateMessage = null, string? UpdateTaskUpdatedAt = null, string? UpdateStartedAt = null, long? DownloadedBytes = null, long? TotalBytes = null, string? UpdateStage = null);
+    bool HasUpdate, bool UpdateEnabled, string WorkflowUrl, string? DisabledReason = null, string? UpdateState = null, string? UpdateMessage = null, string? UpdateTaskUpdatedAt = null, string? UpdateStartedAt = null, long? DownloadedBytes = null, long? TotalBytes = null, string? UpdateStage = null, string? ServerTime = null);
 
 public sealed class SystemUpdateService : IDisposable
 {
