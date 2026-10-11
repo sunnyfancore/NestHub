@@ -193,6 +193,67 @@ if (OperatingSystem.IsLinux())
     Console.WriteLine("APPLICATION_DOWNLOAD_CHECKSUM_ACTIVATION_AND_DUPLICATE_GUARDS_OK");
 }
 
+// Real SQLite share isolation, hashing, legacy migration, expiry and revocation checks.
+var shareDirectory = Path.Combine(Path.GetTempPath(), "nesthub-shares-" + Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(shareDirectory);
+try
+{
+    using var orm = new FreeSqlBuilder().UseConnectionString(DataType.Sqlite,
+        new SqliteConnectionStringBuilder { DataSource = Path.Combine(shareDirectory, "shares.db"), Pooling = false }.ConnectionString).Build();
+    DatabaseMigrationService.CreateSchema(orm);
+    var owner = Guid.NewGuid(); var other = Guid.NewGuid(); var root = Guid.NewGuid(); var child = Guid.NewGuid(); var sibling = Guid.NewGuid(); var foreign = Guid.NewGuid();
+    await orm.Insert(new[] { new Tenant { Id = owner, Name = "Owner" }, new Tenant { Id = other, Name = "Other" } }).ExecuteAffrowsAsync();
+    await orm.Insert(new[] {
+        new Folder { Id = root, TenantId = owner, Name = "Shared" }, new Folder { Id = child, TenantId = owner, ParentId = root, Name = "Child" },
+        new Folder { Id = sibling, TenantId = owner, Name = "Private" }, new Folder { Id = foreign, TenantId = other, ParentId = root, Name = "Foreign" }
+    }).ExecuteAffrowsAsync();
+    await orm.Insert(new[] {
+        new Bookmark { Id = Guid.NewGuid(), TenantId = owner, FolderId = root, Title = "Root", Url = "https://example.com" },
+        new Bookmark { Id = Guid.NewGuid(), TenantId = owner, FolderId = child, Title = "Child", Url = "http://example.com" },
+        new Bookmark { Id = Guid.NewGuid(), TenantId = owner, FolderId = sibling, Title = "Private", Url = "https://example.com" },
+        new Bookmark { Id = Guid.NewGuid(), TenantId = other, FolderId = foreign, Title = "Foreign", Url = "https://example.com" },
+        new Bookmark { Id = Guid.NewGuid(), TenantId = other, FolderId = root, Title = "WrongTenant", Url = "https://example.com" },
+        new Bookmark { Id = Guid.NewGuid(), TenantId = owner, FolderId = root, Title = "Unsafe", Url = "javascript:alert(1)" },
+        new Bookmark { Id = Guid.NewGuid(), TenantId = owner, FolderId = root, Title = "Credentials", Url = "https://user:pass@example.com" }
+    }).ExecuteAffrowsAsync();
+    var service = new ShareService(orm); var context = new TenantContext(owner, owner, "Owner", "owner@example.com", "Owner");
+    var outsider = new TenantContext(other, other, "Other", "other@example.com", "Other");
+    var created = await service.CreateAsync(new() { CategoryId = root, Password = "share-test-password", Note = "private note" }, context);
+    Check(created.ShareCode.Length == 64 && created.HasPassword && created.ExpireAt > DateTime.UtcNow.AddDays(6), "Secure token/default expiry missing");
+    var stored = await orm.Select<ShareLink>().Where(x => x.Id == created.Id).ToOneAsync();
+    Check(stored.Password is null && stored.PasswordHash is not null && stored.PasswordHash != "share-test-password", "Share password not hashed");
+    var wrongPasswordRejected = false;
+    try { await service.ReadAsync(created.ShareCode, "wrong"); } catch (UnauthorizedAccessException) { wrongPasswordRejected = true; }
+    Check(wrongPasswordRejected, "Wrong share password accepted");
+    var content = await service.ReadAsync(created.ShareCode, "share-test-password");
+    Check(content.Categories.SelectMany(x => x.Links).Select(x => x.Title).Order().SequenceEqual(new[] { "Child", "Root" }), "Share leaked sibling/tenant/unsafe bookmark");
+    Check(!System.Text.Json.JsonSerializer.Serialize(content).Contains("private note"), "Private share note leaked");
+    Check(!System.Text.Json.JsonSerializer.Serialize(await service.GetListAsync(context)).Contains("share-test-password"), "Share list exposes password");
+    var forbiddenCreate = false; try { await service.CreateAsync(new() { CategoryId = root }, outsider); } catch (InvalidOperationException) { forbiddenCreate = true; }
+    Check(forbiddenCreate, "Cross-tenant share creation accepted");
+    var forbiddenDelete = false; try { await service.DeleteAsync(created.Id, outsider); } catch (KeyNotFoundException) { forbiddenDelete = true; }
+    Check(forbiddenDelete && (await service.GetListAsync(outsider)).Count == 0, "Cross-tenant share listing/deletion allowed");
+    await orm.Update<Tenant>().Where(x => x.Id == owner).Set(x => x.IsActive, false).ExecuteAffrowsAsync();
+    var disabled = false; try { await service.GetPublicInfoAsync(created.ShareCode); } catch (KeyNotFoundException) { disabled = true; }
+    Check(disabled, "Disabled tenant's share remains accessible");
+    await orm.Update<Tenant>().Where(x => x.Id == owner).Set(x => x.IsActive, true).ExecuteAffrowsAsync();
+    await orm.Update<ShareLink>().Where(x => x.Id == created.Id).Set(x => x.ExpireAt, DateTime.UtcNow.AddMinutes(-1)).ExecuteAffrowsAsync();
+    var expired = false; try { await service.ReadAsync(created.ShareCode, "share-test-password"); } catch (KeyNotFoundException) { expired = true; }
+    Check(expired, "Expired share readable");
+    var publicShare = await service.CreateAsync(new() { CategoryId = child, NeverExpires = true }, context);
+    Check(!publicShare.HasPassword && publicShare.ExpireAt is null && (await service.ReadAsync(publicShare.ShareCode, null)).Categories.Count == 1, "Public child share scope wrong");
+    await service.DeleteAsync(publicShare.Id, context);
+    var revoked = false; try { await service.GetPublicInfoAsync(publicShare.ShareCode); } catch (KeyNotFoundException) { revoked = true; }
+    Check(revoked, "Revoked share readable");
+    var legacy = new ShareLink { Id = Guid.NewGuid(), TenantId = owner, CategoryId = child, ShareCode = "deadbeef", Password = "legacy-password" };
+    await orm.Insert(legacy).ExecuteAffrowsAsync(); await service.UpgradeLegacyAsync(); await service.UpgradeLegacyAsync();
+    var migrated = await orm.Select<ShareLink>().Where(x => x.Id == legacy.Id).ToOneAsync();
+    Check(migrated.Password is null && migrated.PasswordHash is not null && migrated.AccessToken?.Length == 64, "Legacy password/token migration failed");
+    Check((await service.ReadAsync(migrated.AccessToken!, "legacy-password")).Categories.Count == 1, "Migrated share unusable");
+    Console.WriteLine("SHARE_HASH_SCOPE_EXPIRY_REVOCATION_AND_LEGACY_MIGRATION_OK");
+}
+finally { Directory.Delete(shareDirectory, true); }
+
 sealed class UpdateTestLifetime : Microsoft.Extensions.Hosting.IHostApplicationLifetime
 {
     public volatile bool Stopped;

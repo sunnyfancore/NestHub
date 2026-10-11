@@ -4,6 +4,7 @@ import { AUTH_TOKEN_KEY } from '@/stores/auth'
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    { path: '/share/:code', name: 'share', component: () => import('@/views/ShareView.vue'), meta: { public: true } },
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',

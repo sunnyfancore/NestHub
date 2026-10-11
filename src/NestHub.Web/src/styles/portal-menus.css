@@ -66,27 +66,34 @@
   .portal-page.portal-page.portal-page.portal-page .portal-sidebar__child-link { min-height: 44px; }
 }
 
-/* Consistent brand area across themes, independent of menu treatments. */
+/* Align the brand region with the search header without enlarging the logo. */
+.portal-page.portal-page.portal-page.portal-page { --portal-header-height: 72px; }
+.portal-page.portal-page.portal-page.portal-page .portal-searchbar {
+  box-sizing: border-box; min-height: var(--portal-header-height); padding-block: 12px;
+}
+@media(min-width:761px) {
+  .portal-page.portal-page.portal-page.portal-page .portal-searchbar { height: var(--portal-header-height); }
+}
 .portal-page.portal-page.portal-page.portal-page .portal-sidebar__logo {
-  box-sizing: border-box; height: 96px; min-height: 96px; flex-shrink: 0;
-  padding: 16px 20px; gap: 12px; border-radius: 0;
+  box-sizing: border-box; height: var(--portal-header-height); min-height: var(--portal-header-height); flex-shrink: 0;
+  padding: 12px 20px; gap: 10px; border-radius: 0;
   display: flex; align-items: center; justify-content: center;
   background: transparent; box-shadow: none;
 }
 .portal-page.portal-page.portal-page.portal-page .portal-sidebar__logo.is-full { flex-direction: row; }
 .portal-page.portal-page.portal-page.portal-page .portal-sidebar__logo-img-full {
-  width: 100%; height: 64px; max-width: 100%; object-fit: contain; border-radius: 0;
+  width: auto; height: 40px; max-width: min(140px,100%); object-fit: contain; border-radius: 0;
 }
 .portal-page.portal-page.portal-page.portal-page :is(.portal-sidebar__logo-img,.portal-sidebar__logo-letter) {
-  width: 48px; height: 48px; flex-shrink: 0;
+  width: 36px; height: 36px; flex-shrink: 0;
 }
 .portal-page.portal-page.portal-page.portal-page .portal-sidebar__logo-title { font-size: 16px; line-height: 1.3; }
 .portal-page.portal-page.portal-page.portal-page .portal-sidebar__logo-full-fallback { flex-direction: row; gap: 12px; min-width: 0; }
-.portal-page.portal-page.portal-page.portal-page .portal-sidebar__logo-letter-full { width: 48px; height: 48px; flex-shrink: 0; }
+.portal-page.portal-page.portal-page.portal-page .portal-sidebar__logo-letter-full { width: 36px; height: 36px; flex-shrink: 0; }
 .portal-page.portal-page.portal-page.portal-page .portal-sidebar__logo-title-full { font-size: 16px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media(max-width:760px) {
   .portal-page.portal-page.portal-page.portal-page .portal-sidebar__logo { position: relative; padding-inline: 44px; }
-  .portal-page.portal-page.portal-page.portal-page .portal-sidebar__close { position: absolute; right: 8px; top: 26px; width: 44px; height: 44px; margin: 0; }
+  .portal-page.portal-page.portal-page.portal-page .portal-sidebar__close { position: absolute; right: 8px; top: 14px; width: 44px; height: 44px; margin: 0; }
 }
 
 /* Fine alignment, readable nested labels and restrained interaction feedback. */

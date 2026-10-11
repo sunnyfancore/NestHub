@@ -15,7 +15,6 @@ import {
   Grid,
   Compass,
   User,
-  Menu,
   Close,
 } from '@element-plus/icons-vue'
 import { computed, ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
@@ -45,13 +44,16 @@ function closeSidebar() {
 function handleSidebarEscape(event: KeyboardEvent) {
   if (event.key === 'Escape' && sidebarOpen.value && !Array.from(document.querySelectorAll<HTMLElement>('.el-dialog, .el-message-box')).some(element => element.getClientRects().length > 0)) closeSidebar()
 }
+function handleResize() { if (window.innerWidth > 980) sidebarOpen.value = false }
 onMounted(() => {
   document.documentElement.dataset.adminWorkspace = 'true'
   window.addEventListener('keydown', handleSidebarEscape)
+  window.addEventListener('resize', handleResize)
 })
 onBeforeUnmount(() => {
   delete document.documentElement.dataset.adminWorkspace
   window.removeEventListener('keydown', handleSidebarEscape)
+  window.removeEventListener('resize', handleResize)
 })
 
 const allSections = [
@@ -132,7 +134,7 @@ function logout() {
 <template>
   <div class="admin-shell">
     <div v-if="sidebarOpen" class="admin-overlay" @click="closeSidebar"></div>
-    <aside ref="sidebarRef" class="admin-sidebar" :class="{ 'is-open': sidebarOpen }">
+    <aside id="admin-navigation" ref="sidebarRef" class="admin-sidebar" aria-label="后台导航" :class="{ 'is-open': sidebarOpen }">
       <div class="admin-brand">
         <div class="admin-brand__icon">
           <el-icon :size="22"><Compass /></el-icon>
@@ -162,8 +164,8 @@ function logout() {
     <main class="admin-main">
       <header class="admin-topbar">
         <div class="admin-topbar__left">
-          <button class="admin-hamburger" type="button" aria-label="切换侧栏菜单" :aria-expanded="sidebarOpen" @click="sidebarOpen = !sidebarOpen">
-            <el-icon><Menu /></el-icon>
+          <button class="admin-hamburger" type="button" aria-label="切换侧栏菜单" aria-controls="admin-navigation" :aria-expanded="sidebarOpen" @click="sidebarOpen = !sidebarOpen">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" /></svg><span>菜单</span>
           </button>
           <div class="admin-heading"><span class="admin-heading__eyebrow">管理工作台 / {{ authStore.tenant?.name || '我的空间' }}</span><span class="admin-topbar__title">{{ currentTitle }}</span></div>
         </div>

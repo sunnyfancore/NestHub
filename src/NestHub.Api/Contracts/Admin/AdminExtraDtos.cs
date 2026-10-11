@@ -12,7 +12,7 @@ public sealed class ShareLinkItemDto
 
     public string CategoryName { get; set; } = string.Empty;
 
-    public string? Password { get; set; }
+    public bool HasPassword { get; set; }
 
     public string? Note { get; set; }
 
@@ -33,6 +33,8 @@ public sealed class SaveShareLinkRequest
     public string? Note { get; set; }
 
     public DateTime? ExpireAt { get; set; }
+
+    public bool NeverExpires { get; set; }
 }
 
 public sealed class TransitionSettingDto

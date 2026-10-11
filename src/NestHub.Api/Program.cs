@@ -1,5 +1,7 @@
 using System.Text;
 using System.IO.Compression;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
@@ -44,6 +46,19 @@ builder.Services.Configure<GzipCompressionProviderOptions>(options => options.Le
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("share-public", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.OnRejected = async (context, cancellationToken) =>
+    {
+        context.HttpContext.Response.Headers.RetryAfter = "60";
+        context.HttpContext.Response.Headers.CacheControl = "no-store";
+        await context.HttpContext.Response.WriteAsJsonAsync(new { message = "访问过于频繁，请稍后再试。" }, cancellationToken);
+    };
+});
 
 builder.Services.AddSingleton<TenantContextAccessor>();
 builder.Services.AddSingleton<IPasswordHasher<Tenant>, PasswordHasher<Tenant>>();
@@ -116,6 +131,13 @@ app.UseWhen(context => !context.Request.Path.StartsWithSegments("/api")
     && !context.Request.Path.StartsWithSegments("/uploads")
     && !context.Request.Path.StartsWithSegments("/downloads")
     && !context.Request.Path.StartsWithSegments("/health"), branch => branch.UseResponseCompression());
+app.Use(async (context, next) => {
+    if (context.Request.Path.StartsWithSegments("/share")) {
+        context.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
+        context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    }
+    await next();
+});
 app.UseDefaultFiles();
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -134,6 +156,7 @@ app.UseCors("WebApp");
 app.UseAuthentication();
 app.UseMiddleware<TenantContextMiddleware>();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapHealthChecks("/health");
 app.MapGet("/health/version", () => Results.Json(new { revision = app.Configuration["NESTHUB_BUILD_REVISION"] ?? "local" })).AllowAnonymous();

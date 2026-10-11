@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using NestHub.Api.Contracts.Admin;
 using NestHub.Api.Infrastructure.MultiTenancy;
 using NestHub.Api.Services;
@@ -18,6 +19,27 @@ public sealed class ShareController : ControllerBase
     {
         _shareService = shareService;
         _tenantContextAccessor = tenantContextAccessor;
+    }
+
+    [HttpGet("public/{code}")]
+    [AllowAnonymous]
+    [EnableRateLimiting("share-public")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> PublicInfo(string code)
+    {
+        try { return Ok(await _shareService.GetPublicInfoAsync(code)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+    }
+
+    [HttpPost("public/{code}/access")]
+    [AllowAnonymous]
+    [EnableRateLimiting("share-public")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
+    public async Task<IActionResult> Access(string code, [FromBody] ReadShareRequest request)
+    {
+        try { return Ok(await _shareService.ReadAsync(code, request.Password)); }
+        catch (KeyNotFoundException ex) { return NotFound(new { message = ex.Message }); }
+        catch (UnauthorizedAccessException ex) { return StatusCode(403, new { message = ex.Message }); }
     }
 
     [HttpGet]

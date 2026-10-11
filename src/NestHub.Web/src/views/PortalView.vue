@@ -65,6 +65,8 @@ const searchEngineMenuVisible = ref(false)
 const expandedMenu = ref<Record<string, boolean>>({})
 const activeChildTabs = ref<Record<string, string>>({})
 const mobileSidebarOpen = ref(false)
+const railExpanded = ref(false)
+const navigationLayout = computed(() => ['lime', 'sakura'].includes(activeTheme.value) ? 'tiles' : activeTheme.value === 'launchpad' ? 'tabs' : ['blackgold', 'neon'].includes(activeTheme.value) ? 'rail' : 'directory')
 const sidebarRef = ref<HTMLElement | null>(null)
 useSidebarKeyboard(mobileSidebarOpen, sidebarRef, 760)
 const mobileRailOpen = ref(false)
@@ -83,8 +85,9 @@ const activeTheme = computed(() => {
   return resolveTheme(portal.value?.site.themeName)
 })
 
-watch(activeTheme, theme => { document.documentElement.dataset.portalTheme = theme }, { immediate: true })
+watch(activeTheme, theme => { document.documentElement.dataset.portalTheme = theme; railExpanded.value = false }, { immediate: true })
 function handleViewportResize() {
+  if ((viewportWidth.value <= 760) !== (window.innerWidth <= 760)) { railExpanded.value = false; mobileSidebarOpen.value = false }
   viewportWidth.value = window.innerWidth
   closeContextMenu()
   closeCategoryContextMenu()
@@ -1151,7 +1154,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="portal-page" :class="['theme-' + activeTheme, { 'motion-paused': motionPaused }]" v-loading="loading">
+  <div class="portal-page" :class="['theme-' + activeTheme, 'navigation-' + navigationLayout, { 'motion-paused': motionPaused, 'rail-expanded': railExpanded }]" v-loading="loading">
     <div v-if="activeTheme !== 'sakura'" class="theme-particles" aria-hidden="true">
       <span v-for="particle in 12" :key="particle" class="theme-particles__trail" :style="{
         left: `${(particle * 37) % 100}%`,
@@ -1202,10 +1205,12 @@ onBeforeUnmount(() => {
       </div>
 
       <nav ref="sidebarNavRef" class="portal-sidebar__nav">
+        <button v-if="navigationLayout === 'rail'" class="portal-rail-toggle" type="button" :aria-expanded="railExpanded" :aria-label="railExpanded ? '收起分类名称' : '展开分类名称'" @click="railExpanded = !railExpanded"><i class="fa" :class="railExpanded ? 'fa-angle-double-left' : 'fa-angle-double-right'" aria-hidden="true"></i><span>{{ railExpanded ? '收起菜单' : '展开菜单' }}</span></button>
         <div
           v-for="category in portal?.categories || []"
           :key="category.id"
           class="portal-sidebar__group"
+          :class="{ 'is-expanded': category.children.length && expandedMenu[category.id] }"
           :data-category-id="category.id"
         >
           <a
@@ -1215,7 +1220,7 @@ onBeforeUnmount(() => {
             :aria-expanded="category.children.length ? Boolean(expandedMenu[category.id]) : undefined"
             :aria-current="activeSectionId === category.id ? 'location' : undefined"
             :class="{ 'is-active': activeSectionId === category.id }"
-            @click.prevent="scrollToSection(category.id); if (category.children.length) toggleMenu(category.id); mobileSidebarOpen = false"
+            @click.prevent="scrollToSection(category.id); if (category.children.length) { toggleMenu(category.id); if (navigationLayout === 'rail' && viewportWidth > 760) railExpanded = true }; mobileSidebarOpen = false"
           >
             <span v-if="portal?.canEdit" class="portal-sidebar__drag">
               <i v-if="category.icon" :class="['fa', category.icon, 'portal-sidebar__link-icon']"></i>
@@ -1372,6 +1377,10 @@ onBeforeUnmount(() => {
         </div>
 
       </header>
+      <nav v-if="navigationLayout === 'tabs'" class="portal-category-strip" aria-label="分类导航">
+        <div class="portal-category-strip__parents"><a v-for="category in portal?.categories || []" :key="category.id" :href="'#' + anchorId(category.id)" :class="{ 'is-active': activeSectionId === category.id || category.children.some(child => child.id === activeSectionId) }" :aria-current="activeSectionId === category.id || category.children.some(child => child.id === activeSectionId) ? 'location' : undefined" @click.prevent="scrollToSection(category.id); expandedMenu[category.id] = true"><i :class="['fa', category.icon || 'fa-folder']" aria-hidden="true"></i>{{ category.name }}</a></div>
+        <div v-for="category in (portal?.categories || []).filter(item => item.children.length && (item.id === activeSectionId || item.children.some(child => child.id === activeSectionId)))" :key="category.id" class="portal-category-strip__children"><a v-for="child in category.children" :key="child.id" :href="'#' + anchorId(child.id)" :class="{ 'is-active': activeSectionId === child.id }" @click.prevent="selectChildCategory(category, child.id)">{{ child.name }}</a></div>
+      </nav>
 
       <div ref="rootSectionContainerRef" class="portal-content">
         <section v-if="portalError" class="portal-feedback" role="alert">
@@ -5115,5 +5124,6 @@ html.dark .theme-paper .portal-context-menu__divider { background: #3a3220; }
 
 <style scoped src="../styles/portal-controls.css"></style>
 <style scoped src="../styles/portal-menus.css"></style>
+<style scoped src="../styles/portal-navigation-layouts.css"></style>
 
 <style scoped src="../styles/portal-finish.css"></style>

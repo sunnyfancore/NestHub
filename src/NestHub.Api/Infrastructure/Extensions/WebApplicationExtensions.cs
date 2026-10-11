@@ -38,6 +38,8 @@ public static class WebApplicationExtensions
             orm.CodeFirst.SyncStructure<SmtpSetting>();
         }
 
+        await scope.ServiceProvider.GetRequiredService<NestHub.Api.Services.ShareService>().UpgradeLegacyAsync();
+
         var seeder = scope.ServiceProvider.GetRequiredService<DataSeeder>();
         await seeder.SeedAsync();
     }

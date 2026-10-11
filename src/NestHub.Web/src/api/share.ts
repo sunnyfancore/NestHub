@@ -5,13 +5,14 @@ export interface ShareLinkItem {
   shareCode: string
   categoryId: string
   categoryName: string
-  password?: string | null
+  hasPassword: boolean
   note?: string | null
   expireAt?: string | null
   createdAt: string
 }
 
 export interface SaveShareLinkRequest {
+  neverExpires?: boolean
   categoryId: string
   password?: string
   note?: string
