@@ -67,6 +67,12 @@
 }
 
 /* Align the brand region with the search header without enlarging the logo. */
+.portal-page.portal-page.portal-page.portal-page .portal-sidebar {
+  height:100dvh;min-height:0;max-height:100dvh;overflow:hidden;
+}
+.portal-page.portal-page.portal-page.portal-page .portal-sidebar__nav {
+  flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
+}
 .portal-page.portal-page.portal-page.portal-page { --portal-header-height: 72px; }
 .portal-page.portal-page.portal-page.portal-page .portal-searchbar {
   box-sizing: border-box; min-height: var(--portal-header-height); padding-block: 12px;

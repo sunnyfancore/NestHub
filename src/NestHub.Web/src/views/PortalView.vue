@@ -66,7 +66,7 @@ const expandedMenu = ref<Record<string, boolean>>({})
 const activeChildTabs = ref<Record<string, string>>({})
 const mobileSidebarOpen = ref(false)
 const railExpanded = ref(false)
-const navigationLayout = computed(() => ['lime', 'sakura'].includes(activeTheme.value) ? 'tiles' : activeTheme.value === 'launchpad' ? 'tabs' : ['blackgold', 'neon'].includes(activeTheme.value) ? 'rail' : 'directory')
+const navigationLayout = computed(() => ['lime', 'sakura'].includes(activeTheme.value) ? 'groups' : activeTheme.value === 'launchpad' ? 'index' : ['blackgold', 'neon'].includes(activeTheme.value) ? 'rail' : 'directory')
 const sidebarRef = ref<HTMLElement | null>(null)
 useSidebarKeyboard(mobileSidebarOpen, sidebarRef, 760)
 const mobileRailOpen = ref(false)
@@ -648,6 +648,18 @@ function handleCategoryCommand(category: PortalCategory, command: string | numbe
   void removeCategory(category)
 }
 
+function navigateCategory(category: PortalCategory) {
+  scrollToSection(category.id)
+  if (category.children.length) {
+    const expanded = !expandedMenu.value[category.id]
+    if (['groups', 'index'].includes(navigationLayout.value)) expandedMenu.value = {}
+    expandedMenu.value[category.id] = !expanded
+    toggleMenu(category.id)
+    if (navigationLayout.value === 'rail' && viewportWidth.value > 760) railExpanded.value = true
+    return
+  }
+  mobileSidebarOpen.value = false
+}
 function toggleMenu(categoryId: string) {
   expandedMenu.value[categoryId] = !expandedMenu.value[categoryId]
 
@@ -1219,8 +1231,8 @@ onBeforeUnmount(() => {
             :title="category.name"
             :aria-expanded="category.children.length ? Boolean(expandedMenu[category.id]) : undefined"
             :aria-current="activeSectionId === category.id ? 'location' : undefined"
-            :class="{ 'is-active': activeSectionId === category.id }"
-            @click.prevent="scrollToSection(category.id); if (category.children.length) { toggleMenu(category.id); if (navigationLayout === 'rail' && viewportWidth > 760) railExpanded = true }; mobileSidebarOpen = false"
+            :class="{ 'is-active': activeSectionId === category.id || category.children.some(child => child.id === activeSectionId) }"
+            @click.prevent="navigateCategory(category)"
           >
             <span v-if="portal?.canEdit" class="portal-sidebar__drag">
               <i v-if="category.icon" :class="['fa', category.icon, 'portal-sidebar__link-icon']"></i>
@@ -1231,6 +1243,7 @@ onBeforeUnmount(() => {
               <i v-else class="fa fa-folder portal-sidebar__link-icon" aria-hidden="true"></i>
             </template>
             <span class="portal-sidebar__link-text">{{ category.name }}</span>
+            <span v-if="category.children.length && ['groups', 'index'].includes(navigationLayout)" class="portal-sidebar__child-count">{{ category.children.length }}</span>
             <i
               v-if="category.children.length"
               class="fa portal-sidebar__link-arrow"
@@ -1377,10 +1390,6 @@ onBeforeUnmount(() => {
         </div>
 
       </header>
-      <nav v-if="navigationLayout === 'tabs'" class="portal-category-strip" aria-label="分类导航">
-        <div class="portal-category-strip__parents"><a v-for="category in portal?.categories || []" :key="category.id" :href="'#' + anchorId(category.id)" :class="{ 'is-active': activeSectionId === category.id || category.children.some(child => child.id === activeSectionId) }" :aria-current="activeSectionId === category.id || category.children.some(child => child.id === activeSectionId) ? 'location' : undefined" @click.prevent="scrollToSection(category.id); expandedMenu[category.id] = true"><i :class="['fa', category.icon || 'fa-folder']" aria-hidden="true"></i>{{ category.name }}</a></div>
-        <div v-for="category in (portal?.categories || []).filter(item => item.children.length && (item.id === activeSectionId || item.children.some(child => child.id === activeSectionId)))" :key="category.id" class="portal-category-strip__children"><a v-for="child in category.children" :key="child.id" :href="'#' + anchorId(child.id)" :class="{ 'is-active': activeSectionId === child.id }" @click.prevent="selectChildCategory(category, child.id)">{{ child.name }}</a></div>
-      </nav>
 
       <div ref="rootSectionContainerRef" class="portal-content">
         <section v-if="portalError" class="portal-feedback" role="alert">
