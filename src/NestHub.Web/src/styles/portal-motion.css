@@ -2,33 +2,48 @@
 .theme-ambient { position: fixed; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; contain: strict; }
 .theme-ambient span { position: absolute; width: 36vw; height: 36vw; min-width: 240px; min-height: 240px; right: -12vw; top: -12vw; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb,var(--p-accent) 12%,transparent), transparent 68%); animation: theme-light-drift 22s ease-in-out infinite alternate; }
 .theme-ambient span + span { top: auto; right: auto; left: -12vw; bottom: -12vw; animation-delay: -11s; animation-direction: alternate-reverse; }
-.theme-ocean .theme-ambient span { width: 55vw; height: 55vw; background: radial-gradient(ellipse, #46b9df14, transparent 65%); }
-.theme-neon .theme-ambient span { border-radius: 0; width: 100%; min-width: 0; height: 110px; min-height: 0; left: 0; right: auto; top: -110px; background: linear-gradient(transparent,#77e0c014,transparent); animation: theme-neon-scan 16s linear infinite; }
+.theme-ocean .theme-ambient span { width: min(55vw, 760px); height: min(55vw, 760px); background: radial-gradient(ellipse, #46b9df20, transparent 65%); animation-name: theme-ocean-tide; animation-duration: 26s; }
+.theme-neon .theme-ambient span { border-radius: 0; width: 100%; min-width: 0; height: 80px; min-height: 0; left: 0; right: auto; top: -110px; background: linear-gradient(transparent,#77e0c014,transparent); animation: theme-neon-scan 24s linear infinite; }
 .theme-neon .theme-ambient span + span { display: none; }
-.theme-paper .theme-ambient span { background: radial-gradient(ellipse,#dfbe8d14,transparent 65%); animation-duration: 30s; }
-.theme-blackgold .theme-ambient span { background: radial-gradient(ellipse,#e1c88e18,transparent 65%); animation-duration: 26s; }
-.theme-liquid .theme-ambient span { background: radial-gradient(ellipse,#75c9e91c,transparent 65%); }
+.theme-paper .theme-ambient span { background: radial-gradient(ellipse,#dfbe8d1c,transparent 65%); animation-name: theme-light-breathe; animation-duration: 32s; }
+.theme-blackgold .theme-ambient span { width: min(42vw, 640px); height: min(42vw, 640px); background: radial-gradient(ellipse,#e1c88e24,transparent 65%); animation-name: theme-gold-orbit; animation-duration: 28s; }
+.theme-liquid .theme-ambient span { background: radial-gradient(ellipse,#75c9e92c,transparent 65%); animation-name: theme-liquid-flow; animation-duration: 24s; }
 .theme-liquid .theme-ambient span + span { background: radial-gradient(ellipse,#b8a1ec18,transparent 65%); }
-.theme-launchpad .theme-ambient span { animation: theme-light-breathe 18s ease-in-out infinite alternate; }
+.theme-launchpad .theme-ambient span { animation: theme-light-breathe 26s ease-in-out infinite alternate; }
+/* Keep decorative layers bounded on ultrawide screens. No animated filters. */
+.theme-ambient span { max-width: 760px; max-height: 760px; }
+.theme-neon .theme-ambient span { max-width: none; }
+.theme-liquid .theme-ambient span + span { animation-delay: -12s; }
+.theme-paper .theme-ambient span + span { animation-delay: -16s; }
+.portal-page :is(.portal-sidebar__link,.portal-sidebar__child-link,.portal-search-shell) { transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease; }
+.portal-page .portal-card:focus-within { outline: 2px solid var(--p-accent); outline-offset: 3px; }
 .portal-page:is(.theme-default2,.theme-ocean,.theme-neon,.theme-paper,.theme-blackgold,.theme-liquid,.theme-directory,.theme-workspace,.theme-launchpad) .portal-card { transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease; }
 .portal-page:is(.theme-ocean,.theme-neon,.theme-paper,.theme-blackgold,.theme-liquid,.theme-workspace,.theme-launchpad) .portal-card__icon { transition: transform .22s ease; }
 @media (hover: hover) and (pointer: fine) {
   .portal-page.portal-page.portal-page:is(.theme-ocean,.theme-blackgold,.theme-liquid,.theme-launchpad) .portal-card:hover { transform: translateY(-3px); box-shadow: 0 9px 22px color-mix(in srgb,var(--p-accent) 12%,transparent); }
   .portal-page.portal-page.portal-page.theme-neon .portal-card:hover { box-shadow: 0 0 18px #77e0c026; }
-  .portal-page.portal-page.portal-page.theme-paper .portal-card:hover { transform: rotate(-.35deg) translateY(-2px); }
-  .portal-page.portal-page.portal-page.theme-workspace .portal-card:hover { transform: translateX(3px); }
-  .portal-page.portal-page.portal-page.theme-directory .portal-card:hover { transform: translateX(2px); }
-  .portal-page:is(.theme-ocean,.theme-liquid,.theme-launchpad) .portal-card:hover .portal-card__icon { transform: rotate(-4deg) scale(1.06); }
   .portal-page.theme-workspace .portal-card:hover .portal-card__icon { transform: scale(1.08); }
+  .portal-page.portal-page.portal-page.theme-default2 .portal-card:hover { transform: translateY(-2px); }
+  .portal-page.portal-page.portal-page:is(.theme-directory,.theme-workspace) .portal-card:hover { transform: none; border-color: var(--p-accent); }
+  .portal-page.theme-directory .portal-card:hover .portal-card__copy strong { text-decoration: underline; text-underline-offset: 4px; }
+  .portal-page.portal-page.portal-page.theme-paper .portal-card:hover { transform: translateY(-2px); }
+  .portal-page:is(.theme-ocean,.theme-liquid,.theme-launchpad) .portal-card:hover .portal-card__icon { transform: translateY(-1px) scale(1.04); }
 }
+@keyframes theme-ocean-tide { 0% { transform: translate3d(0,0,0) scale(.92,1); opacity: .55; } 50% { transform: translate3d(-3vw,4vh,0) scale(1.06,.96); opacity: .85; } 100% { transform: translate3d(-5vw,7vh,0) scale(1,1.08); opacity: .6; } }
+@keyframes theme-gold-orbit { from { transform: translate3d(0,0,0) scale(.9); opacity: .4; } to { transform: translate3d(-4vw,5vh,0) scale(1.08); opacity: .9; } }
+@keyframes theme-liquid-flow { 0% { transform: translate3d(0,0,0) rotate(-8deg) scale(.92,1.06); opacity: .65; } 50% { transform: translate3d(-4vw,3vh,0) rotate(0) scale(1.08,.94); opacity: 1; } 100% { transform: translate3d(-6vw,6vh,0) rotate(8deg) scale(.98,1.08); opacity: .7; } }
 @keyframes theme-light-drift { from { transform: translate3d(0,0,0) scale(.9); opacity: .45; } to { transform: translate3d(-6vw,8vh,0) scale(1.15); opacity: 1; } }
 @keyframes theme-light-breathe { from { transform: scale(.85); opacity: .3; } to { transform: scale(1.1); opacity: .8; } }
-@keyframes theme-neon-scan { from { transform: translate3d(0,0,0); opacity: 0; } 15%,85% { opacity: 1; } to { transform: translate3d(0,calc(100vh + 220px),0); opacity: 0; } }
+@keyframes theme-neon-scan { 0% { transform: translate3d(0,0,0); opacity: 0; } 12% { opacity: .65; } 70% { transform: translate3d(0,calc(100vh + 220px),0); opacity: .65; } 78%,100% { transform: translate3d(0,calc(100vh + 220px),0); opacity: 0; } }
 @media (max-width: 760px) { .theme-ambient span + span { display: none; } .theme-ambient span { animation-duration: 32s; } }
+.portal-page.motion-paused :is(.theme-ambient span,.sakura-starfall__trail,.sakura-starfall__star,.lime-intro,.lime-intro__mark,.portal-section),
+.portal-page.motion-paused .lime-intro::before,
+.portal-page.motion-paused .lime-intro::after { animation-play-state: paused !important; }
 @media (prefers-reduced-motion: reduce) {
   .theme-ambient { display: none; }
   .theme-ambient span { animation: none; }
   .portal-page:is(.theme-default2,.theme-ocean,.theme-neon,.theme-paper,.theme-blackgold,.theme-liquid,.theme-directory,.theme-workspace,.theme-launchpad) :is(.portal-card,.portal-card__icon) { transition: none; }
   .portal-page.portal-page.portal-page:is(.theme-default2,.theme-ocean,.theme-neon,.theme-paper,.theme-blackgold,.theme-liquid,.theme-directory,.theme-workspace,.theme-launchpad) .portal-card:hover,
   .portal-page:is(.theme-ocean,.theme-liquid,.theme-workspace,.theme-launchpad) .portal-card:hover .portal-card__icon { transform: none; }
+  .portal-page :is(.portal-sidebar__link,.portal-sidebar__child-link,.portal-search-shell) { transition: none; }
 }

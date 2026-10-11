@@ -45,6 +45,8 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const loading = ref(false)
+const motionPaused = ref(document.hidden)
+function handleMotionVisibility() { motionPaused.value = document.hidden }
 const portalError = ref('')
 const saving = ref(false)
 const VIEW_KEY = 'nesthub.public-view'
@@ -1069,6 +1071,8 @@ function handleExtensionTheme(event: Event) {
 }
 
 onMounted(async () => {
+  document.addEventListener('visibilitychange', handleMotionVisibility)
+  handleMotionVisibility()
   window.addEventListener('resize', handleViewportResize)
   window.addEventListener('nesthub-theme-updated', handleExtensionTheme)
   if (!authStore.isAuthenticated && isPublicView.value) {
@@ -1098,6 +1102,7 @@ function handleGlobalClick(e: MouseEvent) {
 }
 
 onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', handleMotionVisibility)
   portalDisposed = true
   ++sortableGeneration
   if (searchDebounceTimer) clearTimeout(searchDebounceTimer)
@@ -1121,7 +1126,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="portal-page" :class="'theme-' + activeTheme" v-loading="loading">
+  <div class="portal-page" :class="['theme-' + activeTheme, { 'motion-paused': motionPaused }]" v-loading="loading">
     <div v-if="['ocean', 'neon', 'paper', 'blackgold', 'liquid', 'launchpad'].includes(activeTheme)" class="theme-ambient" aria-hidden="true"><span></span><span></span></div>
     <div v-if="activeTheme === 'sakura'" class="sakura-starfall" aria-hidden="true">
       <span v-for="star in 18" :key="star" class="sakura-starfall__trail" :style="{
@@ -1130,6 +1135,7 @@ onBeforeUnmount(() => {
         '--fall-delay': `${-star * 2.7}s`,
         '--star-size': `${10 + (star % 4) * 4}px`,
         '--star-drift': `${(star % 2 ? 1 : -1) * (25 + star * 3)}px`,
+        '--twinkle-time': `${3.2 + (star % 5) * .7}s`,
       }"><span class="sakura-starfall__star">{{ star % 3 === 0 ? '✧' : '✦' }}</span></span>
     </div>
     <!-- mobile sidebar overlay -->

@@ -136,16 +136,16 @@ html.dark .portal-page.theme-lime .portal-search-shell { background: var(--lime-
   width: 440px; height: 440px; border-radius: 50%;
   background: radial-gradient(circle, #c9f36b66, #c9f36b00 70%);
   right: -100px; top: -240px;
-  animation: lime-drift 16s ease-in-out infinite alternate;
+  animation: lime-drift 22s ease-in-out infinite alternate;
 }
 .portal-page.theme-lime .lime-intro::after {
   width: 300px; height: 300px; right: 18%; top: 40%;
   background: radial-gradient(circle, #ffffff70, #ffffff00 70%);
-  animation-duration: 21s; animation-direction: alternate-reverse;
+  animation-duration: 28s; animation-delay: -14s; animation-direction: alternate-reverse;
 }
 .portal-page.theme-lime .lime-intro__mark {
   box-shadow: 0 0 0 9px #c9f36b18;
-  animation: lime-float 7s ease-in-out infinite;
+  animation: lime-float 9s ease-in-out infinite;
 }
 .portal-page.theme-lime .lime-intro,
 .portal-page.theme-lime .portal-section { animation: lime-arrive .6s ease-out both; }
@@ -167,12 +167,12 @@ html.dark .portal-page.theme-lime .portal-search-shell { background: var(--lime-
 html.dark .portal-page.theme-lime .lime-intro::after { background: radial-gradient(circle, #8fbe4930, #8fbe4900 70%); }
 html.dark .portal-page.theme-lime .portal-card::after { background: linear-gradient(105deg, transparent 25%, #c9f36b12 45%, #c9f36b30 50%, transparent 70%); }
 @media (hover: hover) and (pointer: fine) {
-  .portal-page.theme-lime .portal-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px #56743816; }
+  .portal-page.theme-lime .portal-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px #56743816; }
   .portal-page.theme-lime .portal-card:hover::after { animation: lime-sheen .7s ease-out; }
   .portal-page.theme-lime .portal-card:hover .portal-card__icon { transform: rotate(-5deg) scale(1.06); background: var(--lime-accent); color: #253216; }
 }
 @keyframes lime-drift { to { transform: translate(-80px, 70px) scale(1.15); } }
-@keyframes lime-float { 50% { transform: translateY(-5px) rotate(5deg); } }
+@keyframes lime-float { 50% { transform: translateY(-3px) rotate(3deg); } }
 @keyframes lime-arrive { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes lime-sheen { 0% { opacity: 0; transform: translateX(-120%); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateX(120%); } }
 @media (max-width: 760px) {
