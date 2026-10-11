@@ -91,13 +91,17 @@ chrome.runtime.onStartup.addListener(() => {
 });
 chrome.permissions.onRemoved.addListener(() => { syncFloating().catch(console.error); });
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  const fromWebpage = Boolean(sender.tab);
-  const fromPopup = !fromWebpage && sender.url?.startsWith(chrome.runtime.getURL('popup.html'));
+  const fromPopup = sender.url?.split('?')[0] === chrome.runtime.getURL('popup.html');
+  const fromWebpage = Boolean(sender.tab) && !fromPopup;
   const accepted = fromWebpage
     ? ['floating-state', 'floating-position', 'floating-open'].includes(message?.type)
-    : fromPopup && ['floating-toggle', 'theme-sync', 'settings-save'].includes(message?.type);
+    : fromPopup && ['floating-toggle', 'theme-sync', 'settings-save', 'floating-close'].includes(message?.type);
   if (!accepted) return false;
   (async () => {
+    if (message.type === 'floating-close') {
+      if (sender.tab?.id) await chrome.tabs.sendMessage(sender.tab.id, { type: 'floating-close' }, { frameId: 0 });
+      return { ok: true };
+    }
     if (message.type === 'floating-state') {
       const { floatingEnabled, floatingPosition, theme } = await chrome.storage.local.get(['floatingEnabled', 'floatingPosition', 'theme']);
       return { enabled: floatingEnabled === true, position: floatingPosition, theme };
@@ -129,22 +133,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'floating-open') {
       const { floatingEnabled } = await chrome.storage.local.get('floatingEnabled');
       if (!floatingEnabled || sender.frameId !== 0) throw new Error('浮窗未开启');
-      const placement = { width: 430, height: 640 };
-      const anchor = message.anchor;
-      const area = anchor?.screen;
-      if (anchor && area && [anchor.x, anchor.y, area.left, area.top, area.width, area.height].every(Number.isFinite)
-        && area.width >= 380 && area.height >= 400 && ['left', 'right'].includes(anchor.side)) {
-        placement.width = Math.min(placement.width, area.width);
-        placement.height = Math.min(placement.height, area.height);
-        const x = anchor.side === 'right' ? anchor.x - placement.width - 12 : anchor.x + 12;
-        placement.left = Math.round(Math.max(area.left, Math.min(x, area.left + area.width - placement.width)));
-        placement.top = Math.round(Math.max(area.top, Math.min(anchor.y - 24, area.top + area.height - placement.height)));
-      }
-      await chrome.windows.create({
-        url: `${chrome.runtime.getURL('popup.html')}?sourceTab=${sender.tab.id}`,
-        type: 'popup', ...placement
-      });
-      return { ok: true };
+      return { ok: true, url: `${chrome.runtime.getURL('popup.html')}?embedded=1&sourceTab=${sender.tab.id}` };
     }
     let nextSettings;
     if (message.type === 'settings-save') {

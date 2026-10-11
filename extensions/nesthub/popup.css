@@ -152,3 +152,8 @@ footer{margin-top:auto;padding:12px 0 14px;border-top:1px solid var(--line);text
 .connection-badge #space::before{display:none}
 .connection-badge #space[hidden]{display:none}
 .connection-badge #disconnect{padding:2px 0;font-size:10px;color:var(--accent)}
+
+html.embedded,html.embedded body{width:100%;min-width:0}
+html.embedded body{min-height:100dvh;padding-top:24px}
+.embedded-close{position:absolute;right:8px;top:4px;width:24px;height:24px;border-radius:8px;background:transparent;color:var(--muted);font-size:20px;line-height:1}
+.embedded-close:hover{background:var(--tint);color:var(--accent)}

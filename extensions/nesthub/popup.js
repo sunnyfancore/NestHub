@@ -329,3 +329,10 @@ async function init() {
   } else { showConnection(); status('连接你的 NestHub，即可收藏当前网页。'); }
 }
 init().catch(fail);
+
+if (new URL(location.href).searchParams.get('embedded') === '1') {
+  document.documentElement.classList.add('embedded');
+  const close = document.createElement('button'); close.type = 'button'; close.className = 'embedded-close'; close.textContent = '×'; close.setAttribute('aria-label', '关闭收藏面板');
+  close.addEventListener('click', () => chrome.runtime.sendMessage({ type: 'floating-close' }).catch(() => {}));
+  document.body.prepend(close);
+}

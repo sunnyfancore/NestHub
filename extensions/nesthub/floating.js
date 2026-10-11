@@ -2,12 +2,13 @@
   if (globalThis.__nesthubFloating) return;
   globalThis.__nesthubFloating = true;
   const size = 36, margin = 14;
-  let host;
+  let host, panel;
   let position = { side: 'right', ratio: 0.45 };
   let dragged = false;
   const viewport = window.visualViewport;
   const send = message => chrome.runtime.sendMessage(message);
   const remove = () => {
+    panel?.remove();
     host?.remove();
     window.removeEventListener('resize', place);
     viewport?.removeEventListener('resize', place);
@@ -31,6 +32,7 @@
   }
   function onMessage(message) {
     if (message?.type === 'floating-remove') remove();
+    if (message?.type === 'floating-close') { panel?.remove(); panel = null; }
     if (message?.type === 'floating-theme' && host) host.dataset.theme = message.theme;
   }
   async function mountRoot() {
@@ -87,13 +89,7 @@
     const collect = document.createElement('button');
     collect.className = 'collect';
     collect.setAttribute('aria-label', '收藏到 NestHub');
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('fill', 'none');
-    svg.setAttribute('stroke', 'currentColor'); svg.setAttribute('stroke-width', '1.8');
-    svg.setAttribute('aria-hidden', 'true');
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', 'M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1Z');
-    svg.append(path); collect.append(svg);
+    const icon = document.createElement('img'); icon.src = chrome.runtime.getURL('icons/icon-32.png'); icon.alt = ''; icon.style.cssText = 'width:28px;height:28px;border-radius:8px;pointer-events:none'; collect.append(icon);
     collect.addEventListener('pointerdown', event => {
       if (event.button !== 0) return;
       const startX = event.clientX, startY = event.clientY;
@@ -121,14 +117,22 @@
       if (dragged) { dragged = false; return; }
       collect.disabled = true;
       try {
-        const rect = host.getBoundingClientRect();
-        const result = await send({ type: 'floating-open', anchor: {
-          x: event.detail ? event.screenX : window.screenX + rect.left,
-          y: event.detail ? event.screenY : window.screenY + window.outerHeight - window.innerHeight + rect.top,
-          side: position.side,
-          screen: { left: screen.availLeft, top: screen.availTop, width: screen.availWidth, height: screen.availHeight }
-        } });
+        if (panel) { panel.remove(); panel = null; return; }
+        const result = await send({ type: 'floating-open' });
         if (!result?.ok) throw new Error(result?.error || '打开失败');
+        panel = document.createElement('div');
+        panel.setAttribute('popover', 'auto');
+        const view = bounds(), rect = host.getBoundingClientRect();
+        const width = Math.min(380, view.width - 16), height = Math.min(600, view.height - 16);
+        const left = position.side === 'right' ? rect.left - width - 8 : rect.right + 8;
+        panel.style.cssText = `position:fixed!important;inset:auto!important;left:${view.x + Math.max(8, Math.min(left - view.x, view.width - width - 8))}px!important;top:${view.y + Math.max(8, Math.min(rect.top - view.y, view.height - height - 8))}px!important;width:${width}px!important;height:${height}px!important;margin:0!important;padding:0!important;border:0!important;border-radius:16px!important;overflow:hidden!important;box-shadow:0 12px 40px #17243a30!important;background:white!important;`;
+        const frame = document.createElement('iframe');
+        frame.src = result.url; frame.title = 'NestHub 快捷收藏';
+        frame.style.cssText = 'display:block;width:100%;height:100%;border:0;';
+        panel.append(frame); root.append(panel);
+        panel.addEventListener('toggle', event => { if (event.newState === 'closed') { panel?.remove(); panel = null; } });
+        panel.showPopover();
+
       } catch {
         let notice = shadow.querySelector('.message');
         if (!notice) { notice = document.createElement('div'); notice.className = 'message'; notice.setAttribute('role', 'status'); shadow.append(notice); }
