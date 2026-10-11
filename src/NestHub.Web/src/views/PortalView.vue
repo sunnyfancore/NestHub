@@ -5075,3 +5075,4 @@ html.dark .theme-paper .portal-context-menu__divider { background: #3a3220; }
 <style scoped src="../styles/portal-grid-classic.css"></style>
 
 <style scoped src="../styles/portal-controls.css"></style>
+<style scoped src="../styles/portal-menus.css"></style>

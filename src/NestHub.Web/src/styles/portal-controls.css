@@ -53,3 +53,21 @@
 @media (prefers-reduced-motion: reduce) {
   .portal-page.portal-page.portal-page.portal-page .portal-right-rail :deep(.el-button) { transition: none; }
 }
+
+@media(max-width:760px){
+.portal-page.portal-page.portal-page.portal-page .portal-right-rail{right:max(12px,env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom));max-width:calc(100vw - 24px);padding:5px;gap:4px;overflow:visible;background:var(--p-panel);border:1px solid var(--p-line);box-shadow:0 6px 24px #00000012;backdrop-filter:none}
+.portal-page.portal-page.portal-page.portal-page .portal-right-rail.is-mobile-open{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:min(344px,calc(100vw - 24px));padding:8px}
+.portal-page.portal-page.portal-page.portal-page .portal-right-rail :deep(.el-button){width:44px!important;height:44px!important;min-width:44px;min-height:44px;margin:0;border:0;box-shadow:none!important}
+.portal-page.portal-page.portal-page.portal-page .portal-right-rail.is-mobile-open :deep(.el-button){width:100%!important;height:58px!important;flex-direction:column;gap:6px;padding:5px 2px!important;border-radius:12px!important}
+.portal-page.portal-page.portal-page.portal-page .portal-right-rail.is-mobile-open :deep(.el-button)::after{content:attr(aria-label);font-size:10px;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.portal-page.portal-page.portal-page.portal-page .portal-right-rail :deep(.portal-mobile-tools-toggle){order:8}
+.portal-page.portal-page.portal-page.portal-page .portal-right-rail :deep(.portal-mobile-view-switch){order:2}
+.portal-page.portal-page.portal-page.portal-page .portal-right-rail :deep([aria-label="刷新数据"]){order:3}
+.portal-page.portal-page.portal-page.portal-page .portal-right-rail :deep([aria-label="新增链接"]){order:4}
+.portal-page.portal-page.portal-page.portal-page .portal-right-rail :deep([aria-label="新增分类"]){order:5}
+.portal-page.portal-page.portal-page.portal-page .portal-right-rail :deep(.portal-rail-settings){order:6}
+.portal-page.portal-page.portal-page.portal-page .portal-right-rail :deep(.portal-rail-exit){order:7;margin-top:0;color:var(--el-color-danger)}
+.portal-page.portal-page.portal-page.portal-page .portal-back-top{right:max(17px,env(safe-area-inset-right));bottom:calc(76px + env(safe-area-inset-bottom));width:44px!important;height:44px!important;min-width:44px;min-height:44px}
+.portal-page.portal-page.portal-page.portal-page:has(.portal-right-rail.is-mobile-open) .portal-back-top{bottom:calc(166px + env(safe-area-inset-bottom))}
+.portal-page.portal-page.portal-page.portal-page .portal-content{padding-bottom:calc(190px + env(safe-area-inset-bottom))}
+}

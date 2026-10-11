@@ -1,0 +1,67 @@
+/* Menu treatments share palette tokens but retain a distinct rhythm per theme. */
+.portal-page.portal-page.portal-page.portal-page .portal-sidebar__nav { padding: 12px 10px 20px; }
+.portal-page.portal-page.portal-page.portal-page .portal-sidebar__link {
+  min-height: 46px; padding: 10px 12px; gap: 11px; margin-bottom: 5px;
+  border: 1px solid transparent; box-sizing: border-box;
+}
+.portal-page.portal-page.portal-page.portal-page .portal-sidebar__link-icon {
+  width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-size: 14px; border-radius: 8px; opacity: 1;
+}
+.portal-page.portal-page.portal-page.portal-page .portal-sidebar__link-text { font-size: 13px; font-weight: 550; line-height: 1.5; }
+.portal-page.portal-page.portal-page.portal-page .portal-sidebar__link.is-active .portal-sidebar__link-text { font-weight: 650; }
+.portal-page.portal-page.portal-page.portal-page .portal-sidebar__child-link {
+  min-height: 38px; margin: 3px 0 3px 16px; border-radius: 8px;
+}
+.portal-page.portal-page.portal-page.portal-page :is(.portal-sidebar__link,.portal-sidebar__child-link):focus-visible {
+  outline: 2px solid var(--p-selected-ink); outline-offset: 2px;
+}
+/* Classic: quiet inset tabs and a compact icon tile. */
+.portal-page.portal-page.portal-page.portal-page.theme-default2 .portal-sidebar__link { border-radius: 9px; }
+.portal-page.portal-page.portal-page.portal-page.theme-default2 .portal-sidebar__link.is-active { border-color: var(--p-line); }
+.portal-page.portal-page.portal-page.portal-page.theme-default2 .portal-sidebar__link.is-active .portal-sidebar__link-icon { background: var(--p-panel); }
+/* Ocean: rounded navigation with a fine illuminated edge. */
+.portal-page.portal-page.portal-page.portal-page.theme-ocean .portal-sidebar__link { border-radius: 18px; }
+.portal-page.portal-page.portal-page.portal-page.theme-ocean .portal-sidebar__link.is-active { border-color: color-mix(in srgb,var(--p-selected-ink) 22%,transparent); box-shadow: inset 0 1px 0 #ffffff0a; }
+.portal-page.portal-page.portal-page.portal-page.theme-ocean .portal-sidebar__link-icon { background: #ffffff08; border-radius: 50%; }
+/* Neon: clipped corners and an accent rail. */
+.portal-page.portal-page.portal-page.portal-page.theme-neon .portal-sidebar__link { border-radius: 3px 14px 3px 14px; }
+.portal-page.portal-page.portal-page.portal-page.theme-neon .portal-sidebar__link.is-active { border-color: color-mix(in srgb,var(--p-selected-ink) 28%,transparent); box-shadow: inset 3px 0 0 var(--p-selected-ink); }
+.portal-page.portal-page.portal-page.portal-page.theme-neon .portal-sidebar__link.is-active::before { display: none; }
+/* Paper: book index with warm rules rather than pills. */
+.portal-page.portal-page.portal-page.portal-page.theme-paper .portal-sidebar__link { border-radius: 2px; border-bottom-color: color-mix(in srgb,var(--p-side-ink) 10%,transparent); }
+.portal-page.portal-page.portal-page.portal-page.theme-paper .portal-sidebar__link-text { font-family: 'Songti SC',SimSun,serif; letter-spacing: .06em; }
+.portal-page.portal-page.portal-page.portal-page.theme-paper .portal-sidebar__link.is-active { box-shadow: inset 3px 0 0 var(--p-selected-ink); }
+.portal-page.portal-page.portal-page.portal-page.theme-paper .portal-sidebar__link.is-active::before { display: none; }
+/* Sakura: soft inset capsules with a small sparkle on the selected icon. */
+.portal-page.portal-page.portal-page.portal-page.theme-sakura .portal-sidebar__link { border-radius: 16px; }
+.portal-page.portal-page.portal-page.portal-page.theme-sakura .portal-sidebar__link.is-active { border-color: color-mix(in srgb,var(--p-selected-ink) 15%,transparent); }
+.portal-page.portal-page.portal-page.portal-page.theme-sakura .portal-sidebar__link.is-active .portal-sidebar__link-icon { position: relative; background: color-mix(in srgb,var(--p-selected-ink) 8%,transparent); }
+.portal-page.portal-page.portal-page.portal-page.theme-sakura .portal-sidebar__link.is-active .portal-sidebar__link-icon::after { content:'✦'; position:absolute;right:-2px;top:-3px;font-size:8px; }
+/* Lime: organic tabs with a softly rounded leading corner. */
+.portal-page.portal-page.portal-page.portal-page.theme-lime .portal-sidebar__link { border-radius: 18px 7px 18px 7px; }
+.portal-page.portal-page.portal-page.portal-page.theme-lime .portal-sidebar__link.is-active { border-color: color-mix(in srgb,var(--p-selected-ink) 18%,transparent); }
+.portal-page.portal-page.portal-page.portal-page.theme-lime .portal-sidebar__link-icon { background: color-mix(in srgb,var(--p-side-ink) 6%,transparent); }
+/* Black gold: restrained engraved borders. */
+.portal-page.portal-page.portal-page.portal-page.theme-blackgold .portal-sidebar__link { border-radius: 7px; }
+.portal-page.portal-page.portal-page.portal-page.theme-blackgold .portal-sidebar__link.is-active { border-color: color-mix(in srgb,var(--p-selected-ink) 36%,transparent); box-shadow: inset 0 1px 0 #ffffff08; }
+.portal-page.portal-page.portal-page.portal-page.theme-blackgold .portal-sidebar__link-icon { border: 1px solid color-mix(in srgb,var(--p-side-ink) 17%,transparent); border-radius: 6px; }
+/* Liquid: glossy edge with no animated blur. */
+.portal-page.portal-page.portal-page.portal-page.theme-liquid .portal-sidebar__link { border-radius: 14px; }
+.portal-page.portal-page.portal-page.portal-page.theme-liquid .portal-sidebar__link.is-active { border-color: color-mix(in srgb,var(--p-selected-ink) 20%,transparent); box-shadow: inset 0 1px 0 #ffffff40,0 3px 10px #00000005; }
+.portal-page.portal-page.portal-page.portal-page.theme-liquid .portal-sidebar__link-icon { background: color-mix(in srgb,var(--p-side-ink) 6%,transparent); border-radius: 10px; }
+/* Directory: dense index; workspace: structured command list. */
+.portal-page.portal-page.portal-page.portal-page.theme-directory .portal-sidebar__link { border-radius: 3px; min-height: 42px; margin-bottom: 1px; border-bottom-color: var(--p-line); }
+.portal-page.portal-page.portal-page.portal-page.theme-directory .portal-sidebar__link-icon { width: 20px; font-size: 12px; }
+.portal-page.portal-page.portal-page.portal-page.theme-workspace .portal-sidebar__link { border-radius: 8px; min-height: 44px; }
+.portal-page.portal-page.portal-page.portal-page.theme-workspace .portal-sidebar__link.is-active { box-shadow: inset 3px 0 0 var(--p-selected-ink); }
+.portal-page.portal-page.portal-page.portal-page.theme-workspace .portal-sidebar__link.is-active::before { display: none; }
+.portal-page.portal-page.portal-page.portal-page.theme-workspace .portal-sidebar__link-icon { background:#ffffff0a; border-radius: 5px; }
+/* Launchpad: relaxed, centered tabs for a calm start page. */
+.portal-page.portal-page.portal-page.portal-page.theme-launchpad .portal-sidebar__link { border-radius: 999px; min-height: 48px; margin-bottom: 8px; }
+.portal-page.portal-page.portal-page.portal-page.theme-launchpad .portal-sidebar__link.is-active::before { display: none; }
+.portal-page.portal-page.portal-page.portal-page.theme-launchpad .portal-sidebar__link-icon { background: color-mix(in srgb,var(--p-side-ink) 6%,transparent); border-radius: 50%; }
+@media(max-width:760px) {
+  .portal-page.portal-page.portal-page.portal-page .portal-sidebar__link { min-height: 48px; }
+  .portal-page.portal-page.portal-page.portal-page .portal-sidebar__child-link { min-height: 44px; }
+}
