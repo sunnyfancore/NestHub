@@ -11,14 +11,16 @@ public sealed record SystemUpdateStatus(string CurrentRevision, string LatestRev
 
 public sealed class SystemUpdateService : IDisposable
 {
+    public sealed record NetworkSettings(string ProxyUrl = "", string MirrorUrl = "");
     private readonly IConfiguration _configuration;
-    private readonly HttpClient _client;
+    private readonly HttpClient? _client;
     private readonly IHostApplicationLifetime? _lifetime;
     private readonly SemaphoreSlim _gate = new(1);
     private SystemUpdateStatus? _cached;
     private DateTime _checkedAt;
     private Task? _task;
     private JsonObject? _manifest;
+    private int _networkGeneration;
     private const string Repository = "https://github.com/sunnyfancore/NestHub";
     public string Root => Path.Combine(Path.GetFullPath(_configuration["Updates:DataPath"] ?? "AppData"), "updates");
     private string ResultPath => Path.Combine(Root, "status.json");
@@ -27,10 +29,69 @@ public sealed class SystemUpdateService : IDisposable
     public SystemUpdateService(IConfiguration configuration, IHostApplicationLifetime? lifetime = null, HttpClient? client = null)
     {
         _configuration = configuration; _lifetime = lifetime;
+        _client = client;
+        _client?.DefaultRequestHeaders.UserAgent.ParseAdd("NestHub-Updates/2.0");
+    }
+    public NetworkSettings GetNetworkSettings()
+    {
+        var path = Path.Combine(Root, "network.json");
+        if (File.Exists(path)) return JsonSerializer.Deserialize<NetworkSettings>(File.ReadAllText(path)) ?? new();
+        return new(_configuration["Updates:ProxyUrl"] ?? "");
+    }
+    public async Task SaveNetworkSettingsAsync(NetworkSettings settings, CancellationToken token)
+    {
+        settings = NormalizeNetworkSettings(settings);
+        if (!await _gate.WaitAsync(0, token)) throw new InvalidOperationException("更新正在启动，请稍后保存网络设置。");
+        try
+        {
+            if (_task is { IsCompleted: false } || File.Exists(Path.Combine(Root, "pending.json"))) throw new InvalidOperationException("更新进行中，完成后可修改下载网络。");
+            Directory.CreateDirectory(Root);
+            AtomicWrite(Path.Combine(Root, "network.json"), JsonSerializer.Serialize(settings));
+            Interlocked.Increment(ref _networkGeneration);
+            _cached = null; _manifest = null;
+        }
+        finally { _gate.Release(); }
+    }
+    public static NetworkSettings NormalizeNetworkSettings(NetworkSettings settings)
+    {
+        static string Validate(string value, bool mirror)
+        {
+            value = (value ?? "").Trim(); if (value.Length == 0) return "";
+            if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Host.Length == 0 || uri.UserInfo.Length != 0 || uri.Query.Length != 0 || uri.Fragment.Length != 0 ||
+                (mirror ? uri.Scheme != "https" : uri.Scheme is not ("http" or "https" or "socks5")) || (!mirror && uri.AbsolutePath != "/"))
+                throw new InvalidOperationException(mirror ? "加速地址必须是无账号、参数的 HTTPS 地址。" : "代理地址支持 HTTP、HTTPS 或 SOCKS5，不能包含账号或路径。");
+            return mirror ? value.TrimEnd('/') : value;
+        }
+        return new(Validate(settings.ProxyUrl, false), Validate(settings.MirrorUrl, true));
+    }
+    private HttpClient CreateNetworkClient(NetworkSettings settings)
+    {
         var handler = new HttpClientHandler();
-        if (!string.IsNullOrWhiteSpace(configuration["Updates:ProxyUrl"])) handler.Proxy = new System.Net.WebProxy(configuration["Updates:ProxyUrl"]!);
-        _client = client ?? new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
-        _client.DefaultRequestHeaders.UserAgent.ParseAdd("NestHub-Updates/2.0");
+        if (settings.ProxyUrl.Length > 0) handler.Proxy = new System.Net.WebProxy(settings.ProxyUrl);
+        var client = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("NestHub-Updates/2.0");
+        return client;
+    }
+    private static string DownloadUrl(string original, NetworkSettings settings)
+    {
+        ValidateUrl(original);
+        return settings.MirrorUrl.Length == 0 ? original : settings.MirrorUrl + "/" + original;
+    }
+    public async Task TestNetworkAsync(NetworkSettings settings, CancellationToken token)
+    {
+        settings = NormalizeNetworkSettings(settings);
+        using var client = CreateNetworkClient(settings);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(20));
+        var releases = JsonNode.Parse(await client.GetStringAsync("https://api.github.com/repos/sunnyfancore/NestHub/releases?per_page=10", timeout.Token))!.AsArray();
+        var asset = releases.Where(r => r?["draft"]?.GetValue<bool>() == false && r?["tag_name"]?.GetValue<string>().StartsWith("app-") == true)
+            .SelectMany(r => r!["assets"]!.AsArray()).FirstOrDefault(a => a?["name"]?.GetValue<string>() == "manifest.json") ?? throw new InvalidOperationException("暂未找到可测试的应用包。");
+        var manifest = JsonNode.Parse(await client.GetStringAsync(DownloadUrl(asset["browser_download_url"]!.GetValue<string>(), settings), timeout.Token))!.AsObject();
+        ValidateManifest(manifest, Rid);
+        using var response = await client.GetAsync(DownloadUrl(manifest["packages"]![Rid]!["url"]!.GetValue<string>(), settings), HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
+        var prefix = new byte[4]; await stream.ReadExactlyAsync(prefix, timeout.Token);
+        if (prefix[0] != 'P' || prefix[1] != 'K') throw new InvalidDataException("加速服务未返回应用 ZIP 文件。");
     }
     public string? DisabledReason => !_configuration.GetValue<bool>("Updates:Enabled") ? "请设置 Updates__Enabled=true 启用应用包更新。" :
         _configuration["NESTHUB_APP_LAUNCHER"] != "1" ? "当前运行环境尚未安装应用更新启动器，请先更新一次基础镜像。" :
@@ -39,28 +100,34 @@ public sealed class SystemUpdateService : IDisposable
     public async Task<SystemUpdateStatus> CheckAsync(CancellationToken token, bool force = false)
     {
         if (!force && _cached is not null && DateTime.UtcNow - _checkedAt < TimeSpan.FromSeconds(30)) return WithStatus(_cached);
+        var generation = Volatile.Read(ref _networkGeneration);
+        var networkSettings = GetNetworkSettings();
+        using var ownedClient = _client is null ? CreateNetworkClient(networkSettings) : null;
+        var client = _client ?? ownedClient!;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token); timeout.CancelAfter(TimeSpan.FromSeconds(30));
-        var text = await _client.GetStringAsync("https://api.github.com/repos/sunnyfancore/NestHub/releases?per_page=30", timeout.Token);
+        var text = await client.GetStringAsync("https://api.github.com/repos/sunnyfancore/NestHub/releases?per_page=30", timeout.Token);
         var releases = JsonNode.Parse(text)!.AsArray();
-        _manifest = null;
+        JsonObject? nextManifest = null;
         foreach (var release in releases.Where(r => r?["draft"]?.GetValue<bool>() == false && r?["tag_name"]?.GetValue<string>().StartsWith("app-") == true))
         {
             var asset = release?["assets"]?.AsArray().FirstOrDefault(a => a?["name"]?.GetValue<string>() == "manifest.json");
             if (asset is null) continue;
             var url = asset["browser_download_url"]!.GetValue<string>(); ValidateUrl(url);
-            var manifest = JsonNode.Parse(await _client.GetStringAsync(url, timeout.Token))!.AsObject();
+            var manifest = JsonNode.Parse(await client.GetStringAsync(DownloadUrl(url, networkSettings), timeout.Token))!.AsObject();
             ValidateManifest(manifest, Rid);
-            _manifest = manifest; break;
+            nextManifest = manifest; break;
         }
-        var latest = _manifest?["revision"]?.GetValue<string>() ?? "";
+        var latest = nextManifest?["revision"]?.GetValue<string>() ?? "";
         var hasUpdate = latest.Length == 40 && latest != Current;
         // Never offer an older application package while a newer base image is being published.
         if (hasUpdate && Current.Length == 40 && Current.All(Uri.IsHexDigit))
         {
-            var comparison = JsonNode.Parse(await _client.GetStringAsync($"https://api.github.com/repos/sunnyfancore/NestHub/compare/{Current}...{latest}", timeout.Token));
+            var comparison = JsonNode.Parse(await client.GetStringAsync($"https://api.github.com/repos/sunnyfancore/NestHub/compare/{Current}...{latest}", timeout.Token));
             hasUpdate = comparison?["status"]?.GetValue<string>() == "ahead";
         }
-        _cached = new(Current, latest, _manifest?["publishedAt"]?.GetValue<string>(), hasUpdate, Enabled, Repository + "/releases", DisabledReason);
+        if (generation != Volatile.Read(ref _networkGeneration)) throw new InvalidOperationException("下载网络已变更，请重新检查更新。");
+        _manifest = nextManifest;
+        _cached = new(Current, latest, nextManifest?["publishedAt"]?.GetValue<string>(), hasUpdate, Enabled, Repository + "/releases", DisabledReason);
         _checkedAt = DateTime.UtcNow;
         return WithStatus(_cached);
     }
@@ -71,7 +138,10 @@ public sealed class SystemUpdateService : IDisposable
         try
         {
             if (_task is { IsCompleted: false } || File.Exists(Path.Combine(Root, "pending.json"))) throw new InvalidOperationException("已有更新任务正在执行。");
-            var status = await CheckAsync(token, true);
+            // Reuse the verified release the administrator just reviewed. A second
+            // GitHub lookup must not block starting a download on slow networks.
+            var status = _cached is not null && _manifest is not null && DateTime.UtcNow - _checkedAt < TimeSpan.FromMinutes(10)
+                ? _cached : await CheckAsync(token);
             if (!status.HasUpdate || _manifest is null) throw new InvalidOperationException("没有可用的新应用包。");
             Directory.CreateDirectory(Root);
             var probe = Path.Combine(Root, ".write-test"); File.WriteAllText(probe, ""); File.Delete(probe);
@@ -89,8 +159,11 @@ public sealed class SystemUpdateService : IDisposable
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(15));
+            var networkSettings = GetNetworkSettings();
+            using var ownedClient = _client is null ? CreateNetworkClient(networkSettings) : null;
+            var client = _client ?? ownedClient!;
             var asset = manifest["packages"]![Rid]!.AsObject();
-            using var response = await _client.GetAsync(asset["url"]!.GetValue<string>(), HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            using var response = await client.GetAsync(DownloadUrl(asset["url"]!.GetValue<string>(), networkSettings), HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             response.EnsureSuccessStatusCode();
             var expectedSize = asset["size"]!.GetValue<long>();
             await using (var output = File.Create(archive))
@@ -163,5 +236,5 @@ public sealed class SystemUpdateService : IDisposable
         try { var r = JsonNode.Parse(File.ReadAllText(ResultPath)); return status with { UpdateState = r?["state"]?.GetValue<string>(), UpdateStage = r?["stage"]?.GetValue<string>(), UpdateMessage = r?["message"]?.GetValue<string>(), UpdateStartedAt = r?["startedAt"]?.GetValue<string>(), UpdateTaskUpdatedAt = r?["updatedAt"]?.GetValue<string>(), DownloadedBytes = r?["downloadedBytes"]?.GetValue<long>(), TotalBytes = r?["totalBytes"]?.GetValue<long>() }; }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return status; }
     }
-    public void Dispose() { if (_task is null || _task.IsCompleted) _client.Dispose(); _gate.Dispose(); }
+    public void Dispose() { if (_task is null || _task.IsCompleted) _client?.Dispose(); _gate.Dispose(); }
 }

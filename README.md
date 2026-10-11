@@ -142,6 +142,8 @@ MySQL 部署命令需添加 `-f docker-compose.mysql.yml`。旧版额外更新�
 
 上述 Compose 可在 `.env` 中设置 `UPDATE_PROXY_URL=http://代理地址:端口`，修改后重建容器。代理需能访问 GitHub API、Release 附件及其 CDN。
 
+也可直接在 **后台 → 应用更新 → 下载网络** 选择直连、GHFast / GH-Proxy 附件加速预设，填写自定义加速地址或网络代理，测试后保存。页面配置立即生效并随数据目录保留，优先于环境变量。第三方预设以连接测试结果为准；附件加速不代理 GitHub API，详见部署指南。
+
 
 ### 基础镜像与运行环境更新
 

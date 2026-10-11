@@ -143,6 +143,10 @@ docker compose up -d --no-deps --force-recreate --remove-orphans --wait --wait-t
 
 GitHub 应用包和 Docker 镜像是两个独立下载通道。`ghcr.dockerproxy.net` 只用于镜像；服务器访问 GitHub 较慢时配置 `Updates__ProxyUrl`。代理应能访问 GitHub API、Release 附件及其文件 CDN。发布流水线仅在完整上传所有包和清单后公开应用版本，未完成的草稿不会被检测为更新。
 
+也可进入 **后台 → 应用更新 → 下载网络**，选择 GitHub 直连、GHFast / GH-Proxy 附件加速预设，或填写自定义 HTTPS 加速地址和 HTTP / HTTPS / SOCKS5 网络代理。先测试连接，再保存；保存后立即生效，无需重建容器。第三方服务可用性以测试结果为准，附件加速不会代理 GitHub API；API 不通时仍需网络代理。自定义加速服务需支持 `加速地址/https://github.com/...` URL 格式。
+
+设置保存在 `AppData/updates/network.json`，随挂载目录持久化，优先于 `Updates__ProxyUrl` 环境变量。保存空代理表示使用服务器默认网络，不会重新使用环境变量中的代理。容器内 `127.0.0.1` 指容器自身，请使用服务器能访问的真实代理地址。更新进行中不能修改设置，应用包仍执行大小和 SHA-256 校验。
+
 ### 手动更新
 
 先备份，再执行：

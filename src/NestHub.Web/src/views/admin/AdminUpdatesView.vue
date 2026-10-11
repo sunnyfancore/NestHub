@@ -10,6 +10,34 @@ interface UpdateStatus {
   updateStartedAt?: string | null; downloadedBytes?: number | null; totalBytes?: number | null; updateTaskUpdatedAt?: string | null
 }
 const info = ref<UpdateStatus | null>(null)
+const network = ref({ proxyUrl: '', mirrorUrl: '' })
+const networkReady = ref(false)
+const networkBusy = ref(false)
+const networkMessage = ref('')
+const networkError = ref(false)
+const networkPresets = [
+  { label: 'GitHub 直连', url: '' },
+  { label: 'GHFast', url: 'https://ghfast.top' },
+  { label: 'GH-Proxy', url: 'https://gh-proxy.com' },
+]
+async function loadNetwork() {
+  try { network.value = (await http.get('/system-updates/network')).data; networkReady.value = true }
+  catch { networkError.value = true; networkMessage.value = '下载设置读取失败，请刷新重试。' }
+}
+async function configureNetwork(test: boolean) {
+  if (networkBusy.value || !networkReady.value) return
+  networkBusy.value = true; networkMessage.value = ''; networkError.value = false
+  try {
+    const result = test
+      ? await http.post('/system-updates/network/test', network.value, { timeout: 25000 })
+      : await http.put('/system-updates/network', network.value)
+    networkMessage.value = result.data.message
+    if (!test) { info.value = null; await check(true) }
+  } catch (error: any) {
+    networkError.value = true
+    networkMessage.value = error?.response?.data?.message || '操作失败，请检查网络后重试。'
+  } finally { networkBusy.value = false }
+}
 const checking = ref(false)
 const updating = ref(false)
 const uncertain = ref(false)
@@ -145,7 +173,7 @@ async function apply() {
   }
   schedule()
 }
-onMounted(() => check())
+onMounted(() => { void check(); void loadNetwork() })
 onBeforeUnmount(() => { disposed = true; if (timer) clearTimeout(timer); clearInterval(elapsedTimer) })
 </script>
 
@@ -177,6 +205,22 @@ onBeforeUnmount(() => { disposed = true; if (timer) clearTimeout(timer); clearIn
       <p v-if="hint || info?.updateMessage" class="update-hint" :class="{ 'is-error': failed }" role="status">{{ hint || info?.updateMessage }}</p>
       <p v-else-if="info && !info.hasUpdate">{{ info.currentRevision && info.currentRevision !== 'local' ? (info.latestRevision ? '当前无需更新。' : '应用包尚未发布，首次发布完成后即可检测更新。') : '本地构建请先使用正式 Docker 镜像。' }}</p>
     </section>
+    <section class="setup-card network-card">
+      <h3>下载网络</h3>
+      <p>选择应用包下载通道，保存后立即生效，无需修改 Compose 或重启容器。</p>
+      <fieldset :disabled="!networkReady || networkBusy || updating || uncertain">
+        <legend>应用包加速</legend>
+        <div class="network-presets"><button v-for="preset in networkPresets" :key="preset.label" type="button" :aria-pressed="network.mirrorUrl === preset.url" :class="{ selected: network.mirrorUrl === preset.url }" @click="network.mirrorUrl = preset.url">{{ preset.label }}</button></div>
+        <label for="update-mirror">自定义加速地址</label>
+        <input id="update-mirror" v-model="network.mirrorUrl" placeholder="https://加速服务地址，留空为直连" autocomplete="off" />
+        <small>预设为第三方附件加速服务，当前可用性请先测试；只加速清单和 ZIP，不代理 GitHub API。所有应用包仍校验 SHA-256。</small>
+        <label for="update-proxy">服务器网络代理（可选）</label>
+        <input id="update-proxy" v-model="network.proxyUrl" placeholder="http://192.168.1.10:7890 或 socks5://192.168.1.10:1080" autocomplete="off" />
+        <small>常用端口：Clash / Mihomo HTTP 7890、SOCKS5 7891，V2Ray SOCKS5 1080。需填写服务器能访问的实际代理 IP；容器内 127.0.0.1 指容器自身。留空使用服务器默认网络。</small>
+        <div class="update-actions"><el-button :loading="networkBusy" @click="configureNetwork(true)">测试连接</el-button><el-button type="primary" :loading="networkBusy" @click="configureNetwork(false)">保存下载设置</el-button></div>
+      </fieldset>
+      <p v-if="networkMessage" role="status" class="update-hint" :class="{ 'is-error': networkError }">{{ networkMessage }}</p>
+    </section>
     <details class="setup-card" :open="!!info && !info.updateEnabled"><summary>部署配置与更新说明</summary>
       <h3>首次启用后台更新</h3>
       <p>后台下载应用包、校验并重启应用。数据库、上传文件和配置保持在挂载目录中，新版本启动失败会自动恢复旧版本。</p>
@@ -187,6 +231,7 @@ onBeforeUnmount(() => { disposed = true; if (timer) clearTimeout(timer); clearIn
 volumes:
   - ./data/app:/app/AppData</pre>
       <p>旧版首次需要更新一次基础镜像，安装应用启动器。之后日常更新无需 Docker socket、Watchtower 或额外更新容器。</p>
+      <p>下载网络可在上方设置并保存到 AppData/updates/network.json。页面保存的配置优先于环境变量，随数据挂载保留。</p>
       <p>挂载目录需要允许容器用户（UID 1654）写入。应用版本保存在 AppData/updates，重建容器后仍会使用已更新版本。运行环境大版本升级时仍需更新基础镜像。</p>
       <p><a href="https://github.com/sunnyfancore/NestHub/blob/main/docs/docker-deployment.md" target="_blank" rel="noopener noreferrer">查看完整部署说明</a></p>
     </details>
@@ -195,6 +240,7 @@ volumes:
 
 <style scoped>
 .updates-page{display:grid;gap:20px;max-width:900px}
+.network-card h3{margin-top:0}.network-card fieldset{border:0;padding:0;margin:0;min-width:0}.network-card legend{font-size:13px;color:#36564b;margin-bottom:10px}.network-presets{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}.network-presets button{padding:9px 14px;background:#f6f9f7;color:#516461;border:1px solid #dfe8e5;border-radius:9px;cursor:pointer}.network-presets button.selected{background:#e0f2eb;color:#127565;border-color:#168575}.network-card label{display:block;margin:16px 0 8px;font-size:13px;color:#36564b}.network-card input{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #dfe8e5;border-radius:9px;background:var(--el-bg-color);color:var(--el-text-color-primary);font:inherit;font-size:13px}.network-card input:focus-visible,.network-presets button:focus-visible{outline:2px solid #168575;outline-offset:2px}.network-card small{display:block;line-height:1.7;color:#68778c;font-size:12px;margin-top:8px}.network-card fieldset:disabled{opacity:.6}.network-presets button:disabled{cursor:default}
 .update-card,.setup-card{padding:30px;border:1px solid #e5e9ef;border-radius:18px;background:#fff}
 .update-card{background:radial-gradient(ellipse at 100% 0,#edf2ff,transparent 65%),#fff}
 .update-eyebrow{font-size:11px;letter-spacing:.18em;color:#687e9e}

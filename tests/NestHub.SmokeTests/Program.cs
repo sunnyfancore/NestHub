@@ -82,6 +82,9 @@ var controller = new NestHub.Api.Controllers.SystemUpdatesController(disabledUpd
 Check(await controller.Apply(CancellationToken.None) is Microsoft.AspNetCore.Mvc.ForbidResult, "Anonymous update allowed");
 accessor.Set(new(Guid.NewGuid(), Guid.NewGuid(), "user", "user@example.com", "tenant"));
 Check(await controller.Apply(CancellationToken.None) is Microsoft.AspNetCore.Mvc.ForbidResult, "Tenant update allowed");
+Check(controller.Network() is Microsoft.AspNetCore.Mvc.ForbidResult, "Tenant read update network settings");
+Check(await controller.SaveNetwork(new(), CancellationToken.None) is Microsoft.AspNetCore.Mvc.ForbidResult, "Tenant changed update network settings");
+Check(await controller.TestNetwork(new(), CancellationToken.None) is Microsoft.AspNetCore.Mvc.ForbidResult, "Tenant tested update network settings");
 foreach (var url in new[] { "http://github.com/sunnyfancore/NestHub/releases/download/a/a.zip", "https://evil.example/a.zip", "https://github.com/other/repo/releases/download/a/a.zip" })
 {
     try { SystemUpdateService.ValidateUrl(url); throw new Exception("Untrusted URL allowed"); } catch (InvalidDataException) { }
@@ -120,6 +123,40 @@ foreach (var mode in new[] { "runtime", "hash", "size", "revision" })
 }
 Console.WriteLine("APPLICATION_MANIFEST_RUNTIME_AND_SIZE_CHECKS_OK");
 
+using (var handler = new ApplicationPackageHandler(false))
+using (var cacheService = new SystemUpdateService(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["NESTHUB_BUILD_REVISION"] = new string('a',40) }).Build(), client: new HttpClient(handler)))
+{
+    Check((await cacheService.CheckAsync(CancellationToken.None)).HasUpdate, "Initial release missing");
+    handler.FailQueries = true;
+    try { await cacheService.CheckAsync(CancellationToken.None, true); throw new Exception("Failed query unexpectedly succeeded"); }
+    catch (HttpRequestException) { }
+    Check((await cacheService.CheckAsync(CancellationToken.None)).HasUpdate, "Failed refresh discarded verified release");
+}
+Console.WriteLine("APPLICATION_RELEASE_CACHE_SURVIVES_NETWORK_FAILURE_OK");
+
+var networkRoot = Path.Combine(Path.GetTempPath(), "nesthub-network-" + Guid.NewGuid().ToString("N"));
+var networkConfig = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Updates:DataPath"] = networkRoot, ["Updates:ProxyUrl"] = "http://192.168.1.2:7890" }).Build();
+try
+{
+    using (var service = new SystemUpdateService(networkConfig))
+    {
+        Check(service.GetNetworkSettings().ProxyUrl == "http://192.168.1.2:7890", "Environment proxy fallback lost");
+        await service.SaveNetworkSettingsAsync(new("", "https://ghfast.top/"), CancellationToken.None);
+        Check(service.GetNetworkSettings() == new SystemUpdateService.NetworkSettings("", "https://ghfast.top"), "Network settings not normalized");
+        foreach (var invalid in new[] { new SystemUpdateService.NetworkSettings("file:///tmp/test"), new SystemUpdateService.NetworkSettings("http://user:password@host"), new SystemUpdateService.NetworkSettings("", "http://mirror.test"), new SystemUpdateService.NetworkSettings("", "https://mirror.test/?secret=abc") })
+        {
+            try { await service.SaveNetworkSettingsAsync(invalid, CancellationToken.None); throw new Exception("Invalid network configuration accepted"); }
+            catch (InvalidOperationException) { }
+        }
+    }
+    using var restored = new SystemUpdateService(networkConfig);
+    Check(restored.GetNetworkSettings().MirrorUrl == "https://ghfast.top" && restored.GetNetworkSettings().ProxyUrl == "", "Saved settings did not survive restart or override environment");
+    await restored.SaveNetworkSettingsAsync(new(), CancellationToken.None);
+    Check(restored.GetNetworkSettings() == new SystemUpdateService.NetworkSettings(), "Explicit direct mode did not override environment proxy");
+}
+finally { if (Directory.Exists(networkRoot)) Directory.Delete(networkRoot, true); }
+Console.WriteLine("APPLICATION_NETWORK_SETTINGS_PERSISTENCE_VALIDATION_AND_DIRECT_OVERRIDE_OK");
+
 if (OperatingSystem.IsLinux())
 {
     foreach (var corrupt in new[] { true, false })
@@ -127,10 +164,12 @@ if (OperatingSystem.IsLinux())
         var root = Path.Combine(Path.GetTempPath(), "nesthub-install-" + Guid.NewGuid().ToString("N"));
         var lifetime = new UpdateTestLifetime();
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string,string?> { ["Updates:Enabled"] = "true", ["Updates:DataPath"] = root, ["NESTHUB_APP_LAUNCHER"] = "1", ["NESTHUB_BUILD_REVISION"] = new string('a',40) }).Build();
-        using var service = new SystemUpdateService(config, lifetime, new HttpClient(new ApplicationPackageHandler(corrupt)));
+        using var handler = new ApplicationPackageHandler(corrupt);
+        using var service = new SystemUpdateService(config, lifetime, new HttpClient(handler));
         try
         {
             Check((await service.CheckAsync(CancellationToken.None)).HasUpdate, "Application release not detected");
+            handler.FailQueries = true;
             await service.ApplyAsync(CancellationToken.None);
             try { await service.ApplyAsync(CancellationToken.None); throw new Exception("Duplicate application update accepted"); } catch (InvalidOperationException) { }
             for (var i = 0; i < 100 && service.Progress().UpdateState is not ("failed" or "checking"); i++) await Task.Delay(100);
@@ -161,8 +200,10 @@ sealed class UpdateTestLifetime : Microsoft.Extensions.Hosting.IHostApplicationL
 }
 sealed class ApplicationPackageHandler(bool corrupt) : HttpMessageHandler
 {
+    public bool FailQueries { get; set; }
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
     {
+        if (FailQueries && !request.RequestUri!.AbsolutePath.EndsWith("app.zip")) throw new HttpRequestException("Simulated GitHub query outage");
         using var stream = new MemoryStream();
         using (var zip = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create, true))
             foreach (var name in new[] { "NestHub.Api.dll", "NestHub.Api.runtimeconfig.json", "wwwroot/index.html" })

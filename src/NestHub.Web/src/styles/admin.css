@@ -111,7 +111,7 @@ html[data-admin-workspace] .el-dialog .el-input__wrapper { border-radius: 9px; }
 .admin-shell.admin-shell .admin-content :is(.el-empty,.empty-hint){padding:32px 20px;color:#64796d}
 html[data-admin-workspace] .el-form-item__label{font-size:13px;line-height:1.5;align-items:center}
 html[data-admin-workspace] .el-form-item__error{line-height:1.5;padding-top:5px}
-html[data-admin-workspace] .el-message-box{max-width:calc(100vw - 32px);border-radius:14px}
+html[data-admin-workspace] .el-message-box{width:420px;max-width:calc(100vw - 32px);border-radius:14px}
 html[data-admin-workspace] .el-dialog__body{overflow-wrap:anywhere}
 html[data-admin-workspace] .el-dialog__footer{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;border-top:1px solid #edf2ef;padding-top:16px}
 html[data-admin-workspace] .el-dialog__footer .el-button+.el-button{margin-left:0}
