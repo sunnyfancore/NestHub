@@ -20,6 +20,9 @@ const networkPresets = [
   { label: 'GitHub 直连', url: '' },
   { label: 'GHFast', url: 'https://ghfast.top' },
   { label: 'GH-Proxy', url: 'https://gh-proxy.com' },
+  { label: 'GHProxy.net', url: 'https://ghproxy.net' },
+  { label: 'GH-Proxy.org', url: 'https://gh-proxy.org' },
+  { label: 'GHProxy.vip', url: 'https://ghproxy.vip' },
 ]
 async function loadNetwork() {
   try { network.value = (await http.get('/system-updates/network')).data; networkReady.value = true }
