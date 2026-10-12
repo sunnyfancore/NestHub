@@ -2,8 +2,10 @@
 .portal-page.portal-page.theme-default2 {
   --grid-line: rgba(18,25,45,.035); --grid-major: rgba(18,25,45,.055);
   color: var(--p-ink); background-color: var(--p-bg);
-  background-image: linear-gradient(var(--grid-major) 1px,transparent 1px),linear-gradient(90deg,var(--grid-major) 1px,transparent 1px),linear-gradient(var(--grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);
-  background-size:120px 120px,120px 120px,24px 24px,24px 24px;
+  --portal-grid-image:linear-gradient(var(--grid-major) 1px,transparent 1px),linear-gradient(90deg,var(--grid-major) 1px,transparent 1px),linear-gradient(var(--grid-line) 1px,transparent 1px),linear-gradient(90deg,var(--grid-line) 1px,transparent 1px);
+  --portal-grid-size:120px 120px,120px 120px,24px 24px,24px 24px;
+  background-image:var(--portal-grid-image);background-size:var(--portal-grid-size);
+  background-attachment:fixed;background-position:0 0;
 }
 html.dark .portal-page.portal-page.theme-default2 { --grid-line:rgba(226,232,244,.035); --grid-major:rgba(226,232,244,.055); }
 .portal-page.portal-page.theme-default2 .portal-main { background:transparent; }

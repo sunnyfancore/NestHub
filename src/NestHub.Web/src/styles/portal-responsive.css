@@ -28,3 +28,13 @@
 @media(max-width:480px) {
   .portal-page.portal-page.portal-page.portal-page .portal-grid { grid-template-columns:minmax(0,1fr) !important; }
 }
+
+/* Continue the page surface behind sticky controls without showing scrolling cards. */
+.portal-page.portal-page.portal-page.portal-page.portal-page .portal-searchbar {
+  background:var(--p-bg);border-color:transparent;box-shadow:none;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+.portal-page.portal-page.portal-page.portal-page.portal-page.theme-default2 .portal-searchbar {
+  background-image:var(--portal-grid-image);background-size:var(--portal-grid-size);
+  background-attachment:fixed;background-position:0 0;
+}
