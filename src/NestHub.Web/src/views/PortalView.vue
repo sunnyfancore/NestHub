@@ -159,6 +159,15 @@ const categoryContextMenuStyle = computed(() => menuPosition(categoryContextMenu
 
 const rootSectionContainerRef = ref<HTMLElement | null>(null)
 const mainScrollRef = ref<HTMLElement | null>(null)
+const footerPosition = ref({ left: '50%', maxWidth: 'calc(100vw - 24px)' })
+let footerLayoutObserver: ResizeObserver | undefined
+function updateFooterPosition() {
+  const content = rootSectionContainerRef.value
+  if (!content) return
+  const bounds = content.getBoundingClientRect()
+  footerPosition.value = { left: `${bounds.left + bounds.width / 2}px`, maxWidth: `${Math.max(0, bounds.width - 24)}px` }
+}
+watch([activeTheme, railExpanded], () => nextTick(updateFooterPosition))
 const childSectionContainerRefs = ref<Record<string, HTMLElement | null>>({})
 const linkContainerRefs = ref<Record<string, HTMLElement | null>>({})
 const sidebarNavRef = ref<HTMLElement | null>(null)
@@ -1100,6 +1109,11 @@ onMounted(async () => {
   document.addEventListener('visibilitychange', handleMotionVisibility)
   handleMotionVisibility()
   window.addEventListener('resize', handleViewportResize)
+  window.addEventListener('resize', updateFooterPosition)
+  footerLayoutObserver = new ResizeObserver(updateFooterPosition)
+  if (rootSectionContainerRef.value) footerLayoutObserver.observe(rootSectionContainerRef.value)
+  if (mainScrollRef.value) footerLayoutObserver.observe(mainScrollRef.value)
+  updateFooterPosition()
   window.addEventListener('keydown', handlePortalEscape)
   window.addEventListener('nesthub-theme-updated', handleExtensionTheme)
   if (!authStore.isAuthenticated && isPublicView.value) {
@@ -1141,6 +1155,8 @@ function handleGlobalClick(e: MouseEvent) {
 }
 
 onBeforeUnmount(() => {
+  footerLayoutObserver?.disconnect()
+  window.removeEventListener('resize', updateFooterPosition)
   document.removeEventListener('visibilitychange', handleMotionVisibility)
   portalDisposed = true
   ++sortableGeneration
@@ -1528,7 +1544,7 @@ onBeforeUnmount(() => {
         </section>
       </div>
 
-      <footer v-if="portal?.site.footerText && portal?.categories?.length" class="portal-footer" v-html="portal.site.footerText">
+      <footer v-if="portal?.site.footerText && portal?.categories?.length" class="portal-footer" :style="footerPosition" v-html="portal.site.footerText">
       </footer>
 
       <div class="portal-right-rail" :class="{ 'is-mobile-open': mobileRailOpen }">
