@@ -40,6 +40,9 @@
 }
 
 /* Footer copy belongs to the canvas, without a separate sticky surface. */
+.portal-page.portal-page.portal-page.portal-page.portal-page .portal-content {
+  background:none;
+}
 .portal-page.portal-page.portal-page.portal-page.portal-page .portal-footer {
   position:static;background:none;border:0;box-shadow:none;
   backdrop-filter:none;-webkit-backdrop-filter:none;
