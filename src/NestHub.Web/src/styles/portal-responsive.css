@@ -30,11 +30,17 @@
 }
 
 /* Continue the page surface behind sticky controls without showing scrolling cards. */
-.portal-page.portal-page.portal-page.portal-page.portal-page :is(.portal-searchbar,.portal-footer) {
+.portal-page.portal-page.portal-page.portal-page.portal-page .portal-searchbar {
   background:var(--p-bg);border-color:transparent;box-shadow:none;
   backdrop-filter:none;-webkit-backdrop-filter:none;
 }
-.portal-page.portal-page.portal-page.portal-page.portal-page.theme-default2 :is(.portal-searchbar,.portal-footer) {
+.portal-page.portal-page.portal-page.portal-page.portal-page.theme-default2 .portal-searchbar {
   background-image:var(--portal-grid-image);background-size:var(--portal-grid-size);
   background-attachment:fixed;background-position:0 0;
+}
+
+/* Footer copy belongs to the canvas, without a separate sticky surface. */
+.portal-page.portal-page.portal-page.portal-page.portal-page .portal-footer {
+  position:static;background:none;border:0;box-shadow:none;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
 }
