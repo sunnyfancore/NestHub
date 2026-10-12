@@ -40,12 +40,24 @@
 }
 
 /* Keep footer copy on the canvas without painting a separate surface. */
+.portal-page.portal-page.portal-page.portal-page.portal-page .portal-main {
+  display:flex;flex-direction:column;
+}
+.portal-page.portal-page.portal-page.portal-page.portal-page .portal-searchbar {
+  flex-shrink:0;
+}
 .portal-page.portal-page.portal-page.portal-page.portal-page .portal-content {
-  background:none;
+  background:none;flex:1 0 auto;align-content:start;
 }
 .portal-page.portal-page.portal-page.portal-page.portal-page .portal-footer {
-  position:fixed;bottom:env(safe-area-inset-bottom,0px);left:50%;
-  transform:translateX(-50%);width:max-content;max-width:calc(100vw - 24px);
-  box-sizing:border-box;margin:0;background:none;border:0;box-shadow:none;
+  position:static;transform:none;flex-shrink:0;align-self:center;
+  width:100%;max-width:1320px;
+  box-sizing:border-box;margin:0;padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));
+  background:none;border:0;box-shadow:none;
   backdrop-filter:none;-webkit-backdrop-filter:none;
+}
+@media(min-width:1161px) {
+  .portal-page.portal-page.portal-page.portal-page.portal-page.theme-default2 .portal-footer {
+    width:var(--portal-default2-content-width);max-width:var(--portal-default2-content-width);align-self:flex-start;
+  }
 }
