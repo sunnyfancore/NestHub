@@ -252,6 +252,32 @@ async function ensureProfile() {
 
 const CACHE_KEY = 'nesthub-portal-cache'
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000 // 30 days
+let portalSyncTimer: ReturnType<typeof setInterval> | undefined
+let portalSyncBusy = false
+let portalSyncAt = 0
+
+async function syncPortalInBackground() {
+  if (document.hidden || portalDisposed || loading.value || saving.value || portalSyncBusy || Date.now() - portalSyncAt < 2000) return
+  portalSyncBusy = true
+  portalSyncAt = Date.now()
+  const publicView = isPublicView.value
+  const previous = portal.value
+  try {
+    const data = await getPortal(publicView)
+    // Ignore responses overtaken by a view change or another page operation.
+    if (portalDisposed || publicView !== isPublicView.value || portal.value !== previous || loading.value || saving.value) return
+    savePortalCache(data)
+    if (JSON.stringify(data) === JSON.stringify(previous)) return
+    applyPortalData(data)
+    await nextTick()
+    initializeSortables()
+    setupSectionObserver()
+  } catch {
+    // Keep the visible content when a background check fails; retry on return.
+  } finally {
+    portalSyncBusy = false
+  }
+}
 
 function savePortalCache(data: PortalResponse) {
   try {
@@ -1098,6 +1124,8 @@ function handleExtensionTheme(event: Event) {
 }
 
 onMounted(async () => {
+  window.addEventListener('focus', syncPortalInBackground)
+  document.addEventListener('visibilitychange', syncPortalInBackground)
   document.addEventListener('visibilitychange', handleMotionVisibility)
   handleMotionVisibility()
   window.addEventListener('resize', handleViewportResize)
@@ -1112,6 +1140,8 @@ onMounted(async () => {
     loadPortal(),
   ])
   if (portalDisposed) return
+  void syncPortalInBackground()
+  portalSyncTimer = setInterval(syncPortalInBackground, 30000)
   setupSectionObserver()
   window.addEventListener('click', closeContextMenu)
   window.addEventListener('click', closeCategoryContextMenu)
@@ -1142,6 +1172,9 @@ function handleGlobalClick(e: MouseEvent) {
 }
 
 onBeforeUnmount(() => {
+  window.removeEventListener('focus', syncPortalInBackground)
+  document.removeEventListener('visibilitychange', syncPortalInBackground)
+  if (portalSyncTimer) clearInterval(portalSyncTimer)
   document.removeEventListener('visibilitychange', handleMotionVisibility)
   portalDisposed = true
   ++sortableGeneration
