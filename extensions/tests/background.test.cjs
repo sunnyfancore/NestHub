@@ -143,9 +143,12 @@ test('bookmark notification reaches only configured site and rejects webpage sen
   assert.deepEqual(app.injected.map(x=>x.target.tabId),[1]);
   assert.equal(app.injected[0].world,'MAIN');
   const events=[], removed=[];
-  vm.runInNewContext('('+app.injected[0].func.toString()+')()', {localStorage:{removeItem:k=>removed.push(k)},window:{dispatchEvent:e=>events.push(e.type)},Event:class{constructor(type){this.type=type}}});
+  vm.runInNewContext('('+app.injected[0].func.toString()+')()', {localStorage:{removeItem:k=>removed.push(k)},window:{dispatchEvent:e=>{events.push(e.type);return false}},Event:class{constructor(type){this.type=type}}});
   assert.deepEqual(events,['nesthub-bookmark-saved']);
   assert.deepEqual(removed,['nesthub-portal-cache']);
+  let reloads=0;
+  vm.runInNewContext('('+app.injected[0].func.toString()+')()', {localStorage:{removeItem(){}},window:{dispatchEvent:()=>true},location:{reload:()=>reloads++},Event:class{}});
+  assert.equal(reloads,1,'legacy page reloads when no receiver acknowledges');
 });
 test('overlapping floating toggles do not register the same content script twice', async () => {
   const app = setup();

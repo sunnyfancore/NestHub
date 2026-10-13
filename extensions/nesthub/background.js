@@ -112,7 +112,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             target: { tabId: tab.id }, world: 'MAIN',
             func: () => {
               localStorage.removeItem('nesthub-portal-cache');
-              window.dispatchEvent(new Event('nesthub-bookmark-saved'));
+              // Older already-open pages do not know this event yet.
+              const handled = !window.dispatchEvent(new Event('nesthub-bookmark-saved', { cancelable: true }));
+              if (!handled) location.reload();
             }
           });
         } catch { /* A closed or navigating tab will refresh on its next visit. */ }

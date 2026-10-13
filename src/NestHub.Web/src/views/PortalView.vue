@@ -254,13 +254,17 @@ const CACHE_KEY = 'nesthub-portal-cache'
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000 // 30 days
 let portalSyncBusy = false
 let portalSyncAt = 0
-function handleBookmarkSaved() {
+let bookmarkSyncPending = false
+function handleBookmarkSaved(event: Event) {
+  event.preventDefault()
+  bookmarkSyncPending = true
   portalSyncAt = 0
   void syncPortalInBackground()
 }
 
 async function syncPortalInBackground() {
-  if (document.hidden || portalDisposed || loading.value || saving.value || portalSyncBusy || Date.now() - portalSyncAt < 2000) return
+  if (portalDisposed || loading.value || saving.value || portalSyncBusy || (!bookmarkSyncPending && (document.hidden || Date.now() - portalSyncAt < 2000))) return
+  bookmarkSyncPending = false
   portalSyncBusy = true
   portalSyncAt = Date.now()
   const publicView = isPublicView.value
@@ -279,6 +283,7 @@ async function syncPortalInBackground() {
     // Keep the visible content when a background check fails; retry on return.
   } finally {
     portalSyncBusy = false
+    if (bookmarkSyncPending && !portalDisposed) void syncPortalInBackground()
   }
 }
 
@@ -340,6 +345,7 @@ async function loadPortal(forceRefresh = false) {
     return false
   } finally {
     loading.value = false
+    if (bookmarkSyncPending && !portalDisposed) void syncPortalInBackground()
   }
 }
 
