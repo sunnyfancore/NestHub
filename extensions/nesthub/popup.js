@@ -211,6 +211,8 @@ $('saveForm').addEventListener('submit', async event => {
       description: $('description').value.trim(), tags: $('tags').value.trim(), isPinned: $('pinned').checked
     });
     savedUrl = url.href;
+    // Notification failure must not turn a successful server save into an error.
+    chrome.runtime.sendMessage({ type: 'bookmark-saved' }).catch(() => {});
     try { await chrome.storage.local.set({ lastCategory: $('category').value }); } catch { /* A successful server save must never be reported as failed due to a local preference. */ }
     status('收藏成功，已添加到 NestHub。');
   } catch (error) { fail(error); } finally { saving = false; $('save').disabled = !connection || !targetTenantId || !$('category').options.length; }

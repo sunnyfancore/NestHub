@@ -69,7 +69,8 @@ test('opt-in registers floating button, opens original tab collection window and
   assert.equal(app.registered[0].runAt, 'document_start');
   assert.equal(app.injected[0].target.tabId, 7);
   assert.equal((await app.send({ type: 'floating-open' }, webpage)).ok, true);
-  assert.equal(app.windows[0].url, 'chrome-extension://test/popup.html?sourceTab=7');
+  assert.equal((await app.send({ type: 'floating-open' }, webpage)).url, 'chrome-extension://test/popup.html?embedded=1&sourceTab=7');
+  assert.equal(app.windows.length, 0);
   await app.send({ type: 'floating-toggle', enabled: false }, popup);
   assert.equal(app.registered.length, 0);
   assert.equal(app.removed.length, 1);
@@ -134,21 +135,18 @@ test('webpage receives only floating settings and cannot change global toggle', 
   assert.equal(app.storage.floatingPosition.ratio, 0.3);
 });
 
-test('collection window opens beside the click and stays inside the monitor work area', async () => {
-  const app = setup();
-  app.storage.floatingEnabled = true;
-  const screen = { left: -1920, top: 0, width: 1920, height: 1040 };
-  await app.send({ type: 'floating-open', anchor: { x: -18, y: 980, side: 'right', screen } }, webpage);
-  assert.equal(app.windows[0].left, -460);
-  assert.equal(app.windows[0].top, 400);
-  await app.send({ type: 'floating-open', anchor: { x: -1910, y: 100, side: 'left', screen } }, webpage);
-  assert.equal(app.windows[1].left, -1898);
-  assert.equal(app.windows[1].top, 76);
-  await app.send({ type: 'floating-open', anchor: { x: NaN, y: 0, side: 'left', screen } }, webpage);
-  assert.equal(app.windows[2].left, undefined);
+test('bookmark notification reaches only configured site and rejects webpage senders', async () => {
+  const app = setup([{id:1,url:'https://nav.example/app/'},{id:2,url:'https://nav.example/other'},{id:3,url:'https://evil.example/app/'}]);
+  app.storage.connection.site = 'https://nav.example/app';
+  assert.equal(await app.send({type:'bookmark-saved'},webpage),null);
+  assert.equal((await app.send({type:'bookmark-saved'},popup)).ok,true);
+  assert.deepEqual(app.injected.map(x=>x.target.tabId),[1]);
+  assert.equal(app.injected[0].world,'MAIN');
+  const events=[], removed=[];
+  vm.runInNewContext('('+app.injected[0].func.toString()+')()', {localStorage:{removeItem:k=>removed.push(k)},window:{dispatchEvent:e=>events.push(e.type)},Event:class{constructor(type){this.type=type}}});
+  assert.deepEqual(events,['nesthub-bookmark-saved']);
+  assert.deepEqual(removed,['nesthub-portal-cache']);
 });
-
-
 test('overlapping floating toggles do not register the same content script twice', async () => {
   const app = setup();
   const results = await Promise.all([

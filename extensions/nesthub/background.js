@@ -95,9 +95,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const fromWebpage = Boolean(sender.tab) && !fromPopup;
   const accepted = fromWebpage
     ? ['floating-state', 'floating-position', 'floating-open'].includes(message?.type)
-    : fromPopup && ['floating-toggle', 'theme-sync', 'settings-save', 'floating-close'].includes(message?.type);
+    : fromPopup && ['floating-toggle', 'theme-sync', 'settings-save', 'floating-close', 'bookmark-saved'].includes(message?.type);
   if (!accepted) return false;
   (async () => {
+    if (message.type === 'bookmark-saved') {
+      const { connection } = await chrome.storage.local.get('connection');
+      const site = new URL(connection?.site);
+      if (!['http:', 'https:'].includes(site.protocol)) throw new Error('无效站点');
+      const basePath = site.pathname.replace(/\/$/, '');
+      for (const tab of await chrome.tabs.query({ url: `${site.origin}/*` })) {
+        if (!tab.id || !tab.url) continue;
+        const url = new URL(tab.url);
+        if (url.origin !== site.origin || (basePath && url.pathname !== basePath && !url.pathname.startsWith(`${basePath}/`))) continue;
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id }, world: 'MAIN',
+            func: () => {
+              localStorage.removeItem('nesthub-portal-cache');
+              window.dispatchEvent(new Event('nesthub-bookmark-saved'));
+            }
+          });
+        } catch { /* A closed or navigating tab will refresh on its next visit. */ }
+      }
+      return { ok: true };
+    }
     if (message.type === 'floating-close') {
       if (sender.tab?.id) await chrome.tabs.sendMessage(sender.tab.id, { type: 'floating-close' }, { frameId: 0 });
       return { ok: true };

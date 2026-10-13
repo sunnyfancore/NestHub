@@ -252,9 +252,12 @@ async function ensureProfile() {
 
 const CACHE_KEY = 'nesthub-portal-cache'
 const CACHE_TTL = 30 * 24 * 60 * 60 * 1000 // 30 days
-let portalSyncTimer: ReturnType<typeof setInterval> | undefined
 let portalSyncBusy = false
 let portalSyncAt = 0
+function handleBookmarkSaved() {
+  portalSyncAt = 0
+  void syncPortalInBackground()
+}
 
 async function syncPortalInBackground() {
   if (document.hidden || portalDisposed || loading.value || saving.value || portalSyncBusy || Date.now() - portalSyncAt < 2000) return
@@ -1124,6 +1127,7 @@ function handleExtensionTheme(event: Event) {
 }
 
 onMounted(async () => {
+  window.addEventListener('nesthub-bookmark-saved', handleBookmarkSaved)
   window.addEventListener('focus', syncPortalInBackground)
   document.addEventListener('visibilitychange', syncPortalInBackground)
   document.addEventListener('visibilitychange', handleMotionVisibility)
@@ -1141,7 +1145,6 @@ onMounted(async () => {
   ])
   if (portalDisposed) return
   void syncPortalInBackground()
-  portalSyncTimer = setInterval(syncPortalInBackground, 30000)
   setupSectionObserver()
   window.addEventListener('click', closeContextMenu)
   window.addEventListener('click', closeCategoryContextMenu)
@@ -1172,9 +1175,9 @@ function handleGlobalClick(e: MouseEvent) {
 }
 
 onBeforeUnmount(() => {
+  window.removeEventListener('nesthub-bookmark-saved', handleBookmarkSaved)
   window.removeEventListener('focus', syncPortalInBackground)
   document.removeEventListener('visibilitychange', syncPortalInBackground)
-  if (portalSyncTimer) clearInterval(portalSyncTimer)
   document.removeEventListener('visibilitychange', handleMotionVisibility)
   portalDisposed = true
   ++sortableGeneration

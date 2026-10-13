@@ -61,7 +61,7 @@ async function setup(unauthorized = false, sourceTab = false, initialStorage = {
 }
 
 test('restores token, reads current page and saves into portal tenant/category', async () => {
-  const { element, requests, storage } = await setup();
+  const { element, requests, storage, messages } = await setup();
   assert.equal(element('title').value, 'Example');
   assert.equal(element('url').value, 'https://example.com/');
   assert.equal(element('saveForm').hidden, false);
@@ -73,6 +73,7 @@ test('restores token, reads current page and saves into portal tenant/category',
   assert.equal(storage.lastCategory, 'category-id');
   assert.equal(JSON.parse(request.options.body).iconUrl, 'https://example.com/branding/icon.png');
   assert.match(element('status').textContent, /收藏成功/);
+  assert.ok(messages.some(message => message.type === 'bookmark-saved'));
   await element('saveForm').handlers.submit({ preventDefault() {} });
   assert.equal(requests.length, 2, 'same popup must not submit saved URL twice');
 });
